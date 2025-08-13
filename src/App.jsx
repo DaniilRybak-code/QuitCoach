@@ -573,6 +573,14 @@ const ACHIEVEMENTS = {
   LEGEND: { name: 'Legend', icon: Star, description: '90 days clean' }
 };
 
+const SPECIAL_FEATURES = [
+  'Stress Vaper', 'Night Owl', 'Weekend Warrior', 'Social Smoker',
+  'Coffee Companion', 'Work Breaker', 'Gaming Buddy', 'Party Animal',
+  'Stress Reliever', 'Boredom Fighter', 'Emotional Support', 'Habit Former',
+  'Peer Pressure', 'Celebration Trigger', 'Anxiety Soother', 'Focus Enhancer',
+  'Reward Seeker', 'Routine Builder', 'Social Lubricant', 'Mood Stabilizer'
+];
+
 const calculateRarity = (streakDays) => {
   if (streakDays >= 90) return 'LEGENDARY';
   if (streakDays >= 30) return 'EPIC';
@@ -581,11 +589,116 @@ const calculateRarity = (streakDays) => {
   return 'COMMON';
 };
 
-// StatBar Component
-const StatBar = ({ label, value, max, color }) => (
+// Info Modal Component for Stat Explanations
+const InfoModal = ({ isOpen, onClose, statType }) => {
+  if (!isOpen) return null;
+
+  const statInfo = {
+    addiction: {
+      title: "Addiction",
+      description: "Time since last vape - resets on relapse",
+      impacts: [
+        "Days clean: -1 point per week",
+        "Relapse: Resets to starting level",
+        "Tapering vs cold turkey affects decay rate"
+      ]
+    },
+    willpower: {
+      title: "Willpower",
+      description: "Grows stronger each time you resist a craving",
+      impacts: [
+        "Successful craving resistance: +1 point",
+        "Relapse: -2 points",
+        "Streak milestones: Bonus points"
+      ]
+    },
+    motivation: {
+      title: "Motivation",
+      description: "Your drive to quit - boosted by progress celebration",
+      impacts: [
+        "Logging progress regularly: +1 point",
+        "Sharing achievements: +2 points",
+        "Helping other users: +1 point",
+        "Long periods inactive: -1 point",
+        "Seeing money saved milestones: +2 points",
+        "Reading success stories: +1 point",
+        "Missing check-ins: -1 point"
+      ]
+    },
+    cravingResistance: {
+      title: "Craving Resistance",
+      description: "How well you handle urges when they hit",
+      impacts: [
+        "Using app during cravings: +1 point",
+        "Logging craving intensity: +1 point",
+        "Completing breathing exercises: +2 points",
+        "Using delay tactics: +1 point",
+        "Giving in to cravings: -1 point"
+      ]
+    },
+    triggerDefense: {
+      title: "Trigger Defense",
+      description: "Protection against your personal vaping triggers",
+      impacts: [
+        "Surviving trigger situations: +2 points",
+        "Pre-planning for triggers: +1 point",
+        "Learning new coping strategies: +1 point",
+        "Relapsing to known triggers: -2 points",
+        "Updating trigger list: +1 point"
+      ]
+    }
+  };
+
+  const info = statInfo[statType];
+  if (!info) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-700">
+        <div className="text-center mb-4">
+          <h3 className="text-xl font-bold text-white mb-2">{info.title}</h3>
+          <p className="text-gray-300 text-sm">{info.description}</p>
+        </div>
+        
+        <div className="mb-6">
+          <h4 className="text-white font-semibold mb-3 text-left">What impacts it:</h4>
+          <ul className="space-y-2 text-left">
+            {info.impacts.map((impact, index) => (
+              <li key={index} className="text-gray-300 text-sm flex items-start">
+                <span className="text-blue-400 mr-2">•</span>
+                {impact}
+              </li>
+            ))}
+          </ul>
+        </div>
+        
+        <button
+          onClick={onClose}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all duration-300"
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Enhanced StatBar Component with Info Button
+const StatBar = ({ label, value, max, color, statType, onInfoClick }) => (
   <div className="mb-2">
     <div className="flex justify-between text-white text-xs mb-1">
-      <span>{label}</span>
+      <div className="flex items-center gap-1">
+        <span>{label}</span>
+        {statType && (
+          <button
+            onClick={() => onInfoClick(statType)}
+            className="w-4 h-4 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
+            title={`Learn about ${label}`}
+          >
+            i
+          </button>
+        )}
+      </div>
       <span>{value}/{max}</span>
     </div>
     <div className="w-full bg-gray-700 rounded-full h-2">
@@ -598,10 +711,13 @@ const StatBar = ({ label, value, max, color }) => (
 );
 
 // Trading Card Component
-const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisUser = null }) => {
+const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisUser = null, onInfoClick }) => {
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [currentStatType, setCurrentStatType] = useState(null);
+
   if (!user || !user.archetype || !user.stats) {
     return (
-      <div className="w-80 h-[480px] bg-slate-800 rounded-xl border-2 border-gray-400 p-4 text-white text-center mx-auto flex items-center justify-center">
+      <div className="w-80 h-[520px] bg-slate-800 rounded-xl border-2 border-gray-400 p-4 text-white text-center mx-auto flex items-center justify-center">
         <div className="animate-pulse">Loading Card...</div>
       </div>
     );
@@ -611,105 +727,163 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
   const rarity = RARITIES[calculateRarity(user.stats.streakDays)];
   const ArchetypeIcon = archetype.icon;
   
-  let battleStatusElement = null;
-  if (showComparison && nemesisUser) {
-    const isWinning = user.stats.streakDays > nemesisUser.stats.streakDays;
-    const isTied = user.stats.streakDays === nemesisUser.stats.streakDays;
-    
-    let statusText, statusColor;
-    if (isWinning) {
-      statusText = 'WINNING';
-      statusColor = 'bg-green-600';
-    } else if (isTied) {
-      statusText = 'TIED';
-      statusColor = 'bg-yellow-600';
-    } else {
-      statusText = 'LOSING';
-      statusColor = 'bg-red-600';
-    }
-    
-    battleStatusElement = (
-      <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 ${statusColor} text-white px-3 py-2 rounded-full text-sm font-bold z-10 animate-pulse shadow-lg`}>
-        {statusText}
-      </div>
-    );
-  }
+  // Generate random special features for the user
+  const userSpecialFeatures = SPECIAL_FEATURES
+    .sort(() => 0.5 - Math.random())
+    .slice(0, 4);
+  
+  // Generate random stats for new attributes if they don't exist
+  const cravingResistance = user.stats.cravingResistance || Math.floor(Math.random() * 10) + 1;
+  const triggerDefense = user.stats.triggerDefense || Math.floor(Math.random() * 10) + 1;
+  const nemesisVictories = user.stats.nemesisVictories || `${Math.floor(Math.random() * 8) + 1}W-${Math.floor(Math.random() * 5) + 1}L`;
+  
+  const handleInfoClick = (statType) => {
+    setCurrentStatType(statType);
+    setShowInfoModal(true);
+  };
   
   return (
-    <div 
-      className={`relative w-80 h-[480px] rounded-xl ${rarity.color} border-4 ${rarity.glow} bg-gradient-to-br from-slate-800 to-slate-900 p-4 transform transition-all duration-300 hover:scale-105 mx-auto overflow-hidden`}
-    >
-      <div className={`absolute top-2 right-2 px-2 py-1 rounded text-xs font-bold ${archetype.color} text-white z-10`}>
-        {rarity.name}
-      </div>
-      
-      <div className="text-center mb-3">
-        <h3 className="text-white font-bold text-lg leading-tight break-words px-1">{user.heroName}</h3>
-        <p className="text-gray-300 text-base">{archetype.name}</p>
-      </div>
-      
-      <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-slate-700 flex items-center justify-center ring-2 ring-blue-400/50">
-        {user.avatar ? (
-          <img 
-            src={user.avatar} 
-            alt="Avatar" 
-            className="w-full h-full object-cover"
-            onError={() => {
-              // Fallback to archetype icon if avatar fails to load
-              console.log('Avatar failed to load, using fallback');
-            }}
+    <>
+      <div 
+        className={`relative w-80 h-[520px] rounded-xl ${rarity.color} border-4 ${rarity.glow} bg-gradient-to-br from-slate-800 to-slate-900 p-4 transform transition-all duration-300 hover:scale-105 mx-auto overflow-hidden`}
+      >
+        <div className={`absolute top-2 right-2 px-2 py-1 rounded text-xs font-bold ${archetype.color} text-white z-10`}>
+          {rarity.name}
+        </div>
+        
+        <div className="text-center mb-3">
+          <h3 className="text-white font-bold text-lg leading-tight break-words px-1">{user.heroName}</h3>
+          <p className="text-gray-300 text-base">{archetype.name}</p>
+        </div>
+        
+        {/* Increased avatar size */}
+        <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden bg-slate-700 flex items-center justify-center ring-2 ring-blue-400/50">
+          {user.avatar ? (
+            <img 
+              src={user.avatar} 
+              alt="Avatar" 
+              className="w-full h-full object-cover"
+              onError={() => {
+                console.log('Avatar failed to load, using fallback');
+              }}
+            />
+          ) : (
+            <div className={`w-full h-full ${archetype.color} flex items-center justify-center`}>
+              <ArchetypeIcon className="w-12 h-12 text-white" />
+            </div>
+          )}
+        </div>
+        
+        {/* Core Stats with Info Buttons */}
+        <div className="space-y-2 mb-4">
+          <StatBar 
+            label="Addiction" 
+            value={user.stats.addictionLevel} 
+            max={10} 
+            color="bg-red-500" 
+            statType="addiction"
+            onInfoClick={handleInfoClick}
           />
-        ) : (
-          <div className={`w-full h-full ${archetype.color} flex items-center justify-center`}>
-            <ArchetypeIcon className="w-10 h-10 text-white" />
+          <StatBar 
+            label="Willpower" 
+            value={Math.round(user.stats.willpower)} 
+            max={10} 
+            color="bg-blue-500" 
+            statType="willpower"
+            onInfoClick={handleInfoClick}
+          />
+          <StatBar 
+            label="Motivation" 
+            value={user.stats.motivation} 
+            max={10} 
+            color="bg-green-500" 
+            statType="motivation"
+            onInfoClick={handleInfoClick}
+          />
+        </div>
+        
+        {/* New Stats */}
+        <div className="space-y-2 mb-4">
+          <StatBar 
+            label="Craving Resistance" 
+            value={cravingResistance} 
+            max={10} 
+            color="bg-purple-500" 
+            statType="cravingResistance"
+            onInfoClick={handleInfoClick}
+          />
+          <StatBar 
+            label="Trigger Defense" 
+            value={triggerDefense} 
+            max={10} 
+            color="bg-orange-500" 
+            statType="triggerDefense"
+            onInfoClick={handleInfoClick}
+          />
+        </div>
+        
+        {/* Special Features Section */}
+        <div className="mb-4">
+          <h4 className="text-white text-xs font-semibold mb-2 text-center">Special Features</h4>
+          <div className="flex flex-wrap gap-1 justify-center">
+            {userSpecialFeatures.map((feature, index) => (
+              <div 
+                key={index} 
+                className="px-2 py-1 bg-blue-600/80 text-white text-xs rounded-full font-medium"
+                title={feature}
+              >
+                {feature}
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Battle Info */}
+        <div className="bg-black/30 rounded-lg p-3 space-y-2 mb-3 backdrop-blur-sm">
+          <div className="flex justify-between text-white text-sm">
+            <span className="text-gray-300">Streak:</span>
+            <span className="font-bold text-green-400 flex items-center gap-1">
+              {user.stats.streakDays} days
+              {user.stats.streakDays > 0 && <span className="text-xs">🔥</span>}
+            </span>
+          </div>
+          <div className="flex justify-between text-white text-sm">
+            <span className="text-gray-300">Saved:</span>
+            <span className="font-bold text-yellow-400">£{(user.stats.moneySaved || 0).toFixed(0)}</span>
+          </div>
+          <div className="flex justify-between text-white text-sm">
+            <span className="text-gray-300">Record:</span>
+            <span className="font-bold text-purple-400">{nemesisVictories}</span>
+          </div>
+        </div>
+        
+        {/* Achievements */}
+        {user.achievements && user.achievements.length > 0 && (
+          <div className="flex flex-wrap gap-1 justify-center">
+            {user.achievements.slice(0, 4).map((achievement, index) => {
+              const AchIcon = ACHIEVEMENTS[achievement]?.icon || Star;
+              return (
+                <div key={index} className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg" title={ACHIEVEMENTS[achievement]?.description}>
+                  <AchIcon className="w-3 h-3 text-white" />
+                </div>
+              );
+            })}
+            {user.achievements.length > 4 && (
+              <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                +{user.achievements.length - 4}
+              </div>
+            )}
           </div>
         )}
       </div>
       
-      <div className="space-y-2 mb-4">
-        <StatBar label="Addiction" value={user.stats.addictionLevel} max={10} color="bg-red-500" />
-        <StatBar label="Willpower" value={Math.round(user.stats.willpower)} max={10} color="bg-blue-500" />
-        <StatBar label="Motivation" value={user.stats.motivation} max={10} color="bg-green-500" />
-      </div>
-      
-      <div className="bg-black/30 rounded-lg p-3 space-y-2 mb-3 backdrop-blur-sm">
-        <div className="flex justify-between text-white text-sm">
-          <span className="text-gray-300">Streak:</span>
-          <span className="font-bold text-green-400 flex items-center gap-1">
-            {user.stats.streakDays} days
-            {user.stats.streakDays > 0 && <span className="text-xs">🔥</span>}
-          </span>
-        </div>
-        <div className="flex justify-between text-white text-sm">
-          <span className="text-gray-300">Saved:</span>
-          <span className="font-bold text-yellow-400">£{(user.stats.moneySaved || 0).toFixed(0)}</span>
-        </div>
-        <div className="flex justify-between text-white text-sm">
-          <span className="text-gray-300">XP:</span>
-          <span className="font-bold text-purple-400">{user.stats.experiencePoints || 0}</span>
-        </div>
-      </div>
-      
-      {user.achievements && user.achievements.length > 0 && (
-        <div className="flex flex-wrap gap-1 justify-center">
-          {user.achievements.slice(0, 4).map((achievement, index) => {
-            const AchIcon = ACHIEVEMENTS[achievement]?.icon || Star;
-            return (
-              <div key={index} className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg" title={ACHIEVEMENTS[achievement]?.description}>
-                <AchIcon className="w-3 h-3 text-white" />
-              </div>
-            );
-          })}
-          {user.achievements.length > 4 && (
-            <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-              +{user.achievements.length - 4}
-            </div>
-          )}
-        </div>
-      )}
-      
-      {battleStatusElement}
-    </div>
+      {/* Info Modal */}
+      <InfoModal 
+        isOpen={showInfoModal} 
+        onClose={() => setShowInfoModal(false)} 
+        statType={currentStatType} 
+      />
+    </>
   );
 };
 
@@ -741,116 +915,7 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
               <span className="text-xs">{tab.label}</span>
             </button>
           );
-        }        )}
-
-        {/* Step 4: Vape Pods Question */}
-        {step === 4 && (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-2xl">🚬</span>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-4">Vape Usage</h1>
-            <p className="text-gray-300 mb-6">Help us understand your current usage patterns.</p>
-            
-            <div className="mb-6">
-              <label className="block text-white text-sm font-medium mb-2 text-left">
-                How many vape pods do you use per week?
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="50"
-                value={userData.vapePodsPerWeek}
-                onChange={(e) => setUserData(prev => ({ ...prev, vapePodsPerWeek: parseInt(e.target.value) || 0 }))}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                placeholder="Enter number of pods"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Step 5: Nicotine Strength Question */}
-        {step === 5 && (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-2xl">⚡</span>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-4">Nicotine Strength</h1>
-            <p className="text-gray-300 mb-6">Select your current nicotine level.</p>
-            
-            <div className="mb-6">
-              <label className="block text-white text-sm font-medium mb-2 text-left">
-                What's your nicotine strength (mg)?
-              </label>
-              <select
-                value={userData.nicotineStrength}
-                onChange={(e) => setUserData(prev => ({ ...prev, nicotineStrength: e.target.value }))}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              >
-                <option value="">Select strength</option>
-                <option value="3mg">3mg (very low)</option>
-                <option value="6mg">6mg</option>
-                <option value="12mg">12mg</option>
-                <option value="18mg">18mg</option>
-                <option value="20mg">20mg</option>
-                <option value="50mg">50mg (ultra high)</option>
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Step 6: Quit Attempts & Confidence Questions */}
-        {step === 6 && (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-2xl">🎯</span>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-4">Quit History & Confidence</h1>
-            <p className="text-gray-300 mb-6">Tell us about your quit journey.</p>
-            
-            <div className="space-y-6">
-              <div>
-                <label className="block text-white text-sm font-medium mb-2 text-left">
-                  How many times have you tried to quit before?
-                </label>
-                <select
-                  value={userData.quitAttempts}
-                  onChange={(e) => setUserData(prev => ({ ...prev, quitAttempts: e.target.value }))}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select option</option>
-                  <option value="This is my first attempt">This is my first attempt</option>
-                  <option value="Once before">Once before</option>
-                  <option value="Twice before">Twice before</option>
-                  <option value="3-5 times">3-5 times</option>
-                  <option value="More than 5 times">More than 5 times</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-white text-sm font-medium mb-2 text-left">
-                  How confident are you this time? (1-10 scale)
-                </label>
-                <div className="flex items-center gap-4">
-                  <span className="text-gray-400 text-sm">1</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={userData.confidence}
-                    onChange={(e) => setUserData(prev => ({ ...prev, confidence: parseInt(e.target.value) }))}
-                    className="flex-1 h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-gray-400 text-sm">10</span>
-                </div>
-                <div className="text-center mt-2">
-                  <span className="text-white font-bold text-lg">{userData.confidence}</span>
-                  <span className="text-gray-400 text-sm ml-2">/ 10</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        })}
       </div>
     </div>
   );
@@ -880,15 +945,44 @@ const ArenaView = ({ user, nemesis, onBackToLogin }) => {
             battleStatus === 'WINNING' ? 'bg-green-600' : 
             battleStatus === 'TIED' ? 'bg-yellow-600' : 'bg-red-600'
           } text-white`}>
-            <Trophy className="w-5 h-5 mr-2" />
+            {battleStatus === 'WINNING' ? (
+              <Trophy className="w-5 h-5 mr-2" />
+            ) : battleStatus === 'TIED' ? (
+              <Shield className="w-5 h-5 mr-2" />
+            ) : (
+              <span className="mr-2">📉</span>
+            )}
             You are {battleStatus}
+          </div>
+        </div>
+        
+        {/* Status Badges - Positioned above cards */}
+        <div className="flex justify-center gap-12 mb-6">
+          <div className="w-80 text-center">
+            <div className={`inline-flex items-center px-4 py-2 rounded-full font-bold text-sm shadow-lg ${
+              battleStatus === 'WINNING' ? 'bg-green-600' : 
+              battleStatus === 'TIED' ? 'bg-yellow-600' : 'bg-red-600'
+            } text-white`}>
+              {battleStatus === 'WINNING' ? 'WINNING' : battleStatus === 'TIED' ? 'TIED' : 'LOSING'}
+            </div>
+          </div>
+          
+          <div className="w-24"></div> {/* Spacer for VS */}
+          
+          <div className="w-80 text-center">
+            <div className={`inline-flex items-center px-4 py-2 rounded-full font-bold text-sm shadow-lg ${
+              battleStatus === 'WINNING' ? 'bg-red-600' : 
+              battleStatus === 'TIED' ? 'bg-yellow-600' : 'bg-green-600'
+            } text-white`}>
+              {battleStatus === 'WINNING' ? 'LOSING' : battleStatus === 'TIED' ? 'TIED' : 'WINNING'}
+            </div>
           </div>
         </div>
         
         {/* Enhanced Battle Cards */}
         <div className="flex flex-row items-center justify-center gap-12 mb-8 w-full max-w-7xl mx-auto">
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
-            <TradingCard user={user} showComparison={true} nemesisUser={nemesis} />
+            <TradingCard user={user} showComparison={false} nemesisUser={nemesis} />
           </div>
           
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
@@ -901,7 +995,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin }) => {
           </div>
           
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
-            <TradingCard user={nemesis} isNemesis={true} showComparison={true} nemesisUser={user} />
+            <TradingCard user={nemesis} isNemesis={true} showComparison={false} nemesisUser={user} />
           </div>
         </div>
       </div>
@@ -1288,17 +1382,21 @@ const App = () => {
   
   // Check if user has completed onboarding (local storage)
   useEffect(() => {
-    const savedUser = localStorage.getItem('quitCoachUser');
-    if (savedUser) {
-      try {
+    console.log('App component mounted');
+    try {
+      const savedUser = localStorage.getItem('quitCoachUser');
+      if (savedUser) {
         const parsedUser = JSON.parse(savedUser);
+        console.log('Loaded saved user:', parsedUser);
         setUser(parsedUser);
         setHasCompletedOnboarding(true);
         setCurrentView('arena');
-      } catch (error) {
-        console.error('Error parsing saved user:', error);
-        localStorage.removeItem('quitCoachUser');
+      } else {
+        console.log('No saved user found, starting onboarding');
       }
+    } catch (error) {
+      console.error('Error parsing saved user:', error);
+      localStorage.removeItem('quitCoachUser');
     }
   }, []);
 
@@ -1319,12 +1417,20 @@ const App = () => {
   };
 
   const handleOnboardingComplete = (userData) => {
+    console.log('Onboarding completed with user data:', userData);
+    
     setUser(userData);
     setHasCompletedOnboarding(true);
     setCurrentView('arena');
     
     // Save user data to local storage
     localStorage.setItem('quitCoachUser', JSON.stringify(userData));
+    
+    console.log('State updated:', {
+      user: userData,
+      hasCompletedOnboarding: true,
+      currentView: 'arena'
+    });
   };
 
   const handleResetApp = () => {
@@ -1368,13 +1474,23 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed top-4 right-4 bg-black/80 text-white p-2 rounded text-xs z-50">
+          <div>View: {currentView}</div>
+          <div>Onboarding: {hasCompletedOnboarding ? 'Yes' : 'No'}</div>
+          <div>User: {user ? 'Yes' : 'No'}</div>
+          <div>Active Tab: {activeTab}</div>
+        </div>
+      )}
+
       {/* Onboarding Flow */}
       {currentView === 'onboarding' && (
         <OnboardingFlow onComplete={handleOnboardingComplete} />
       )}
 
       {/* Main App Content - Only show after onboarding */}
-      {hasCompletedOnboarding && user && (
+      {hasCompletedOnboarding && user ? (
         <>
           {currentView === 'arena' && (
             <ArenaView 
@@ -1407,6 +1523,26 @@ const App = () => {
             onTabChange={handleTabChange}
           />
         </>
+      ) : (
+        /* Fallback for debugging */
+        <div className="flex items-center justify-center min-h-screen text-white">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">Loading...</h2>
+            <p className="text-gray-300">
+              {!hasCompletedOnboarding ? 'Onboarding not completed' : 'User data missing'}
+            </p>
+            <p className="text-gray-300">Current view: {currentView}</p>
+            <button 
+              onClick={() => {
+                console.log('Debug button clicked');
+                console.log('Current state:', { hasCompletedOnboarding, user, currentView });
+              }}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Debug State
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
