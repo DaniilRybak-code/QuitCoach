@@ -136,42 +136,47 @@ const OnboardingFlow = ({ onComplete }) => {
     setTimeout(() => setIsGeneratingAvatar(false), 500);
   };
 
-  // Calculate initial stats based on user answers
+  // Calculate initial stats based on user answers (100-point scale)
   const calculateInitialStats = () => {
-    let addictionLevel = 5; // Base level
-    let willpower = 7; // Base level
-    let motivation = 6; // Base level
+    let addictionLevel = 50; // Base level (50/100)
+    let willpower = 70; // Base level (70/100)
+    let motivation = 60; // Base level (60/100)
+    let cravingResistance = 65; // Base level (65/100)
+    let triggerDefense = 60; // Base level (60/100)
     
     // Vape pods per week impact
-    if (userData.vapePodsPerWeek > 10) addictionLevel += 3;
-    else if (userData.vapePodsPerWeek > 5) addictionLevel += 2;
-    else if (userData.vapePodsPerWeek > 2) addictionLevel += 1;
+    if (userData.vapePodsPerWeek > 10) addictionLevel += 30;
+    else if (userData.vapePodsPerWeek > 5) addictionLevel += 20;
+    else if (userData.vapePodsPerWeek > 2) addictionLevel += 10;
     
     // Nicotine strength impact
-    const strengthMap = { '3mg': 0, '6mg': 1, '12mg': 2, '18mg': 2, '20mg': 3, '50mg': 4 };
+    const strengthMap = { '3mg': 0, '6mg': 10, '12mg': 20, '18mg': 20, '20mg': 30, '50mg': 40 };
     addictionLevel += strengthMap[userData.nicotineStrength] || 0;
     
     // Quit attempts impact
     const attemptsMap = { 
       'This is my first attempt': 0, 
-      'Once before': 1, 
-      'Twice before': 2, 
-      '3-5 times': 3, 
-      'More than 5 times': 4 
+      'Once before': 10, 
+      'Twice before': 20, 
+      '3-5 times': 30, 
+      'More than 5 times': 40 
     };
     const attemptsImpact = attemptsMap[userData.quitAttempts] || 0;
     addictionLevel += attemptsImpact;
-    willpower -= Math.min(attemptsImpact, 3); // Reduce willpower for multiple attempts
+    willpower -= Math.min(attemptsImpact, 30); // Reduce willpower for multiple attempts
+    cravingResistance -= Math.min(attemptsImpact, 20); // Reduce craving resistance for multiple attempts
     
     // Confidence impact
-    motivation += Math.max(0, userData.confidence - 5); // Higher confidence = higher motivation
+    motivation += Math.max(0, (userData.confidence - 5) * 10); // Higher confidence = higher motivation
     
-    // Clamp values to 1-10 range
-    addictionLevel = Math.min(10, Math.max(1, addictionLevel));
-    willpower = Math.min(10, Math.max(1, willpower));
-    motivation = Math.min(10, Math.max(1, motivation));
+    // Clamp values to 1-100 range (enforce 100-point cap)
+    addictionLevel = Math.min(100, Math.max(1, addictionLevel));
+    willpower = Math.min(100, Math.max(1, willpower));
+    motivation = Math.min(100, Math.max(1, motivation));
+    cravingResistance = Math.min(100, Math.max(1, cravingResistance));
+    triggerDefense = Math.min(100, Math.max(1, triggerDefense));
     
-    return { addictionLevel, willpower, motivation };
+    return { addictionLevel, willpower, motivation, cravingResistance, triggerDefense };
   };
 
   const handleNext = () => {
@@ -596,55 +601,60 @@ const InfoModal = ({ isOpen, onClose, statType }) => {
   const statInfo = {
     addiction: {
       title: "Addiction",
-      description: "Time since last vape - resets on relapse",
+      description: "Time since last vape - decreases as your body heals",
       impacts: [
-        "Days clean: -1 point per week",
-        "Relapse: Resets to starting level",
-        "Tapering vs cold turkey affects decay rate"
+        "What decreases it:",
+        "• Clean time: -2 points per week (standard recovery)",
+        "• Cold turkey approach: -3 points per week (faster healing)",
+        "• Tapering approach: -1.5 points per week (gentler decline)",
+        "",
+        "What increases it:",
+        "• First relapse (after clean period): +4 points",
+        "• Second relapse (within 7 days): +6 additional points",
+        "• Third relapse and on (within 3 days): +8 additional points",
+        "• Reset: Penalty level resets after 7 clean days"
       ]
     },
-    willpower: {
-      title: "Willpower",
-      description: "Grows stronger each time you resist a craving",
+    mentalStrength: {
+      title: "Mental Strength",
+      description: "Your ability to resist urges and stay strong",
       impacts: [
-        "Successful craving resistance: +1 point",
-        "Relapse: -2 points",
-        "Streak milestones: Bonus points"
+        "What increases it:",
+        "• Successful craving resistance: +1 point",
+        "• Using app during cravings every 3 times with no relapse: +1 point",
+        "• Completing breathing exercises 3 days straight: +1 point",
+        "• Milestone bonuses: First 7 days +5 points, 30 days +10 points, 90 days +15 points",
+        "",
+        "What decreases it:",
+        "• Giving in to cravings: -3 points",
+        "• Each relapse: -3 points"
       ]
     },
     motivation: {
       title: "Motivation",
-      description: "Your drive to quit - boosted by progress celebration",
+      description: "Your drive to quit - boosted by staying engaged",
       impacts: [
-        "Logging progress regularly: +1 point",
-        "Sharing achievements: +2 points",
-        "Helping other users: +1 point",
-        "Long periods inactive: -1 point",
-        "Seeing money saved milestones: +2 points",
-        "Reading success stories: +1 point",
-        "Missing check-ins: -1 point"
-      ]
-    },
-    cravingResistance: {
-      title: "Craving Resistance",
-      description: "How well you handle urges when they hit",
-      impacts: [
-        "Using app during cravings: +1 point",
-        "Logging craving intensity: +1 point",
-        "Completing breathing exercises: +2 points",
-        "Using delay tactics: +1 point",
-        "Giving in to cravings: -1 point"
+        "What increases it:",
+        "• Regular logging (3+ days per week): +2 points (weekly)",
+        "• Sharing achievements: +3 points per share (weekly)",
+        "• Reaching money saved milestones: +2 points",
+        "",
+        "What decreases it:",
+        "• Long periods inactive (7+ days no logging): -3 points"
       ]
     },
     triggerDefense: {
       title: "Trigger Defense",
       description: "Protection against your personal vaping triggers",
       impacts: [
-        "Surviving trigger situations: +2 points",
-        "Pre-planning for triggers: +1 point",
-        "Learning new coping strategies: +1 point",
-        "Relapsing to known triggers: -2 points",
-        "Updating trigger list: +1 point"
+        "What increases it:",
+        "• Surviving trigger situations without vaping: +3 points",
+        "• Pre-planning for known triggers: +1 point",
+        "• Updating your trigger list: +1 point",
+        "",
+        "What decreases it:",
+        "• Relapsing to known triggers: -3 points",
+        "• Entering trigger situations unprepared: -1 point"
       ]
     }
   };
@@ -683,32 +693,37 @@ const InfoModal = ({ isOpen, onClose, statType }) => {
   );
 };
 
-// Enhanced StatBar Component with Info Button
-const StatBar = ({ label, value, max, color, statType, onInfoClick }) => (
-  <div className="mb-2">
-    <div className="flex justify-between text-white text-xs mb-1">
-      <div className="flex items-center gap-1">
-        <span>{label}</span>
-        {statType && (
-          <button
-            onClick={() => onInfoClick(statType)}
-            className="w-4 h-4 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
-            title={`Learn about ${label}`}
-          >
-            i
-          </button>
-        )}
+// Enhanced StatBar Component with Info Button (read-only) - Enforces 100-point cap
+const StatBar = ({ label, value, max, color, statType, onInfoClick }) => {
+  // Ensure value never exceeds max (100-point cap)
+  const cappedValue = Math.min(value, max);
+  
+  return (
+    <div className="mb-2">
+      <div className="flex justify-between text-white text-xs mb-1">
+        <div className="flex items-center gap-1">
+          <span>{label}</span>
+          {statType && onInfoClick && (
+            <button
+              onClick={() => onInfoClick(statType)}
+              className="w-4 h-4 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
+              title={`Learn about ${label}`}
+            >
+              i
+            </button>
+          )}
+        </div>
+        <span>{cappedValue}/{max}</span>
       </div>
-      <span>{value}/{max}</span>
+      <div className="w-full bg-gray-700 rounded-full h-2">
+        <div 
+          className={`${color} h-2 rounded-full transition-all duration-500`} 
+          style={{ width: `${(cappedValue / max) * 100}%` }}
+        />
+      </div>
     </div>
-    <div className="w-full bg-gray-700 rounded-full h-2">
-      <div 
-        className={`${color} h-2 rounded-full transition-all duration-500`} 
-        style={{ width: `${(value / max) * 100}%` }}
-      />
-    </div>
-  </div>
-);
+  );
+};
 
 // Trading Card Component
 const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisUser = null, onInfoClick }) => {
@@ -732,10 +747,19 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
     .sort(() => 0.5 - Math.random())
     .slice(0, 4);
   
-  // Generate random stats for new attributes if they don't exist
-  const cravingResistance = user.stats.cravingResistance || Math.floor(Math.random() * 10) + 1;
-  const triggerDefense = user.stats.triggerDefense || Math.floor(Math.random() * 10) + 1;
+  // Generate random stats for new attributes if they don't exist (scaled to 100)
+  const triggerDefense = user.stats.triggerDefense || Math.floor(Math.random() * 100) + 1;
   const nemesisVictories = user.stats.nemesisVictories || `${Math.floor(Math.random() * 8) + 1}W-${Math.floor(Math.random() * 5) + 1}L`;
+  
+  // Scale existing stats from 10 to 100 and enforce 100-point cap
+  const scaledAddictionLevel = Math.min(100, (user.stats.addictionLevel || 0) * 10);
+  const scaledWillpower = Math.min(100, Math.round((user.stats.willpower || 0) * 10));
+  const scaledMotivation = Math.min(100, (user.stats.motivation || 0) * 10);
+  
+  // Calculate Mental Strength (Willpower + Craving Resistance merged)
+  const mentalStrength = Math.min(100, Math.round(
+    (scaledWillpower + (user.stats.cravingResistance || Math.floor(Math.random() * 100) + 1)) / 2
+  ));
   
   const handleInfoClick = (statType) => {
     setCurrentStatType(statType);
@@ -747,9 +771,6 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
       <div 
         className={`relative w-80 h-[520px] rounded-xl ${rarity.color} border-4 ${rarity.glow} bg-gradient-to-br from-slate-800 to-slate-900 p-4 transform transition-all duration-300 hover:scale-105 mx-auto overflow-hidden`}
       >
-        <div className={`absolute top-2 right-2 px-2 py-1 rounded text-xs font-bold ${archetype.color} text-white z-10`}>
-          {rarity.name}
-        </div>
         
         <div className="text-center mb-3">
           <h3 className="text-white font-bold text-lg leading-tight break-words px-1">{user.heroName}</h3>
@@ -774,51 +795,39 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
           )}
         </div>
         
-        {/* Core Stats with Info Buttons */}
+        {/* Core Stats with Info Buttons (only for player card) */}
         <div className="space-y-2 mb-4">
           <StatBar 
             label="Addiction" 
-            value={user.stats.addictionLevel} 
-            max={10} 
+            value={scaledAddictionLevel} 
+            max={100} 
             color="bg-red-500" 
-            statType="addiction"
-            onInfoClick={handleInfoClick}
+            statType={!isNemesis ? "addiction" : null}
+            onInfoClick={!isNemesis ? handleInfoClick : null}
           />
           <StatBar 
-            label="Willpower" 
-            value={Math.round(user.stats.willpower)} 
-            max={10} 
+            label="Mental Strength" 
+            value={mentalStrength} 
+            max={100} 
             color="bg-blue-500" 
-            statType="willpower"
-            onInfoClick={handleInfoClick}
+            statType={!isNemesis ? "mentalStrength" : null}
+            onInfoClick={!isNemesis ? handleInfoClick : null}
           />
           <StatBar 
             label="Motivation" 
-            value={user.stats.motivation} 
-            max={10} 
+            value={scaledMotivation} 
+            max={100} 
             color="bg-green-500" 
-            statType="motivation"
-            onInfoClick={handleInfoClick}
-          />
-        </div>
-        
-        {/* New Stats */}
-        <div className="space-y-2 mb-4">
-          <StatBar 
-            label="Craving Resistance" 
-            value={cravingResistance} 
-            max={10} 
-            color="bg-purple-500" 
-            statType="cravingResistance"
-            onInfoClick={handleInfoClick}
+            statType={!isNemesis ? "motivation" : null}
+            onInfoClick={!isNemesis ? handleInfoClick : null}
           />
           <StatBar 
             label="Trigger Defense" 
             value={triggerDefense} 
-            max={10} 
+            max={100} 
             color="bg-orange-500" 
-            statType="triggerDefense"
-            onInfoClick={handleInfoClick}
+            statType={!isNemesis ? "triggerDefense" : null}
+            onInfoClick={!isNemesis ? handleInfoClick : null}
           />
         </div>
         
@@ -1004,190 +1013,176 @@ const ArenaView = ({ user, nemesis, onBackToLogin }) => {
 };
 
 // Affirmation Modal Component
-const AffirmationModal = ({ isOpen, onClose }) => {
-  const affirmations = [
-    "My decisions create positive change in the world",
-    "I am stronger than my cravings",
-    "Each day smoke-free is a victory",
-    "I choose health and happiness over addiction",
-    "My willpower grows stronger every day"
-  ];
 
-  const todaysAffirmation = affirmations[Math.floor(Date.now() / (1000 * 60 * 60 * 24)) % affirmations.length];
 
-  if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-700">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">✨</span>
-          </div>
-          <h3 className="text-xl font-bold text-white mb-2">Today's Affirmation</h3>
-          <p className="text-gray-300 text-lg italic mb-6 leading-relaxed">
-            "{todaysAffirmation}"
-          </p>
-          <button
-            onClick={onClose}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all duration-300"
-          >
-            Thank you
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
-// Mood Selection Component
-const MoodSelector = ({ onMoodSelect, onBack }) => {
-  const moods = [
-    { id: 'anger', name: 'Anger', emoji: '😡' },
-    { id: 'sadness', name: 'Sadness', emoji: '😢' },
-    { id: 'disgust', name: 'Disgust', emoji: '🤢' },
-    { id: 'fear', name: 'Fear', emoji: '😨' },
-    { id: 'enjoyment', name: 'Enjoyment', emoji: '😊' },
-    { id: 'calm', name: 'Calm', emoji: '😌' }
-  ];
-
-  const handleMoodSelect = (mood) => {
-    onMoodSelect(mood);
-    setTimeout(() => {
-      onBack();
-    }, 1000);
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4 pb-20">
-      <div className="max-w-md mx-auto">
-        <button 
-          onClick={onBack}
-          className="text-white mb-6 flex items-center gap-2 hover:text-blue-300 transition-colors"
-        >
-          ← Back
-        </button>
-        
-        <h1 className="text-3xl font-bold text-yellow-400 mb-8">Today...</h1>
-        
-        <h2 className="text-white text-lg mb-8">Select your main emotion:</h2>
-        
-        <div className="grid grid-cols-3 gap-6 mb-12">
-          {moods.map((mood) => (
-            <button
-              key={mood.id}
-              onClick={() => handleMoodSelect(mood)}
-              className="flex flex-col items-center p-4 rounded-full bg-slate-700/50 hover:bg-slate-600/50 transition-all duration-300 hover:scale-105"
-            >
-              <div className="w-16 h-16 bg-slate-600 rounded-full flex items-center justify-center text-2xl mb-2">
-                {mood.emoji}
-              </div>
-              <span className="text-white text-sm">{mood.name}</span>
-            </button>
-          ))}
-        </div>
-        
-        <div className="text-center">
-          <button 
-            onClick={() => handleMoodSelect({ id: 'indifferent', name: 'Indifferent' })}
-            className="text-gray-400 text-sm mb-6"
-          >
-            I'm feeling indifferent today
-          </button>
-          
-          <button
-            onClick={() => handleMoodSelect({ id: 'calm', name: 'Calm' })}
-            className="w-full bg-slate-600 hover:bg-slate-500 text-white py-3 rounded-full transition-colors"
-          >
-            Continue
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Profile View
+// Profile View - New Structure
 const ProfileView = ({ user, onNavigate }) => {
-  const [selectedMood, setSelectedMood] = useState(null);
-  const [exerciseCompleted, setExerciseCompleted] = useState(false);
-  const [hydrationCompleted, setHydrationCompleted] = useState(false);
-  const [breathingCompleted, setBreathingCompleted] = useState(false);
-  const [showAffirmation, setShowAffirmation] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [relapseDate, setRelapseDate] = useState(null);
+  const [showWaterModal, setShowWaterModal] = useState(false);
+  const [showBreathingModal, setShowBreathingModal] = useState(false);
+  const [showMoodModal, setShowMoodModal] = useState(false);
+  const [showTriggerModal, setShowTriggerModal] = useState(false);
+  const [showDiaryModal, setShowDiaryModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  
+  // Daily tracking state
+  const [dailyWater, setDailyWater] = useState(0);
+  const [dailyMood, setDailyMood] = useState(null);
+  const [dailyBreathing, setDailyBreathing] = useState(false);
+  const [scheduledTriggers, setScheduledTriggers] = useState([]);
 
+  // Load relapse date and daily data from localStorage on mount
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
+    const savedRelapseDate = localStorage.getItem('quitCoachRelapseDate');
+    if (savedRelapseDate) {
+      setRelapseDate(new Date(savedRelapseDate));
+    }
+    
+    // Load daily data
+    const today = new Date().toDateString();
+    const savedWater = localStorage.getItem(`water_${today}`);
+    const savedMood = localStorage.getItem(`mood_${today}`);
+    const savedBreathing = localStorage.getItem(`breathing_${today}`);
+    
+    if (savedWater) setDailyWater(parseInt(savedWater));
+    if (savedMood) setDailyMood(JSON.parse(savedMood));
+    if (savedBreathing) setDailyBreathing(savedBreathing === 'true');
+    
+    // Load scheduled triggers
+    const savedTriggers = localStorage.getItem('scheduledTriggers');
+    if (savedTriggers) {
+      setScheduledTriggers(JSON.parse(savedTriggers));
+    }
   }, []);
 
-  const quitDate = new Date(currentTime.getTime() - (2 * 24 + 19) * 60 * 60 * 1000);
-  const timeDiff = currentTime - quitDate;
-  const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
-
-  const weekDays = [
-    { name: 'Mon', color: 'bg-green-500' },
-    { name: 'Tue', color: 'bg-green-500' },
-    { name: 'Wed', color: 'bg-red-500' },
-    { name: 'Thu', color: 'bg-green-500' },
-    { name: 'Fri', color: 'bg-slate-700' },
-    { name: 'Sat', color: 'bg-slate-700' },
-    { name: 'Sun', color: 'bg-slate-700' }
-  ];
-
-  const todayTasks = [
-    {
-      id: 'affirmation',
-      title: 'My positive affirmation',
-      subtitle: 'Discover your message of the day',
-      icon: '📋',
-      bgColor: 'from-cyan-500/20 to-cyan-600/20',
-      onClick: () => setShowAffirmation(true)
-    },
-    {
-      id: 'mood',
-      title: 'Mood tracking',
-      subtitle: selectedMood ? `You feel ${selectedMood.name.toLowerCase()}` : 'How do you feel?',
-      icon: '🌤️',
-      bgColor: 'from-blue-500/20 to-blue-600/20',
-      onClick: () => onNavigate('mood-selector')
-    },
-    {
-      id: 'exercise',
-      title: 'Exercise for 30 minutes',
-      subtitle: exerciseCompleted ? 'Completed! Great job!' : 'Tap to mark as complete',
-      icon: '💪',
-      bgColor: 'from-green-500/20 to-green-600/20',
-      isCheckbox: true,
-      completed: exerciseCompleted,
-      onClick: () => setExerciseCompleted(!exerciseCompleted)
-    },
-    {
-      id: 'hydration',
-      title: 'Stay hydrated',
-      subtitle: hydrationCompleted ? 'Completed! Well done!' : 'Tap to mark as complete',
-      icon: '💧',
-      bgColor: 'from-blue-400/20 to-blue-500/20',
-      isCheckbox: true,
-      completed: hydrationCompleted,
-      onClick: () => setHydrationCompleted(!hydrationCompleted)
-    },
-    {
-      id: 'breathing',
-      title: 'Complete breathing exercise',
-      subtitle: breathingCompleted ? 'Completed! Stay calm!' : 'Tap to mark as complete',
-      icon: '🫁',
-      bgColor: 'from-purple-500/20 to-purple-600/20',
-      isCheckbox: true,
-      completed: breathingCompleted,
-      onClick: () => setBreathingCompleted(!breathingCompleted)
+  // Get the start date for quit timer (onboarding completion or last relapse)
+  const getQuitStartDate = () => {
+    if (relapseDate && relapseDate > (user?.quitDate || new Date(0))) {
+      return relapseDate;
     }
-  ];
+    return user?.quitDate || new Date();
+  };
+
+  // Calculate remaining time until midnight
+  const getRemainingTimeUntilMidnight = () => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    
+    const diff = midnight - now;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    
+    return { hours, minutes, seconds };
+  };
+
+  const [remainingTime, setRemainingTime] = useState(getRemainingTimeUntilMidnight());
+  const [days, setDays] = useState(0);
+  const [hours, setHours] = useState(0);
+  const [minutes, setMinutes] = useState(0);
+  const [seconds, setSeconds] = useState(0);
+
+  // Update timers every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Update remaining time to midnight
+      setRemainingTime(getRemainingTimeUntilMidnight());
+      
+      // Update clean time
+      const quitStartDate = getQuitStartDate();
+      const now = new Date();
+      const diff = now - quitStartDate;
+      
+      const daysDiff = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hoursDiff = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutesDiff = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secondsDiff = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      setDays(daysDiff);
+      setHours(hoursDiff);
+      setMinutes(minutesDiff);
+      setSeconds(secondsDiff);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [relapseDate, user?.quitDate]);
+
+  const handleRelapse = () => {
+    const now = new Date();
+    setRelapseDate(now);
+    localStorage.setItem('quitCoachRelapseDate', now.toISOString());
+  };
+
+  // Get week days with proper coloring logic (only past days and today)
+  const getWeekDays = () => {
+    const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    
+    // Adjust to start week on Monday (0 = Monday, 1 = Tuesday, etc.)
+    const adjustedIndex = currentDay === 0 ? 6 : currentDay - 1;
+    
+    const days = [
+      { name: 'Mon', color: 'bg-slate-700' },
+      { name: 'Tue', color: 'bg-slate-700' },
+      { name: 'Wed', color: 'bg-slate-700' },
+      { name: 'Thu', color: 'bg-slate-700' },
+      { name: 'Fri', color: 'bg-slate-700' },
+      { name: 'Sat', color: 'bg-slate-700' },
+      { name: 'Sun', color: 'bg-slate-700' }
+    ];
+
+    // Color past days and today as green, future days remain gray
+    for (let i = 0; i <= adjustedIndex; i++) {
+      days[i].color = 'bg-green-500';
+    }
+
+    // If there's a relapse today, mark current day as red
+    if (relapseDate && relapseDate.toDateString() === now.toDateString()) {
+      days[adjustedIndex].color = 'bg-red-500';
+    }
+
+    return days;
+  };
+
+  const weekDays = getWeekDays();
+
+  // Handle water intake
+  const handleWaterIntake = (glasses) => {
+    setDailyWater(glasses);
+    const today = new Date().toDateString();
+    localStorage.setItem(`water_${today}`, glasses.toString());
+    setShowWaterModal(false);
+  };
+
+  // Handle mood selection
+  const handleMoodSelect = (mood) => {
+    setDailyMood(mood);
+    const today = new Date().toDateString();
+    localStorage.setItem(`mood_${today}`, JSON.stringify(mood));
+    setShowMoodModal(false);
+  };
+
+  // Handle breathing exercise completion
+  const handleBreathingComplete = () => {
+    setDailyBreathing(true);
+    const today = new Date().toDateString();
+    localStorage.setItem(`breathing_${today}`, 'true');
+    setShowBreathingModal(false);
+  };
+
+  // Handle trigger scheduling
+  const handleTriggerSchedule = (day, triggerType, time) => {
+    const newTrigger = { day, triggerType, time, id: Date.now() };
+    const updatedTriggers = [...scheduledTriggers, newTrigger];
+    setScheduledTriggers(updatedTriggers);
+    localStorage.setItem('scheduledTriggers', JSON.stringify(updatedTriggers));
+    setShowTriggerModal(false);
+  };
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pb-20">
@@ -1195,19 +1190,44 @@ const ProfileView = ({ user, onNavigate }) => {
       <div className="flex items-center justify-between p-4 pt-16">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-lg">D</span>
+            {user?.avatar ? (
+              <img 
+                src={user.avatar} 
+                alt="Avatar" 
+                className="w-full h-full object-cover rounded-full"
+              />
+            ) : (
+              <span className="text-white font-bold text-lg">
+                {user?.heroName ? user.heroName.charAt(0).toUpperCase() : 'H'}
+              </span>
+            )}
           </div>
           <div>
             <p className="text-white text-lg">Hello,</p>
-            <p className="text-white text-2xl font-bold">Hero</p>
+            <p className="text-white text-2xl font-bold">{user?.heroName || 'Hero'}</p>
           </div>
         </div>
         <div className="bg-yellow-500 px-3 py-1 rounded-full">
-          <span className="font-bold text-slate-900">2</span>
+          <span className="font-bold text-slate-900">{days}</span>
         </div>
       </div>
 
       <div className="px-4 space-y-6">
+        {/* RELAPSE Button - Moved between header and My Week */}
+        <div className="mb-6">
+          <button
+            onClick={handleRelapse}
+            className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+          >
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-2xl">⚠️</span>
+              <span className="text-lg">RELAPSE</span>
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <p className="text-sm opacity-90 mt-1">Reset progress and start over</p>
+          </button>
+        </div>
+
         {/* My Week Section */}
         <div className="bg-slate-800/50 rounded-xl p-4">
           <div className="flex items-center justify-between mb-4">
@@ -1228,54 +1248,21 @@ const ProfileView = ({ user, onNavigate }) => {
           </div>
         </div>
 
-        {/* Today Section */}
-        <div>
-          <h2 className="text-white text-2xl font-bold mb-4">Today</h2>
-          <p className="text-gray-400 mb-6">Remaining time: {hours}:{minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}</p>
-          
-          <div className="space-y-4">
-            {todayTasks.map((task, index) => (
-              <div key={task.id} className="relative">
-                <div className="absolute left-[-20px] top-6 w-4 h-4 bg-slate-600 rounded-full border-2 border-slate-400" />
-                {index < todayTasks.length - 1 && (
-                  <div className="absolute left-[-14px] top-10 w-1 h-16 bg-slate-600" />
-                )}
-                
-                <button
-                  onClick={task.onClick}
-                  className={`w-full bg-gradient-to-r ${task.bgColor} bg-slate-800/50 rounded-xl p-4 text-left hover:scale-105 transition-all duration-300`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-xl">
-                      {task.icon}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-white font-bold text-lg">{task.title}</h3>
-                      <p className="text-gray-300 text-sm">{task.subtitle}</p>
-                    </div>
-                    {task.isCheckbox && (
-                      <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
-                        task.completed ? 'bg-green-500 border-green-500' : 'border-gray-400'
-                      }`}>
-                        {task.completed && <span className="text-white text-sm">✓</span>}
-                      </div>
-                    )}
-                  </div>
-                </button>
-              </div>
-            ))}
+        {/* Remaining Time for Today */}
+        <div className="bg-slate-800/50 rounded-xl p-4">
+          <h3 className="text-white text-lg font-semibold mb-2">Remaining time for Today</h3>
+          <div className="text-center">
+            <div className="text-white text-3xl font-bold">
+              {remainingTime.hours.toString().padStart(2, '0')}:{remainingTime.minutes.toString().padStart(2, '0')}:{remainingTime.seconds.toString().padStart(2, '0')}
+            </div>
+            <p className="text-gray-400 text-sm">Countdown to midnight</p>
           </div>
         </div>
 
-        {/* My Progress Section */}
+        {/* My Progress Section - Simplified */}
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-white text-2xl font-bold">My progress</h2>
-            <button className="text-white">
-              <span className="text-xl">↗️</span>
-            </button>
-          </div>
-
+          <h2 className="text-white text-2xl font-bold mb-4">My progress</h2>
+          
           {/* Live Time Counter */}
           <div className="bg-slate-800/50 rounded-xl p-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
@@ -1300,32 +1287,517 @@ const ProfileView = ({ user, onNavigate }) => {
                 <div className="text-gray-400 text-sm">seconds</div>
               </div>
             </div>
+            {relapseDate && (
+              <div className="mt-3 text-center">
+                <p className="text-red-400 text-sm">
+                  Last relapse: {relapseDate.toLocaleDateString()} at {relapseDate.toLocaleTimeString()}
+                </p>
+              </div>
+            )}
           </div>
+        </div>
 
-          {/* Progress Cards */}
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="bg-slate-800/50 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-yellow-400">$</span>
-                <span className="text-gray-300 text-sm">Money (£)</span>
+        {/* Habit Tracking Section - Replaces Today */}
+        <div>
+          <h2 className="text-white text-2xl font-bold mb-4">Habit Tracking</h2>
+          
+          <div className="space-y-4">
+            {/* Stay Hydrated Button */}
+            <button
+              onClick={() => setShowWaterModal(true)}
+              className="w-full bg-gradient-to-r from-blue-500/20 to-blue-600/20 bg-slate-800/50 rounded-xl p-4 text-left hover:scale-105 transition-all duration-300"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-xl">
+                  💧
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white font-bold text-lg">Stay hydrated</h3>
+                  <p className="text-gray-300 text-sm">
+                    {dailyWater > 0 ? `${dailyWater} glasses today` : 'Tap to log water intake'}
+                  </p>
+                </div>
+                <div className="text-blue-400 text-2xl">→</div>
               </div>
-              <div className="text-white text-2xl font-bold">17</div>
-            </div>
-            <div className="bg-slate-800/50 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-red-400">🚭</span>
-                <span className="text-gray-300 text-sm">Cigarettes</span>
+            </button>
+
+            {/* Breathing Exercise Button */}
+            <button
+              onClick={() => setShowBreathingModal(true)}
+              className="w-full bg-gradient-to-r from-purple-500/20 to-purple-600/20 bg-slate-800/50 rounded-xl p-4 text-left hover:scale-105 transition-all duration-300"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-xl">
+                  🫁
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white font-bold text-lg">Complete breathing exercise</h3>
+                  <p className="text-gray-300 text-sm">
+                    {dailyBreathing ? 'Completed! Stay calm!' : 'Tap to start 4-cycle breathing'}
+                  </p>
+                </div>
+                <div className="text-purple-400 text-2xl">→</div>
               </div>
-              <div className="text-white text-2xl font-bold">40</div>
-            </div>
+            </button>
+
+            {/* Mood Tracking Button */}
+            <button
+              onClick={() => setShowMoodModal(true)}
+              className="w-full bg-gradient-to-r from-green-500/20 to-green-600/20 bg-slate-800/50 rounded-xl p-4 text-left hover:scale-105 transition-all duration-300"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-xl">
+                  🌤️
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white font-bold text-lg">Mood tracking</h3>
+                  <p className="text-gray-300 text-sm">
+                    {dailyMood ? `You feel ${dailyMood.name.toLowerCase()}` : 'How do you feel today?'}
+                  </p>
+                </div>
+                <div className="text-green-400 text-2xl">→</div>
+              </div>
+            </button>
           </div>
+        </div>
+
+        {/* This Week's Battle Plan */}
+        <div>
+          <h2 className="text-white text-2xl font-bold mb-4">This Week's Battle Plan</h2>
+          
+          <button
+            onClick={() => setShowTriggerModal(true)}
+            className="w-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 bg-slate-800/50 rounded-xl p-4 text-left hover:scale-105 transition-all duration-300"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-xl">
+                🛡️
+              </div>
+              <div className="flex-1">
+                <h3 className="text-white font-bold text-lg">Trigger defense planning</h3>
+                <p className="text-gray-300 text-sm">
+                  {scheduledTriggers.length > 0 ? `${scheduledTriggers.length} triggers planned` : 'Plan your trigger defense strategy'}
+                </p>
+              </div>
+              <div className="text-orange-400 text-2xl">→</div>
+            </div>
+          </button>
+        </div>
+
+        {/* Benefits Monitor */}
+        <div>
+          <h2 className="text-white text-2xl font-bold mb-4">Benefits Monitor</h2>
+          
+          <div className="bg-slate-800/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-yellow-400">$</span>
+              <span className="text-gray-300 text-sm">Money saved</span>
+            </div>
+            <div className="text-white text-2xl font-bold">{user?.stats?.moneySaved || 0}</div>
+            <p className="text-gray-400 text-sm mt-1">Work in progress</p>
+          </div>
+        </div>
+
+        {/* Diary Section */}
+        <div>
+          <h2 className="text-white text-2xl font-bold mb-4">Diary</h2>
+          
+          <button
+            onClick={() => setShowDiaryModal(true)}
+            className="w-full bg-gradient-to-r from-indigo-500/20 to-indigo-600/20 bg-slate-800/50 rounded-xl p-4 text-left hover:scale-105 transition-all duration-300"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-xl">
+                📅
+              </div>
+              <div className="flex-1">
+                <h3 className="text-white font-bold text-lg">Monthly overview</h3>
+                <p className="text-gray-300 text-sm">View your progress and daily activities</p>
+              </div>
+              <div className="text-indigo-400 text-2xl">→</div>
+            </div>
+          </button>
         </div>
       </div>
 
-      <AffirmationModal 
-        isOpen={showAffirmation} 
-        onClose={() => setShowAffirmation(false)} 
+      {/* Modals */}
+      <WaterModal 
+        isOpen={showWaterModal} 
+        onClose={() => setShowWaterModal(false)}
+        onConfirm={handleWaterIntake}
+        currentWater={dailyWater}
       />
+      
+      <BreathingModal 
+        isOpen={showBreathingModal} 
+        onClose={() => setShowBreathingModal(false)}
+        onComplete={handleBreathingComplete}
+      />
+      
+      <MoodModal 
+        isOpen={showMoodModal} 
+        onClose={() => setShowMoodModal(false)}
+        onSelect={handleMoodSelect}
+        selectedMood={dailyMood}
+      />
+      
+      <TriggerModal 
+        isOpen={showTriggerModal} 
+        onClose={() => setShowTriggerModal(false)}
+        onSchedule={handleTriggerSchedule}
+        scheduledTriggers={scheduledTriggers}
+      />
+      
+      <DiaryModal 
+        isOpen={showDiaryModal} 
+        onClose={() => setShowDiaryModal(false)}
+        selectedDate={selectedDate}
+        onDateSelect={setSelectedDate}
+        dailyData={{
+          water: dailyWater,
+          mood: dailyMood,
+          breathing: dailyBreathing,
+          relapseDate
+        }}
+      />
+    </div>
+  );
+};
+
+// Modal Components for Profile
+const WaterModal = ({ isOpen, onClose, onConfirm, currentWater }) => {
+  const [waterInput, setWaterInput] = useState(currentWater);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-700">
+        <div className="text-center mb-6">
+          <h3 className="text-xl font-bold text-white mb-2">💧 Water Intake</h3>
+          <p className="text-gray-300 text-sm">How many glasses of water today?</p>
+        </div>
+        
+        <div className="mb-6">
+          <input
+            type="number"
+            min="0"
+            max="20"
+            value={waterInput}
+            onChange={(e) => setWaterInput(parseInt(e.target.value) || 0)}
+            className="w-full bg-slate-700 text-white text-center text-2xl font-bold py-4 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+            placeholder="0"
+          />
+          <p className="text-gray-400 text-sm text-center mt-2">0-20 glasses</p>
+        </div>
+        
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(waterInput)}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const BreathingModal = ({ isOpen, onClose, onComplete }) => {
+  const [currentCycle, setCurrentCycle] = useState(1);
+  const [currentPhase, setCurrentPhase] = useState('exhale');
+  const [timeLeft, setTimeLeft] = useState(5);
+  const [isActive, setIsActive] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !isActive) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          // Move to next phase
+          if (currentPhase === 'exhale') {
+            setCurrentPhase('inhale');
+            setTimeLeft(4);
+          } else if (currentPhase === 'inhale') {
+            setCurrentPhase('hold');
+            setTimeLeft(7);
+          } else if (currentPhase === 'hold') {
+            if (currentCycle < 4) {
+              setCurrentCycle(prev => prev + 1);
+              setCurrentPhase('exhale');
+              setTimeLeft(5);
+            } else {
+              // Exercise complete
+              setIsActive(false);
+              onComplete();
+              return 0;
+            }
+          }
+          return prev;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isOpen, isActive, currentPhase, currentCycle, onComplete]);
+
+  const startExercise = () => {
+    setIsActive(true);
+    setCurrentCycle(1);
+    setCurrentPhase('exhale');
+    setTimeLeft(5);
+  };
+
+  if (!isOpen) return null;
+
+  const getPhaseText = () => {
+    switch (currentPhase) {
+      case 'exhale': return 'Exhale, empty lungs';
+      case 'inhale': return 'Inhale quietly through nose';
+      case 'hold': return 'Hold your breath';
+      default: return '';
+    }
+  };
+
+  const getCircleSize = () => {
+    switch (currentPhase) {
+      case 'exhale': return 'w-32 h-32';
+      case 'inhale': return 'w-48 h-48';
+      case 'hold': return 'w-40 h-40';
+      default: return 'w-40 h-40';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="text-center text-white">
+        {!isActive ? (
+          <div className="mb-8">
+            <h3 className="text-3xl font-bold mb-4">🫁 Breathing Exercise</h3>
+            <p className="text-xl text-gray-300 mb-6">4-cycle breathing pattern</p>
+            <button
+              onClick={startExercise}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-xl text-xl transition-colors"
+            >
+              Start Exercise
+            </button>
+          </div>
+        ) : (
+          <>
+            <h3 className="text-2xl font-bold mb-4">Cycle {currentCycle}/4</h3>
+            <p className="text-xl text-gray-300 mb-8">{getPhaseText()}</p>
+            
+            <div className="flex justify-center mb-8">
+              <div className={`${getCircleSize()} rounded-full border-4 border-blue-400 flex items-center justify-center transition-all duration-1000 ${
+                currentPhase === 'hold' ? 'animate-pulse' : ''
+              }`}>
+                <span className="text-4xl font-bold">{timeLeft}</span>
+              </div>
+            </div>
+            
+            <button
+              onClick={onClose}
+              className="bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+            >
+              Stop
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const MoodModal = ({ isOpen, onClose, onSelect, selectedMood }) => {
+  const moods = [
+    { name: 'Anger', icon: '😠', color: 'bg-red-500' },
+    { name: 'Disgust', icon: '🤢', color: 'bg-orange-500' },
+    { name: 'Enjoyment', icon: '😊', color: 'bg-yellow-500' },
+    { name: 'Calm', icon: '😌', color: 'bg-blue-500' },
+    { name: 'Fear', icon: '😨', color: 'bg-purple-500' },
+    { name: 'Sadness', icon: '😢', color: 'bg-indigo-500' },
+    { name: 'Indifferent', icon: '😐', color: 'bg-gray-500' }
+  ];
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-700">
+        <div className="text-center mb-6">
+          <h3 className="text-xl font-bold text-white mb-2">🌤️ How do you feel?</h3>
+          <p className="text-gray-300 text-sm">Select your current mood</p>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {moods.map((mood) => (
+            <button
+              key={mood.name}
+              onClick={() => onSelect(mood)}
+              className={`p-4 rounded-xl text-center transition-all duration-300 hover:scale-105 ${
+                selectedMood?.name === mood.name ? 'ring-2 ring-blue-400' : 'bg-slate-700 hover:bg-slate-600'
+              }`}
+            >
+              <div className={`w-12 h-12 ${mood.color} rounded-full flex items-center justify-center text-2xl mx-auto mb-2`}>
+                {mood.icon}
+              </div>
+              <p className="text-white font-semibold">{mood.name}</p>
+            </button>
+          ))}
+        </div>
+        
+        <button
+          onClick={onClose}
+          className="w-full bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const TriggerModal = ({ isOpen, onClose, onSchedule, scheduledTriggers }) => {
+  const [selectedDay, setSelectedDay] = useState('');
+  const [selectedTrigger, setSelectedTrigger] = useState('');
+  const [selectedTime, setSelectedTime] = useState('12:00');
+
+  const triggerTypes = [
+    'Social event',
+    'Drinks',
+    'High-stress event',
+    'Social pressure'
+  ];
+
+  const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-700">
+        <div className="text-center mb-6">
+          <h3 className="text-xl font-bold text-white mb-2">🛡️ Trigger Defense Planning</h3>
+          <p className="text-gray-300 text-sm">Schedule your trigger defense strategy</p>
+        </div>
+        
+        <div className="space-y-4 mb-6">
+          <div>
+            <label className="block text-white text-sm font-semibold mb-2">Day of the week</label>
+            <select
+              value={selectedDay}
+              onChange={(e) => setSelectedDay(e.target.value)}
+              className="w-full bg-slate-700 text-white p-3 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Select a day</option>
+              {weekDays.map(day => (
+                <option key={day} value={day}>{day}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-white text-sm font-semibold mb-2">Trigger type</label>
+            <select
+              value={selectedTrigger}
+              onChange={(e) => setSelectedTrigger(e.target.value)}
+              className="w-full bg-slate-700 text-white p-3 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Select trigger type</option>
+              {triggerTypes.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-white text-sm font-semibold mb-2">Time</label>
+            <input
+              type="time"
+              value={selectedTime}
+              onChange={(e) => setSelectedTime(e.target.value)}
+              className="w-full bg-slate-700 text-white p-3 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+        </div>
+        
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              if (selectedDay && selectedTrigger && selectedTime) {
+                onSchedule(selectedDay, selectedTrigger, selectedTime);
+              }
+            }}
+            disabled={!selectedDay || !selectedTrigger || !selectedTime}
+            className="flex-1 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-600 text-white font-bold py-3 rounded-lg transition-colors disabled:cursor-not-allowed"
+          >
+            Schedule
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DiaryModal = ({ isOpen, onClose, selectedDate, onDateSelect, dailyData }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-700">
+        <div className="text-center mb-6">
+          <h3 className="text-xl font-bold text-white mb-2">📅 Daily Summary</h3>
+          <p className="text-gray-300 text-sm">Your activities and progress</p>
+        </div>
+        
+        <div className="space-y-4 mb-6">
+          <div className="bg-slate-700 rounded-lg p-4">
+            <h4 className="text-white font-semibold mb-2">💧 Water Intake</h4>
+            <p className="text-gray-300">{dailyData.water} glasses</p>
+          </div>
+          
+          <div className="bg-slate-700 rounded-lg p-4">
+            <h4 className="text-white font-semibold mb-2">🌤️ Mood</h4>
+            <p className="text-gray-300">{dailyData.mood ? dailyData.mood.name : 'Not logged'}</p>
+          </div>
+          
+          <div className="bg-slate-700 rounded-lg p-4">
+            <h4 className="text-white font-semibold mb-2">🫁 Breathing Exercise</h4>
+            <p className="text-gray-300">{dailyData.breathing ? '✓ Completed' : '✗ Not completed'}</p>
+          </div>
+          
+          {dailyData.relapseDate && (
+            <div className="bg-red-900/50 rounded-lg p-4 border border-red-500">
+              <h4 className="text-red-300 font-semibold mb-2">⚠️ Relapse</h4>
+              <p className="text-red-300">
+                {dailyData.relapseDate.toLocaleDateString()} at {dailyData.relapseDate.toLocaleTimeString()}
+              </p>
+            </div>
+          )}
+        </div>
+        
+        <button
+          onClick={onClose}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors"
+        >
+          Close
+        </button>
+      </div>
     </div>
   );
 };
@@ -1405,9 +1877,11 @@ const App = () => {
     heroName: 'HealthGuardian Emma',
     stats: {
       streakDays: Math.floor(Math.random() * 5) + 1, // Random streak for variety
-      addictionLevel: 5,
-      willpower: 8,
-      motivation: 9,
+      addictionLevel: 50, // Scaled to 100-point system
+      willpower: 80, // Scaled to 100-point system
+      motivation: 90, // Scaled to 100-point system
+      cravingResistance: 85, // For Mental Strength calculation
+      triggerDefense: 75, // Scaled to 100-point system
       moneySaved: Math.floor(Math.random() * 30) + 10,
       experiencePoints: Math.floor(Math.random() * 100) + 20
     },
