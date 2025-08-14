@@ -38,7 +38,10 @@ const OnboardingFlow = ({ onComplete }) => {
     archetype: '',
     avatar: null,
     avatarSeed: Math.random().toString(36).substring(7),
-    // New fields for stats calculation
+    // New fields for enhanced stats calculation
+    triggers: [],
+    dailyPatterns: [],
+    copingStrategies: [],
     vapePodsPerWeek: 0,
     nicotineStrength: '',
     quitAttempts: '',
@@ -55,6 +58,143 @@ const OnboardingFlow = ({ onComplete }) => {
     { id: 'HEALTH_WARRIOR', name: 'The Health Warrior', description: 'Focused on physical and mental wellness', color: 'bg-green-500', icon: Heart },
     { id: 'MONEY_SAVER', name: 'The Money Saver', description: 'Motivated by financial freedom', color: 'bg-yellow-500', icon: DollarSign }
   ];
+
+  // New options for enhanced onboarding
+  const triggerOptions = [
+    'Stress/anxiety',
+    'Social situations',
+    'Boredom',
+    'After meals',
+    'Drinking alcohol',
+    'Work breaks',
+    'Driving'
+  ];
+
+  const dailyPatternOptions = [
+    'Morning routine',
+    'Work breaks',
+    'After meals',
+    'Evening wind-down',
+    'Social events',
+    'Throughout the day'
+  ];
+
+  const copingStrategyOptions = [
+    'Breathing exercises',
+    'Nicotine replacement therapy',
+    'Exercise/physical activity',
+    'Distraction techniques',
+    'Nothing - this is new to me'
+  ];
+
+  // Enhanced stat calculation algorithm
+  const calculateInitialStats = () => {
+    console.log('Calculating stats with userData:', userData);
+    
+    // ADDICTION (Scale 30-100)
+    let addictionScore = 40; // Base
+
+    // Pods per week
+    if (userData.vapePodsPerWeek <= 1) addictionScore += 5;
+    else if (userData.vapePodsPerWeek <= 3) addictionScore += 15;
+    else if (userData.vapePodsPerWeek <= 5) addictionScore += 25;
+    else if (userData.vapePodsPerWeek <= 7) addictionScore += 35;
+    else addictionScore += 40;
+
+    // Nicotine strength - extract number from "3mg" format
+    const nicotineStr = userData.nicotineStrength || '';
+    const nicotine = parseInt(nicotineStr.replace('mg', '')) || 0;
+    if (nicotine <= 5) addictionScore += 0;
+    else if (nicotine <= 11) addictionScore += 10;
+    else if (nicotine <= 20) addictionScore += 20;
+    else addictionScore += 25;
+
+    // Daily pattern
+    if (userData.dailyPatterns.includes("Throughout the day")) addictionScore += 20;
+    else if (userData.dailyPatterns.length > 2) addictionScore += 10;
+    else addictionScore += 0;
+
+    addictionScore = Math.min(addictionScore, 100);
+
+    // MENTAL STRENGTH (Scale 10-80)
+    let mentalScore = 25; // Base
+
+    // Confidence level
+    if (userData.confidence >= 9) mentalScore += 35;
+    else if (userData.confidence >= 7) mentalScore += 25;
+    else if (userData.confidence >= 4) mentalScore += 15;
+    else mentalScore += 0;
+
+    // Previous attempts
+    if (userData.quitAttempts === "first") mentalScore += 15;
+    else if (parseInt(userData.quitAttempts) <= 3) mentalScore += 10;
+    else mentalScore += 5;
+
+    // Coping strategies
+    if (userData.copingStrategies.length >= 3) mentalScore += 15;
+    else if (userData.copingStrategies.length >= 1) mentalScore += 10;
+    else mentalScore += 0;
+
+    mentalScore = Math.min(mentalScore, 80);
+
+    // MOTIVATION (Scale 20-90)
+    let motivationScore = 35; // Base
+
+    // Archetype bonus
+    const archetypeBonus = {
+      "DETERMINED": 20,
+      "HEALTH_WARRIOR": 15,
+      "SOCIAL_FIGHTER": 15,
+      "MONEY_SAVER": 10
+    };
+    motivationScore += archetypeBonus[userData.archetype] || 0;
+
+    // Confidence level
+    if (userData.confidence >= 8) motivationScore += 25;
+    else if (userData.confidence >= 5) motivationScore += 15;
+    else motivationScore += 0;
+
+    // Previous attempts pattern
+    if (userData.quitAttempts === "first") motivationScore += 10;
+    else if (parseInt(userData.quitAttempts) <= 3) motivationScore += 5;
+    else motivationScore += 15;
+
+    motivationScore = Math.min(motivationScore, 90);
+
+    // TRIGGER DEFENSE (Scale 5-60)
+    let triggerScore = 15; // Base
+
+    // Number of triggers
+    if (userData.triggers.length <= 2) triggerScore += 15;
+    else if (userData.triggers.length <= 4) triggerScore += 10;
+    else triggerScore += 5;
+
+    // Trigger complexity
+    const hasAlcohol = userData.triggers.includes("Drinking alcohol");
+    const hasSocial = userData.triggers.includes("Social situations");
+    if (hasAlcohol && hasSocial) triggerScore += 0; // High-risk combo
+    else if (userData.triggers.length > 3) triggerScore += 5; // Mixed categories
+    else triggerScore += 10; // Single category
+
+    // Coping experience
+    if (userData.copingStrategies.length >= 3) triggerScore += 25;
+    else if (userData.copingStrategies.length >= 1) triggerScore += 15;
+    else triggerScore += 0;
+
+    // Daily routine spread
+    if (userData.dailyPatterns.includes("Throughout the day")) triggerScore += 0;
+    else if (userData.dailyPatterns.length > 2) triggerScore += 5;
+    else triggerScore += 10;
+
+    triggerScore = Math.min(triggerScore, 60);
+
+    return {
+      addictionLevel: addictionScore,
+      mentalStrength: mentalScore,
+      motivation: motivationScore,
+      triggerDefense: triggerScore
+    };
+  };
 
   // Photo capture and processing
   const handlePhotoCapture = (event) => {
@@ -136,67 +276,57 @@ const OnboardingFlow = ({ onComplete }) => {
     setTimeout(() => setIsGeneratingAvatar(false), 500);
   };
 
-  // Calculate initial stats based on user answers (100-point scale)
-  const calculateInitialStats = () => {
-    let addictionLevel = 50; // Base level (50/100)
-    let willpower = 70; // Base level (70/100)
-    let motivation = 60; // Base level (60/100)
-    let cravingResistance = 65; // Base level (65/100)
-    let triggerDefense = 60; // Base level (60/100)
-    
-    // Vape pods per week impact
-    if (userData.vapePodsPerWeek > 10) addictionLevel += 30;
-    else if (userData.vapePodsPerWeek > 5) addictionLevel += 20;
-    else if (userData.vapePodsPerWeek > 2) addictionLevel += 10;
-    
-    // Nicotine strength impact
-    const strengthMap = { '3mg': 0, '6mg': 10, '12mg': 20, '18mg': 20, '20mg': 30, '50mg': 40 };
-    addictionLevel += strengthMap[userData.nicotineStrength] || 0;
-    
-    // Quit attempts impact
-    const attemptsMap = { 
-      'This is my first attempt': 0, 
-      'Once before': 10, 
-      'Twice before': 20, 
-      '3-5 times': 30, 
-      'More than 5 times': 40 
-    };
-    const attemptsImpact = attemptsMap[userData.quitAttempts] || 0;
-    addictionLevel += attemptsImpact;
-    willpower -= Math.min(attemptsImpact, 30); // Reduce willpower for multiple attempts
-    cravingResistance -= Math.min(attemptsImpact, 20); // Reduce craving resistance for multiple attempts
-    
-    // Confidence impact
-    motivation += Math.max(0, (userData.confidence - 5) * 10); // Higher confidence = higher motivation
-    
-    // Clamp values to 1-100 range (enforce 100-point cap)
-    addictionLevel = Math.min(100, Math.max(1, addictionLevel));
-    willpower = Math.min(100, Math.max(1, willpower));
-    motivation = Math.min(100, Math.max(1, motivation));
-    cravingResistance = Math.min(100, Math.max(1, cravingResistance));
-    triggerDefense = Math.min(100, Math.max(1, triggerDefense));
-    
-    return { addictionLevel, willpower, motivation, cravingResistance, triggerDefense };
-  };
+
 
   const handleNext = () => {
-    if (step < 6) { // Updated to 6 steps
+    if (step < 10) { // Updated to 10 steps
       setStep(step + 1);
     } else {
       // Complete onboarding with calculated stats
-      const stats = calculateInitialStats();
-      const finalUserData = {
-        ...userData,
-        stats: {
-          ...stats,
-          streakDays: 0,
-          moneySaved: 0,
-          experiencePoints: 0
-        },
-        achievements: [],
-        quitDate: new Date()
-      };
-      onComplete(finalUserData);
+      try {
+        console.log('Completing onboarding with userData:', userData);
+        const stats = calculateInitialStats();
+        console.log('Calculated stats:', stats);
+        
+        const finalUserData = {
+          ...userData,
+          stats: {
+            ...stats,
+            streakDays: 0,
+            moneySaved: 0,
+            experiencePoints: 0
+          },
+          achievements: [],
+          quitDate: new Date()
+        };
+        
+        console.log('Final user data:', finalUserData);
+        onComplete(finalUserData);
+      } catch (error) {
+        console.error('Error completing onboarding:', error);
+        // Fallback stats if calculation fails
+        const fallbackStats = {
+          addictionLevel: 50,
+          mentalStrength: 50,
+          motivation: 50,
+          triggerDefense: 30
+        };
+        
+        const finalUserData = {
+          ...userData,
+          stats: {
+            ...fallbackStats,
+            streakDays: 0,
+            moneySaved: 0,
+            experiencePoints: 0
+          },
+          achievements: [],
+          quitDate: new Date()
+        };
+        
+        console.log('Using fallback stats:', finalUserData);
+        onComplete(finalUserData);
+      }
     }
   };
 
@@ -211,9 +341,13 @@ const OnboardingFlow = ({ onComplete }) => {
       case 1: return userData.heroName.trim().length > 0;
       case 2: return userData.archetype !== '';
       case 3: return userData.avatar !== null;
-      case 4: return userData.vapePodsPerWeek > 0;
-      case 5: return userData.nicotineStrength !== '';
-      case 6: return userData.quitAttempts !== '' && userData.confidence > 0;
+      case 4: return userData.triggers.length > 0;
+      case 5: return userData.dailyPatterns.length > 0;
+      case 6: return userData.copingStrategies.length > 0;
+      case 7: return userData.vapePodsPerWeek > 0;
+      case 8: return userData.nicotineStrength !== '';
+      case 9: return userData.quitAttempts !== '';
+      case 10: return userData.confidence > 0;
       default: return false;
     }
   };
@@ -234,16 +368,16 @@ const OnboardingFlow = ({ onComplete }) => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
       <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 max-w-md w-full shadow-2xl border border-slate-700">
         {/* Progress Bar */}
-        <div className="flex justify-between items-center mb-8">
-          {[1, 2, 3, 4, 5, 6].map((stepNumber) => (
-            <div key={stepNumber} className="flex items-center">
+        <div className="flex justify-between items-center mb-8 overflow-x-auto">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((stepNumber) => (
+            <div key={stepNumber} className="flex items-center flex-shrink-0">
               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                 stepNumber <= step ? 'bg-blue-500 text-white' : 'bg-slate-600 text-gray-400'
               }`}>
                 {stepNumber < step ? '✓' : stepNumber}
               </div>
-              {stepNumber < 6 && (
-                <div className={`w-8 h-1 mx-1 ${
+              {stepNumber < 10 && (
+                <div className={`w-4 h-1 mx-1 ${
                   stepNumber < step ? 'bg-blue-500' : 'bg-slate-600'
                 }`} />
               )}
@@ -418,110 +552,237 @@ const OnboardingFlow = ({ onComplete }) => {
           </div>
         )}
 
-        {/* Step 4: Vape Pods Question */}
+        {/* Step 4: Trigger Identification */}
         {step === 4 && (
+          <div className="text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-2xl">🎯</span>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-4">Trigger Identification</h1>
+            <p className="text-gray-300 mb-6">What usually makes you want to vape? (Select all that apply)</p>
+            
+            <div className="space-y-3 mb-6">
+              {triggerOptions.map((trigger) => (
+                <button
+                  key={trigger}
+                  onClick={() => {
+                    setUserData(prev => ({
+                      ...prev,
+                      triggers: prev.triggers.includes(trigger)
+                        ? prev.triggers.filter(t => t !== trigger)
+                        : [...prev.triggers, trigger]
+                    }));
+                  }}
+                  className={`w-full p-4 rounded-lg border-2 transition-all duration-300 text-left ${
+                    userData.triggers.includes(trigger)
+                      ? 'border-blue-500 bg-blue-500/20'
+                      : 'border-slate-600 bg-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                      userData.triggers.includes(trigger) ? 'bg-blue-500 border-blue-500' : 'border-gray-400'
+                    }`}>
+                      {userData.triggers.includes(trigger) && <span className="text-white text-sm">✓</span>}
+                    </div>
+                    <span className="text-white font-semibold">{trigger}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: Daily Routine */}
+        {step === 5 && (
+          <div className="text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-2xl">📅</span>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-4">Daily Routine</h1>
+            <p className="text-gray-300 mb-6">When do you vape most? (Select all that apply)</p>
+            
+            <div className="space-y-3 mb-6">
+              {dailyPatternOptions.map((pattern) => (
+                <button
+                  key={pattern}
+                  onClick={() => {
+                    setUserData(prev => ({
+                      ...prev,
+                      dailyPatterns: prev.dailyPatterns.includes(pattern)
+                        ? prev.dailyPatterns.filter(p => p !== pattern)
+                        : [...prev.dailyPatterns, pattern]
+                    }));
+                  }}
+                  className={`w-full p-4 rounded-lg border-2 transition-all duration-300 text-left ${
+                    userData.dailyPatterns.includes(pattern)
+                      ? 'border-blue-500 bg-blue-500/20'
+                      : 'border-slate-600 bg-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                      userData.dailyPatterns.includes(pattern) ? 'bg-blue-500 border-blue-500' : 'border-gray-400'
+                    }`}>
+                      {userData.dailyPatterns.includes(pattern) && <span className="text-white text-sm">✓</span>}
+                    </div>
+                    <span className="text-white font-semibold">{pattern}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Step 6: Coping Experience */}
+        {step === 6 && (
+          <div className="text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-teal-400 to-teal-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-2xl">🛡️</span>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-4">Coping Experience</h1>
+            <p className="text-gray-300 mb-6">Have you tried any of these strategies before? (Select all that apply)</p>
+            
+            <div className="space-y-3 mb-6">
+              {copingStrategyOptions.map((strategy) => (
+                <button
+                  key={strategy}
+                  onClick={() => {
+                    setUserData(prev => ({
+                      ...prev,
+                      copingStrategies: prev.copingStrategies.includes(strategy)
+                        ? prev.copingStrategies.filter(s => s !== strategy)
+                        : [...prev.copingStrategies, strategy]
+                    }));
+                  }}
+                  className={`w-full p-4 rounded-lg border-2 transition-all duration-300 text-left ${
+                    userData.copingStrategies.includes(strategy)
+                      ? 'border-blue-500 bg-blue-500/20'
+                      : 'border-slate-600 bg-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                      userData.copingStrategies.includes(strategy) ? 'bg-blue-500 border-blue-500' : 'border-gray-400'
+                    }`}>
+                      {userData.copingStrategies.includes(strategy) && <span className="text-white text-sm">✓</span>}
+                    </div>
+                    <span className="text-white font-semibold">{strategy}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Step 7: Vape Usage */}
+        {step === 7 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🚬</span>
             </div>
             <h1 className="text-2xl font-bold text-white mb-4">Vape Usage</h1>
-            <p className="text-gray-300 mb-6">Help us understand your current usage patterns.</p>
+            <p className="text-gray-300 mb-6">How many vape pods do you typically use per week?</p>
             
             <div className="mb-6">
-              <label className="block text-white text-sm font-medium mb-2 text-left">
-                How many vape pods do you use per week?
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="50"
-                value={userData.vapePodsPerWeek}
-                onChange={(e) => setUserData(prev => ({ ...prev, vapePodsPerWeek: parseInt(e.target.value) || 0 }))}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                placeholder="Enter number of pods"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Step 5: Nicotine Strength Question */}
-        {step === 5 && (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-2xl">⚡</span>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-4">Nicotine Strength</h1>
-            <p className="text-gray-300 mb-6">Select your current nicotine level.</p>
-            
-            <div className="mb-6">
-              <label className="block text-white text-sm font-medium mb-2 text-left">
-                What's your nicotine strength (mg)?
-              </label>
               <select
-                value={userData.nicotineStrength}
-                onChange={(e) => setUserData(prev => ({ ...prev, nicotineStrength: e.target.value }))}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                value={userData.vapePodsPerWeek}
+                onChange={(e) => setUserData(prev => ({ ...prev, vapePodsPerWeek: parseFloat(e.target.value) || 0 }))}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
               >
-                <option value="">Select strength</option>
-                <option value="3mg">3mg (very low)</option>
-                <option value="6mg">6mg</option>
-                <option value="12mg">12mg</option>
-                <option value="18mg">18mg</option>
-                <option value="20mg">20mg</option>
-                <option value="50mg">50mg (ultra high)</option>
+                <option value="">Select pods per week</option>
+                <option value="0.5">0.5 pods</option>
+                <option value="1">1 pod</option>
+                <option value="2">2 pods</option>
+                <option value="3">3 pods</option>
+                <option value="4">4 pods</option>
+                <option value="5">5 pods</option>
+                <option value="6">6 pods</option>
+                <option value="7">7 pods</option>
+                <option value="8">8+ pods</option>
               </select>
             </div>
           </div>
         )}
 
-        {/* Step 6: Quit Attempts & Confidence Questions */}
-        {step === 6 && (
+        {/* Step 8: Nicotine Strength */}
+        {step === 8 && (
+          <div className="text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-2xl">⚡</span>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-4">Nicotine Strength</h1>
+            <p className="text-gray-300 mb-6">What nicotine strength do you typically use?</p>
+            
+            <div className="mb-6">
+              <select
+                value={userData.nicotineStrength}
+                onChange={(e) => setUserData(prev => ({ ...prev, nicotineStrength: e.target.value }))}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                <option value="">Select nicotine strength</option>
+                <option value="3mg">3mg</option>
+                <option value="6mg">6mg</option>
+                <option value="12mg">12mg</option>
+                <option value="18mg">18mg</option>
+                <option value="20mg">20mg</option>
+                <option value="50mg">50mg</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Step 9: Previous Attempts */}
+        {step === 9 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-2xl">📚</span>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-4">Previous Attempts</h1>
+            <p className="text-gray-300 mb-6">How many times have you tried to quit before?</p>
+            
+            <div className="mb-6">
+              <select
+                value={userData.quitAttempts}
+                onChange={(e) => setUserData(prev => ({ ...prev, quitAttempts: e.target.value }))}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Select option</option>
+                <option value="first">This is my first attempt</option>
+                <option value="1">Once before</option>
+                <option value="2">Twice before</option>
+                <option value="3">3-5 times</option>
+                <option value="5">More than 5 times</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Step 10: Confidence Level */}
+        {step === 10 && (
+          <div className="text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🎯</span>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-4">Quit History & Confidence</h1>
-            <p className="text-gray-300 mb-6">Tell us about your quit journey.</p>
+            <h1 className="text-2xl font-bold text-white mb-4">Confidence Level</h1>
+            <p className="text-gray-300 mb-6">How confident are you this time? (1-10 scale)</p>
             
-            <div className="space-y-6">
-              <div>
-                <label className="block text-white text-sm font-medium mb-2 text-left">
-                  How many times have you tried to quit before?
-                </label>
-                <select
-                  value={userData.quitAttempts}
-                  onChange={(e) => setUserData(prev => ({ ...prev, quitAttempts: e.target.value }))}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select option</option>
-                  <option value="This is my first attempt">This is my first attempt</option>
-                  <option value="Once before">Once before</option>
-                  <option value="Twice before">Twice before</option>
-                  <option value="3-5 times">3-5 times</option>
-                  <option value="More than 5 times">More than 5 times</option>
-                </select>
+            <div className="mb-6">
+              <div className="flex items-center gap-4">
+                <span className="text-gray-400 text-sm">1</span>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={userData.confidence}
+                  onChange={(e) => setUserData(prev => ({ ...prev, confidence: parseInt(e.target.value) }))}
+                  className="flex-1 h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer slider"
+                />
+                <span className="text-gray-400 text-sm">10</span>
               </div>
-              
-              <div>
-                <label className="block text-white text-sm font-medium mb-2 text-left">
-                  How confident are you this time? (1-10 scale)
-                </label>
-                <div className="flex items-center gap-4">
-                  <span className="text-gray-400 text-sm">1</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={userData.confidence}
-                    onChange={(e) => setUserData(prev => ({ ...prev, confidence: parseInt(e.target.value) }))}
-                    className="flex-1 h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-gray-400 text-sm">10</span>
-                </div>
-                <div className="text-center mt-2">
-                  <span className="text-white font-bold text-lg">{userData.confidence}</span>
-                  <span className="text-gray-400 text-sm ml-2">/ 10</span>
-                </div>
+              <div className="text-center mt-2">
+                <span className="text-white font-bold text-lg">{userData.confidence}</span>
+                <span className="text-gray-400 text-sm ml-2">/ 10</span>
               </div>
             </div>
           </div>
@@ -547,7 +808,7 @@ const OnboardingFlow = ({ onComplete }) => {
                 : 'bg-slate-700 text-gray-400 cursor-not-allowed'
             }`}
           >
-            {step === 6 ? 'Start Journey' : 'Next'}
+            {step === 10 ? 'Start Journey' : 'Next'}
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -739,6 +1000,18 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
   }
 
   const archetype = ARCHETYPES[user.archetype];
+  if (!archetype) {
+    console.error('Invalid archetype:', user.archetype, 'Available:', Object.keys(ARCHETYPES));
+    return (
+      <div className="w-80 h-[520px] bg-slate-800 rounded-xl border-2 border-red-400 p-4 text-white text-center mx-auto flex items-center justify-center">
+        <div>
+          <h3 className="text-red-400 mb-2">Invalid Archetype</h3>
+          <p className="text-gray-300 text-sm">{user.archetype}</p>
+        </div>
+      </div>
+    );
+  }
+  
   const rarity = RARITIES[calculateRarity(user.stats.streakDays)];
   const ArchetypeIcon = archetype.icon;
   
@@ -747,19 +1020,12 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
     .sort(() => 0.5 - Math.random())
     .slice(0, 4);
   
-  // Generate random stats for new attributes if they don't exist (scaled to 100)
-  const triggerDefense = user.stats.triggerDefense || Math.floor(Math.random() * 100) + 1;
+  // Use new stat structure from enhanced onboarding
+  const addictionLevel = user.stats.addictionLevel || 50;
+  const mentalStrength = user.stats.mentalStrength || 50;
+  const motivation = user.stats.motivation || 50;
+  const triggerDefense = user.stats.triggerDefense || 30;
   const nemesisVictories = user.stats.nemesisVictories || `${Math.floor(Math.random() * 8) + 1}W-${Math.floor(Math.random() * 5) + 1}L`;
-  
-  // Scale existing stats from 10 to 100 and enforce 100-point cap
-  const scaledAddictionLevel = Math.min(100, (user.stats.addictionLevel || 0) * 10);
-  const scaledWillpower = Math.min(100, Math.round((user.stats.willpower || 0) * 10));
-  const scaledMotivation = Math.min(100, (user.stats.motivation || 0) * 10);
-  
-  // Calculate Mental Strength (Willpower + Craving Resistance merged)
-  const mentalStrength = Math.min(100, Math.round(
-    (scaledWillpower + (user.stats.cravingResistance || Math.floor(Math.random() * 100) + 1)) / 2
-  ));
   
   const handleInfoClick = (statType) => {
     setCurrentStatType(statType);
@@ -799,7 +1065,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
         <div className="space-y-2 mb-4">
           <StatBar 
             label="Addiction" 
-            value={scaledAddictionLevel} 
+            value={addictionLevel} 
             max={100} 
             color="bg-red-500" 
             statType={!isNemesis ? "addiction" : null}
@@ -815,7 +1081,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
           />
           <StatBar 
             label="Motivation" 
-            value={scaledMotivation} 
+            value={motivation} 
             max={100} 
             color="bg-green-500" 
             statType={!isNemesis ? "motivation" : null}
@@ -1893,18 +2159,58 @@ const App = () => {
   const handleOnboardingComplete = (userData) => {
     console.log('Onboarding completed with user data:', userData);
     
-    setUser(userData);
-    setHasCompletedOnboarding(true);
-    setCurrentView('arena');
-    
-    // Save user data to local storage
-    localStorage.setItem('quitCoachUser', JSON.stringify(userData));
-    
-    console.log('State updated:', {
-      user: userData,
-      hasCompletedOnboarding: true,
-      currentView: 'arena'
-    });
+    try {
+      // Validate user data before setting state
+      if (!userData || !userData.heroName || !userData.stats) {
+        throw new Error('Invalid user data received from onboarding');
+      }
+      
+      console.log('Setting app state...');
+      setUser(userData);
+      setHasCompletedOnboarding(true);
+      setCurrentView('arena');
+      
+      // Save user data to local storage
+      localStorage.setItem('quitCoachUser', JSON.stringify(userData));
+      
+      console.log('State updated successfully:', {
+        user: userData,
+        hasCompletedOnboarding: true,
+        currentView: 'arena'
+      });
+      
+      // Force a re-render
+      setTimeout(() => {
+        console.log('Forcing re-render...');
+        setUser({...userData});
+      }, 100);
+      
+    } catch (error) {
+      console.error('Error in handleOnboardingComplete:', error);
+      // Fallback to basic user data
+      const fallbackUser = {
+        heroName: userData?.heroName || 'Hero',
+        archetype: userData?.archetype || 'The Determined',
+        avatar: userData?.avatar || generateAvatar('fallback'),
+        stats: {
+          addictionLevel: 50,
+          mentalStrength: 50,
+          motivation: 50,
+          triggerDefense: 30,
+          streakDays: 0,
+          moneySaved: 0,
+          experiencePoints: 0
+        },
+        achievements: [],
+        quitDate: new Date()
+      };
+      
+      console.log('Using fallback user data:', fallbackUser);
+      setUser(fallbackUser);
+      setHasCompletedOnboarding(true);
+      setCurrentView('arena');
+      localStorage.setItem('quitCoachUser', JSON.stringify(fallbackUser));
+    }
   };
 
   const handleResetApp = () => {
@@ -1960,25 +2266,55 @@ const App = () => {
 
       {/* Onboarding Flow */}
       {currentView === 'onboarding' && (
-        <OnboardingFlow onComplete={handleOnboardingComplete} />
+        <div>
+          {console.log('Rendering OnboardingFlow')}
+          <OnboardingFlow onComplete={handleOnboardingComplete} />
+        </div>
       )}
 
       {/* Main App Content - Only show after onboarding */}
       {hasCompletedOnboarding && user ? (
         <>
+          {console.log('Main app rendering with user:', user, 'view:', currentView)}
           {currentView === 'arena' && (
-            <ArenaView 
-              user={user}
-              nemesis={mockNemesis}
-              onBackToLogin={handleBackToLogin}
-            />
+            <div>
+              {console.log('Rendering ArenaView with user:', user)}
+              {(() => {
+                try {
+                  return (
+                    <ArenaView 
+                      user={user}
+                      nemesis={mockNemesis}
+                      onBackToLogin={handleBackToLogin}
+                    />
+                  );
+                } catch (error) {
+                  console.error('Error rendering ArenaView:', error);
+                  return (
+                    <div className="text-white text-center p-8">
+                      <h2 className="text-2xl font-bold mb-4">Error Loading Arena</h2>
+                      <p className="text-gray-300 mb-4">{error.message}</p>
+                      <button 
+                        onClick={() => window.location.reload()} 
+                        className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700"
+                      >
+                        Reload App
+                      </button>
+                    </div>
+                  );
+                }
+              })()}
+            </div>
           )}
           
           {currentView === 'profile' && (
-            <ProfileView 
-              user={user}
-              onNavigate={handleNavigate}
-            />
+            <div>
+              {console.log('Rendering ProfileView with user:', user)}
+              <ProfileView 
+                user={user}
+                onNavigate={handleNavigate}
+              />
+            </div>
           )}
           
           {currentView === 'mood-selector' && (
@@ -2006,10 +2342,12 @@ const App = () => {
               {!hasCompletedOnboarding ? 'Onboarding not completed' : 'User data missing'}
             </p>
             <p className="text-gray-300">Current view: {currentView}</p>
+            <p className="text-gray-300">User data: {user ? JSON.stringify(user, null, 2) : 'None'}</p>
             <button 
               onClick={() => {
                 console.log('Debug button clicked');
                 console.log('Current state:', { hasCompletedOnboarding, user, currentView });
+                console.log('User data:', user);
               }}
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
