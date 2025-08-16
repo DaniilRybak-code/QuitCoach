@@ -884,6 +884,7 @@ const InfoModal = ({ isOpen, onClose, statType }) => {
         "• Successful craving resistance: +1 point",
         "• Using app during cravings every 3 times with no relapse: +1 point",
         "• Completing breathing exercises 3 days straight: +1 point",
+        "• Staying hydrated for 3 days straight: +1 point",
         "• Milestone bonuses: First 7 days +5 points, 30 days +10 points, 90 days +15 points",
         "",
         "What decreases it:",
@@ -1015,10 +1016,92 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
   const rarity = RARITIES[calculateRarity(user.stats.streakDays)];
   const ArchetypeIcon = archetype.icon;
   
-  // Generate random special features for the user
-  const userSpecialFeatures = SPECIAL_FEATURES
-    .sort(() => 0.5 - Math.random())
-    .slice(0, 4);
+  // Generate and store personalized special features based on onboarding responses
+  const getPersonalizedFeatures = (user) => {
+    // Check if features are already stored for this user
+    const storedFeaturesKey = `specialFeatures_${user.heroName || user.id || 'default'}`;
+    let storedFeatures = localStorage.getItem(storedFeaturesKey);
+    
+    if (storedFeatures) {
+      return JSON.parse(storedFeatures);
+    }
+    
+    // Generate new features based on onboarding responses
+    const features = [];
+    
+    // Map trigger identification answers to features
+    if (user.triggers && user.triggers.length > 0) {
+      user.triggers.forEach(trigger => {
+        switch(trigger) {
+          case 'Stress/anxiety':
+            features.push('Stress Vaper');
+            break;
+          case 'Social situations':
+            features.push('Social Vaper');
+            break;
+          case 'Boredom':
+            features.push('Boredom Vaper');
+            break;
+          case 'After meals':
+            features.push('Habit Vaper');
+            break;
+          case 'Drinking alcohol':
+            features.push('Party Vaper');
+            break;
+          case 'Work breaks':
+            features.push('Break Vaper');
+            break;
+          case 'Driving':
+            features.push('Driving Vaper');
+            break;
+        }
+      });
+    }
+    
+    // Map daily routine answers to features
+    if (user.dailyPatterns && user.dailyPatterns.length > 0) {
+      user.dailyPatterns.forEach(pattern => {
+        switch(pattern) {
+          case 'Morning routine':
+            features.push('Morning Struggler');
+            break;
+          case 'Evening wind-down':
+            features.push('Late Night Lurker');
+            break;
+          case 'Throughout the day':
+            features.push('All-Day Addict');
+            break;
+        }
+      });
+    }
+    
+    // Map coping experience answers to features
+    if (user.copingStrategies && user.copingStrategies.length > 0) {
+      if (user.copingStrategies.includes('Nothing - this is new to me')) {
+        features.push('First Timer');
+      } else if (user.copingStrategies.length > 2) {
+        features.push('Veteran Quitter');
+      }
+    }
+    
+    // If we don't have enough personalized features, add some generic ones
+    while (features.length < 4) {
+      const genericFeatures = ['Nicotine Fighter', 'Health Seeker', 'Freedom Chaser', 'Willpower Warrior'];
+      const randomFeature = genericFeatures[Math.floor(Math.random() * genericFeatures.length)];
+      if (!features.includes(randomFeature)) {
+        features.push(randomFeature);
+      }
+    }
+    
+    const finalFeatures = features.slice(0, 4);
+    
+    // Store features permanently for this user
+    localStorage.setItem(storedFeaturesKey, JSON.stringify(finalFeatures));
+    
+    return finalFeatures;
+  };
+  
+  const userSpecialFeatures = getPersonalizedFeatures(user);
   
   // Use new stat structure from enhanced onboarding
   const addictionLevel = user.stats.addictionLevel || 50;
@@ -1113,7 +1196,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
           </div>
         </div>
         
-        {/* Battle Info */}
+        {/* Battle Info - Only Streak and Cravings Resisted */}
         <div className="bg-black/30 rounded-lg p-3 space-y-2 mb-3 backdrop-blur-sm">
           <div className="flex justify-between text-white text-sm">
             <span className="text-gray-300">Streak:</span>
@@ -1123,12 +1206,11 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
             </span>
           </div>
           <div className="flex justify-between text-white text-sm">
-            <span className="text-gray-300">Saved:</span>
-            <span className="font-bold text-yellow-400">£{(user.stats.moneySaved || 0).toFixed(0)}</span>
-          </div>
-          <div className="flex justify-between text-white text-sm">
-            <span className="text-gray-300">Record:</span>
-            <span className="font-bold text-purple-400">{nemesisVictories}</span>
+            <span className="text-gray-300">Cravings Resisted:</span>
+            <span className="font-bold text-blue-400 flex items-center gap-1">
+              {user.stats.cravingsResisted || 0}
+              <span className="text-xs">💪</span>
+            </span>
           </div>
         </div>
         
@@ -1197,10 +1279,235 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
   );
 };
 
-// Arena View
+// Arena View with Enhanced Battle Algorithm and Recommendations
 const ArenaView = ({ user, nemesis, onBackToLogin }) => {
-  const battleStatus = user.stats.streakDays > nemesis.stats.streakDays ? 'WINNING' : 
-                     user.stats.streakDays === nemesis.stats.streakDays ? 'TIED' : 'LOSING';
+  const [showBattleInfo, setShowBattleInfo] = useState(false);
+  
+  // Calculate real-time stats based on user behavior data
+  const calculateRealTimeStats = (user) => {
+    const stats = { ...user.stats };
+    
+    // Calculate streak days from relapse data
+    const lastRelapse = localStorage.getItem('quitCoachRelapseDate');
+    if (lastRelapse) {
+      const relapseDate = new Date(lastRelapse);
+      const now = new Date();
+      const timeDiff = now.getTime() - relapseDate.getTime();
+      const daysSinceRelapse = Math.floor(timeDiff / (1000 * 3600 * 24));
+      stats.streakDays = daysSinceRelapse;
+    } else {
+      // If no relapse, calculate from quit date
+      const quitDate = user.quitDate ? new Date(user.quitDate) : new Date();
+      const now = new Date();
+      const timeDiff = now.getTime() - quitDate.getTime();
+      stats.streakDays = Math.floor(timeDiff / (1000 * 3600 * 24));
+    }
+    
+    // Get cravings resisted from localStorage
+    const cravingWins = parseInt(localStorage.getItem('cravingWins') || 0);
+    stats.cravingsResisted = cravingWins;
+    
+    // Calculate hydration streak for Mental Strength bonus
+    const today = new Date().toDateString();
+    let hydrationStreak = 0;
+    for (let i = 0; i < 7; i++) {
+      const checkDate = new Date();
+      checkDate.setDate(checkDate.getDate() - i);
+      const checkDateStr = checkDate.toDateString();
+      const waterData = localStorage.getItem(`water_${checkDateStr}`);
+      if (waterData && parseInt(waterData) > 0) {
+        hydrationStreak++;
+      } else {
+        break;
+      }
+    }
+    
+    // Apply hydration bonus to Mental Strength if streak >= 3
+    if (hydrationStreak >= 3) {
+      stats.mentalStrength = Math.min(80, (stats.mentalStrength || 50) + 1);
+    }
+    
+    return stats;
+  };
+  
+  // Get real-time stats for both user and nemesis
+  const realTimeUserStats = calculateRealTimeStats(user);
+  const realTimeNemesisStats = calculateRealTimeStats(nemesis);
+  
+  // Enhanced battle algorithm: (Mental Strength × 1.5) + (Motivation × 1.0) + (Trigger Defense × 1.2) - (Addiction × 1.0)
+  const calculateBattleScore = (player) => {
+    const mentalStrength = player.stats.mentalStrength || 50;
+    const motivation = player.stats.motivation || 50;
+    const triggerDefense = player.stats.triggerDefense || 30;
+    const addiction = player.stats.addictionLevel || 50;
+    
+    return (mentalStrength * 1.5) + (motivation * 1.0) + (triggerDefense * 1.2) - (addiction * 1.0);
+  };
+  
+  const playerScore = calculateBattleScore({ ...user, stats: realTimeUserStats });
+  const nemesisScore = calculateBattleScore({ ...nemesis, stats: realTimeNemesisStats });
+  
+  const battleStatus = playerScore > nemesisScore ? 'WINNING' : 
+                     playerScore === nemesisScore ? 'TIED' : 'LOSING';
+  
+  // Calculate intelligent recommendations based on stat efficiency and gaps
+  const calculateRecommendations = () => {
+    if (battleStatus === 'WINNING') return null;
+    
+    const scoreDifference = nemesisScore - playerScore + 1; // +1 to ensure we actually win
+    const recommendations = [];
+    
+    // Get current player and nemesis stats
+    const currentMentalStrength = realTimeUserStats.mentalStrength || 50;
+    const currentMotivation = realTimeUserStats.motivation || 50;
+    const currentTriggerDefense = realTimeUserStats.triggerDefense || 30;
+    const currentAddiction = realTimeUserStats.addictionLevel || 50;
+    
+    const nemesisMentalStrength = realTimeNemesisStats.mentalStrength || 50;
+    const nemesisMotivation = realTimeNemesisStats.motivation || 50;
+    const nemesisTriggerDefense = realTimeNemesisStats.triggerDefense || 30;
+    const nemesisAddiction = realTimeNemesisStats.addictionLevel || 50;
+    
+    // Calculate stat gaps vs nemesis
+    const mentalStrengthGap = nemesisMentalStrength - currentMentalStrength;
+    const motivationGap = nemesisMotivation - currentMotivation;
+    const triggerDefenseGap = nemesisTriggerDefense - currentTriggerDefense;
+    const addictionGap = currentAddiction - nemesisAddiction; // Player addiction - nemesis addiction
+    
+    // Calculate stat efficiency (score increase per point)
+    const statEfficiency = [
+      { name: 'Mental Strength', multiplier: 1.5, gap: mentalStrengthGap, current: currentMentalStrength, max: 100 },
+      { name: 'Trigger Defense', multiplier: 1.2, gap: motivationGap, current: currentTriggerDefense, max: 100 },
+      { name: 'Motivation', multiplier: 1.0, gap: motivationGap, current: currentMotivation, max: 100 },
+      { name: 'Addiction', multiplier: 1.0, gap: addictionGap, current: currentAddiction, min: 0, isReduction: true }
+    ];
+    
+    // Sort by efficiency (highest multiplier first, then by gap size)
+    statEfficiency.sort((a, b) => {
+      if (a.multiplier !== b.multiplier) return b.multiplier - a.multiplier;
+      return Math.abs(b.gap) - Math.abs(a.gap);
+    });
+    
+    // Generate specific recommendations
+    statEfficiency.forEach(stat => {
+      if (stat.isReduction) {
+        // For addiction, calculate how much we can reduce
+        const maxReduction = Math.min(stat.current - stat.min, 50); // Cap at 50 point reduction
+        const scoreImpact = maxReduction * stat.multiplier;
+        
+        if (scoreImpact > 0) {
+          recommendations.push({
+            stat: stat.name,
+            change: maxReduction,
+            action: getAddictionAction(maxReduction),
+            priority: scoreImpact,
+            canWin: scoreImpact >= scoreDifference,
+            isReduction: true,
+            efficiency: stat.multiplier,
+            gap: stat.gap
+          });
+        }
+      } else {
+        // For other stats, calculate how much we can increase
+        const maxIncrease = Math.min(stat.max - stat.current, 50); // Cap at 50 point increase
+        const scoreImpact = maxIncrease * stat.multiplier;
+        
+        if (scoreImpact > 0) {
+          recommendations.push({
+            stat: stat.name,
+            change: maxIncrease,
+            action: getStatAction(stat.name, maxIncrease),
+            priority: scoreImpact,
+            canWin: scoreImpact >= scoreDifference,
+            efficiency: stat.multiplier,
+            gap: stat.gap
+          });
+        }
+      }
+    });
+    
+    // Sort by priority (highest score impact first)
+    recommendations.sort((a, b) => b.priority - a.priority);
+    
+    // If no single stat can win alone, create combination strategy
+    if (recommendations.length > 0 && !recommendations.some(r => r.canWin)) {
+      const bestStrategy = createCombinationStrategy(recommendations, scoreDifference);
+      if (bestStrategy) {
+        recommendations.unshift(bestStrategy);
+      }
+    }
+    
+    return recommendations.slice(0, 3); // Return top 3 recommendations
+  };
+  
+  // Helper function to get specific actions for addiction reduction
+  const getAddictionAction = (reduction) => {
+    if (reduction >= 30) return 'Stay completely clean, avoid all triggers, use nicotine replacement therapy';
+    if (reduction >= 20) return 'Reduce nicotine intake significantly, avoid high-risk situations';
+    if (reduction >= 10) return 'Cut back on vaping frequency, identify and avoid main triggers';
+    return 'Small reduction in nicotine intake, practice trigger avoidance';
+  };
+  
+  // Helper function to get specific actions for stat improvements
+  const getStatAction = (statName, increase) => {
+    switch(statName) {
+      case 'Mental Strength':
+        if (increase >= 30) return 'Complete daily breathing exercises, stay hydrated for 3+ days, practice meditation';
+        if (increase >= 20) return 'Complete breathing exercises 3 days straight, stay hydrated, use stress management';
+        return 'Complete breathing exercises, stay hydrated for 3 days straight';
+      
+      case 'Motivation':
+        if (increase >= 30) return 'Log progress daily, share achievements weekly, track money saved milestones';
+        if (increase >= 20) return 'Log progress 5+ days per week, share achievements, track progress';
+        return 'Regular logging (3+ days per week), share achievements, reach milestones';
+      
+      case 'Trigger Defense':
+        if (increase >= 30) return 'Survive multiple trigger situations, pre-plan for all triggers, update trigger list';
+        if (increase >= 20) return 'Survive trigger situations, pre-plan for known triggers, practice coping';
+        return 'Survive trigger situations without vaping, pre-plan for known triggers';
+      
+      default:
+        return 'Focus on improving this stat through consistent practice';
+    }
+  };
+  
+  // Create combination strategy when no single stat can win
+  const createCombinationStrategy = (recommendations, scoreNeeded) => {
+    let totalScore = 0;
+    const strategy = [];
+    
+    for (const rec of recommendations) {
+      if (totalScore >= scoreNeeded) break;
+      
+      const remainingNeeded = scoreNeeded - totalScore;
+      const contribution = Math.min(rec.priority, remainingNeeded);
+      
+      if (contribution > 0) {
+        strategy.push({
+          stat: rec.stat,
+          change: Math.ceil(contribution / rec.efficiency),
+          contribution: contribution
+        });
+        totalScore += contribution;
+      }
+    }
+    
+    if (strategy.length > 0) {
+      return {
+        stat: 'Combination Strategy',
+        change: Math.ceil(scoreNeeded),
+        action: `Focus on: ${strategy.map(s => `${s.stat} (+${s.change})`).join(', ')}`,
+        priority: totalScore,
+        canWin: totalScore >= scoreNeeded,
+        isCombination: true,
+        strategy: strategy
+      };
+    }
+    
+    return null;
+  };
+  
+  const recommendations = calculateRecommendations();
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8 pb-20">
@@ -1215,20 +1522,31 @@ const ArenaView = ({ user, nemesis, onBackToLogin }) => {
           </button>
         </div>
         
-        {/* Battle Status */}
+        {/* Enhanced Battle Status with Info Button */}
         <div className="text-center mb-8">
-          <div className={`inline-flex items-center px-6 py-3 rounded-full font-bold text-lg shadow-xl ${
-            battleStatus === 'WINNING' ? 'bg-green-600' : 
-            battleStatus === 'TIED' ? 'bg-yellow-600' : 'bg-red-600'
-          } text-white`}>
-            {battleStatus === 'WINNING' ? (
-              <Trophy className="w-5 h-5 mr-2" />
-            ) : battleStatus === 'TIED' ? (
-              <Shield className="w-5 h-5 mr-2" />
-            ) : (
-              <span className="mr-2">📉</span>
-            )}
-            You are {battleStatus}
+          <div className="inline-flex items-center gap-4">
+            <div className={`inline-flex items-center px-6 py-3 rounded-full font-bold text-lg shadow-xl ${
+              battleStatus === 'WINNING' ? 'bg-green-600' : 
+              battleStatus === 'TIED' ? 'bg-yellow-600' : 'bg-red-600'
+            } text-white`}>
+              {battleStatus === 'WINNING' ? (
+                <Trophy className="w-5 h-5 mr-2" />
+              ) : battleStatus === 'TIED' ? (
+                <Shield className="w-5 h-5 mr-2" />
+              ) : (
+                <span className="mr-2">📉</span>
+              )}
+              You are {battleStatus}
+            </div>
+            
+            {/* Info Button */}
+            <button
+              onClick={() => setShowBattleInfo(true)}
+              className="w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+              title="Battle Algorithm Info"
+            >
+              <span className="text-lg font-bold">i</span>
+            </button>
           </div>
         </div>
         
@@ -1258,7 +1576,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin }) => {
         {/* Enhanced Battle Cards */}
         <div className="flex flex-row items-center justify-center gap-12 mb-8 w-full max-w-7xl mx-auto">
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
-            <TradingCard user={user} showComparison={false} nemesisUser={nemesis} />
+            <TradingCard user={{ ...user, stats: realTimeUserStats }} showComparison={false} nemesisUser={nemesis} />
           </div>
           
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
@@ -1271,10 +1589,103 @@ const ArenaView = ({ user, nemesis, onBackToLogin }) => {
           </div>
           
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
-            <TradingCard user={nemesis} isNemesis={true} showComparison={false} nemesisUser={user} />
+            <TradingCard user={{ ...nemesis, stats: realTimeNemesisStats }} isNemesis={true} showComparison={false} nemesisUser={user} />
           </div>
         </div>
+        
+        {/* Battle Recommendations Section - Only show when losing */}
+        {battleStatus === 'LOSING' && recommendations && recommendations.length > 0 && (
+          <div className="max-w-4xl mx-auto bg-slate-800/50 rounded-xl p-6 border border-slate-700">
+            <h3 className="text-xl font-bold text-white mb-4 text-center">🎯 Quick Win Strategy</h3>
+            <div className="space-y-4">
+              {recommendations.slice(0, 3).map((rec, index) => (
+                <div key={index} className="bg-slate-700/50 rounded-lg p-4 border-l-4 border-blue-500">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="text-white font-semibold mb-2">
+                        {rec.isReduction ? (
+                          <>🎯 Reduce your {rec.stat} by {rec.change} points!</>
+                        ) : rec.isCombination ? (
+                          <>🎯 Best Strategy: Improve multiple stats by {rec.change} total points!</>
+                        ) : rec.isMajor ? (
+                          <>🎯 Major improvement needed: {rec.change} total points!</>
+                        ) : (
+                          <>🎯 Increase your {rec.stat} by {rec.change} points!</>
+                        )}
+                      </h4>
+                      <p className="text-gray-300 text-sm">
+                        💡 {rec.action}
+                      </p>
+                    </div>
+                    <div className={`font-bold text-2xl ml-4 ${
+                      rec.isReduction ? 'text-green-400' : 
+                      rec.isCombination ? 'text-purple-400' : 
+                      rec.isMajor ? 'text-orange-400' : 
+                      'text-blue-400'
+                    }`}>
+                      {rec.isReduction ? '-' : '+'}{rec.change}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="text-center mt-4">
+              <p className="text-gray-400 text-sm">
+                Focus on the top recommendation for the fastest path to victory!
+              </p>
+            </div>
+          </div>
+        )}
       </div>
+      
+      {/* Battle Algorithm Info Modal */}
+      {showBattleInfo && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-xl p-6 max-w-md w-full border border-slate-600">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-white">Battle Algorithm</h3>
+              <button
+                onClick={() => setShowBattleInfo(false)}
+                className="text-gray-400 hover:text-white text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="space-y-4 text-sm">
+              <div>
+                <h4 className="text-white font-semibold mb-2">Formula:</h4>
+                <p className="text-gray-300 font-mono">
+                  (Mental Strength × 1.5) + (Motivation × 1.0) + (Trigger Defense × 1.2) - (Addiction × 1.0)
+                </p>
+              </div>
+              
+              <div>
+                <h4 className="text-white font-semibold mb-2">Your Score:</h4>
+                <p className="text-green-400 font-mono">
+                  ({realTimeUserStats.mentalStrength || 50} × 1.5) + ({realTimeUserStats.motivation || 50} × 1.0) + ({realTimeUserStats.triggerDefense || 30} × 1.2) - ({realTimeUserStats.addictionLevel || 50} × 1.0) = {playerScore.toFixed(1)}
+                </p>
+              </div>
+              
+              <div>
+                <h4 className="text-white font-semibold mb-2">Nemesis Score:</h4>
+                <p className="text-red-400 font-mono">
+                  ({realTimeNemesisStats.mentalStrength || 50} × 1.5) + ({realTimeNemesisStats.motivation || 50} × 1.0) + ({realTimeNemesisStats.triggerDefense || 30} × 1.2) - ({realTimeNemesisStats.addictionLevel || 50} × 1.0) = {nemesisScore.toFixed(1)}
+                </p>
+              </div>
+              
+              <div className="bg-slate-700/50 rounded-lg p-3">
+                <p className="text-gray-300 text-xs">
+                  <strong>Mental Strength (×1.5):</strong> Your resilience and coping ability<br/>
+                  <strong>Motivation (×1.0):</strong> Your drive to quit<br/>
+                  <strong>Trigger Defense (×1.2):</strong> Your ability to resist triggers<br/>
+                  <strong>Addiction (×1.0):</strong> Your nicotine dependence level
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
