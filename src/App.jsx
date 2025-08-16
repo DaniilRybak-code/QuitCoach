@@ -1286,37 +1286,12 @@ const ArenaView = ({ user, nemesis, onBackToLogin }) => {
 
 // Game Modal Component with Simple, Working Games
 const GameModal = ({ gameType, onClose }) => {
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
   const [score, setScore] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Timer countdown
-  useEffect(() => {
-    if (timeLeft <= 0) {
-      // Save game progress
-      const totalGameTime = parseInt(localStorage.getItem('totalGameTime') || 0);
-      localStorage.setItem('totalGameTime', totalGameTime + 5); // 5 minutes played
-      
-      const bestScore = parseInt(localStorage.getItem('bestGameScore') || 0);
-      if (score > bestScore) {
-        localStorage.setItem('bestGameScore', score);
-      }
-      
-      setTimeout(() => onClose(), 3000);
-      return;
-    }
-    
-    if (!isPaused) {
-      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [timeLeft, isPaused, onClose, score]);
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+
+
 
   const togglePause = () => setIsPaused(!isPaused);
 
@@ -1515,6 +1490,7 @@ const GameModal = ({ gameType, onClose }) => {
   const ClickCounterGame = () => {
     const [clicks, setClicks] = useState(0);
     const [clicksPerSecond, setClicksPerSecond] = useState(0);
+    const [startTime] = useState(Date.now());
     
     const handleClick = () => {
       setClicks(prev => prev + 1);
@@ -1522,26 +1498,26 @@ const GameModal = ({ gameType, onClose }) => {
     
     // Calculate clicks per second for motivation
     useEffect(() => {
-      if (timeLeft < 300) { // Only calculate after first second
-        setClicksPerSecond((clicks / (300 - timeLeft)).toFixed(1));
+      const elapsed = (Date.now() - startTime) / 1000;
+      if (elapsed > 0) {
+        setClicksPerSecond((clicks / elapsed).toFixed(1));
       }
-    }, [clicks, timeLeft]);
+    }, [clicks, startTime]);
     
     return (
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Click as Fast as You Can!</h2>
-        <div className="text-lg text-gray-700 mb-2">Total Clicks: {clicks}</div>
-        <div className="text-lg text-gray-700 mb-2">Clicks/Second: {clicksPerSecond}</div>
-        <div className="text-lg text-gray-700 mb-4">Time Left: {Math.floor(timeLeft/60)}:{(timeLeft%60).toString().padStart(2,'0')}</div>
+                  <div className="text-lg text-gray-700 mb-2">Total Clicks: {clicks}</div>
+          <div className="text-lg text-gray-700 mb-2">Clicks/Second: {clicksPerSecond}</div>
         <button 
           onClick={handleClick}
           className="w-48 h-48 text-2xl font-bold bg-orange-500 hover:bg-orange-600 border-none rounded-full text-white cursor-pointer transition-colors shadow-lg"
         >
           CLICK ME!
         </button>
-        <div className="mt-4 text-sm text-gray-600">
-          Challenge: Try to reach 500 clicks in 5 minutes!
-        </div>
+                  <div className="mt-4 text-sm text-gray-600">
+            Challenge: Try to reach 500 clicks!
+          </div>
       </div>
     );
   };
@@ -1760,11 +1736,8 @@ const GameModal = ({ gameType, onClose }) => {
             {gameType === 'tetris' && '🧩 Tetris Game'}
             {gameType === 'puzzle' && '🧠 Memory Puzzle'}
           </h3>
-          <div className="flex items-center gap-4">
-            <div className="text-lg font-bold text-red-600">
-              ⏱️ {formatTime(timeLeft)}
-            </div>
-            <button
+                      <div className="flex items-center gap-4">
+              <button
               onClick={togglePause}
               className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm"
             >
@@ -1805,7 +1778,7 @@ const GameModal = ({ gameType, onClose }) => {
         
         <div className="mt-4 text-center">
           <p className="text-sm text-gray-500">
-            Game will automatically close in {formatTime(timeLeft)} to help you stay focused
+            Games now run without time limits - play as long as you need!
           </p>
         </div>
       </div>
@@ -1902,28 +1875,28 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin }) => {
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border-2 border-orange-200">
           <div className="text-center">
             <h2 className="text-2xl font-bold text-orange-600 mb-4">🎮 Distract Yourself</h2>
-            <p className="text-gray-600 mb-6">
-              Play a quick game to take your mind off the craving
-            </p>
-            <button
-              onClick={() => handleMiniGame('snake')}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-lg mb-4"
-            >
-              🐍 Play Snake (5 min)
-            </button>
-            <button
-              onClick={() => handleMiniGame('tetris')}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-lg mb-4"
-            >
-              🧩 Play Tetris (5 min)
-            </button>
-            
-            <button
-              onClick={() => handleMiniGame('click-counter')}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-lg mb-4"
-            >
-              ⚡ Click Counter (5 min)
-            </button>
+                          <p className="text-gray-600 mb-6">
+                Play games to take your mind off the craving
+              </p>
+                          <button
+                onClick={() => handleMiniGame('snake')}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-lg mb-4"
+              >
+                🐍 Play Snake
+              </button>
+              <button
+                onClick={() => handleMiniGame('tetris')}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-lg mb-4"
+              >
+                🧩 Play Tetris
+              </button>
+              
+              <button
+                onClick={() => handleMiniGame('click-counter')}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-lg mb-4"
+              >
+                ⚡ Click Counter
+              </button>
 
           </div>
         </div>
