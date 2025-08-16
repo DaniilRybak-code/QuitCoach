@@ -1302,6 +1302,7 @@ const GameModal = ({ gameType, onClose }) => {
     const [direction, setDirection] = useState({x: 1, y: 0});
     const [food, setFood] = useState({x: 10, y: 10});
     const [gameOver, setGameOver] = useState(false);
+    const [snakeScore, setSnakeScore] = useState(0);
 
     // Handle keyboard input
     useEffect(() => {
@@ -1312,7 +1313,7 @@ const GameModal = ({ gameType, onClose }) => {
           setDirection({x: 1, y: 0});
           setFood({x: 10, y: 10});
           setGameOver(false);
-          setScore(0);
+          setSnakeScore(0);
           return;
         }
 
@@ -1364,12 +1365,11 @@ const GameModal = ({ gameType, onClose }) => {
           
           console.log('New head position:', newHead, 'Direction:', direction);
           
-          // Check wall collision (15x15 grid)
-          if (newHead.x < 0 || newHead.x >= 15 || newHead.y < 0 || newHead.y >= 15) {
-            console.log('Wall collision at:', newHead);
-            setGameOver(true);
-            return prevSnake;
-          }
+          // Wraparound mode - snake appears on opposite side
+          if (newHead.x < 0) newHead.x = 14;
+          if (newHead.x >= 15) newHead.x = 0;
+          if (newHead.y < 0) newHead.y = 14;
+          if (newHead.y >= 15) newHead.y = 0;
           
           // Check self collision (excluding the tail since it will move)
           const bodyCollision = prevSnake.slice(0, -1).some(segment => 
@@ -1387,7 +1387,7 @@ const GameModal = ({ gameType, onClose }) => {
           
           if (ateFood) {
             console.log('Food eaten at:', newHead);
-            setScore(s => s + 10);
+            setSnakeScore(s => s + 10);
             // Generate new food
             setFood({
               x: Math.floor(Math.random() * 15),
@@ -1462,7 +1462,7 @@ const GameModal = ({ gameType, onClose }) => {
           style={{imageRendering: 'pixelated'}}
         />
         <div className="mt-4">
-          <p className="text-lg font-bold text-gray-800">Score: {score}</p>
+          <p className="text-lg font-bold text-gray-800">Score: {snakeScore}</p>
           <p className="text-sm text-gray-600">Use arrow keys to control the snake</p>
           {gameOver && (
             <div className="mt-2">
