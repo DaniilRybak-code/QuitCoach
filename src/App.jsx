@@ -1295,11 +1295,12 @@ const GameModal = ({ gameType, onClose }) => {
 
   const togglePause = () => setIsPaused(!isPaused);
 
-  // Simple, Working Snake Game
+  // Snake Game with Movement-First Direction Processing
   const SnakeGame = () => {
     const canvasRef = useRef(null);
     const [snake, setSnake] = useState([{x: 7, y: 7}]);
     const [direction, setDirection] = useState({x: 1, y: 0});
+    const [nextDirection, setNextDirection] = useState({x: 1, y: 0}); // Direction for next game tick
     const [food, setFood] = useState({x: 10, y: 10});
     const [gameOver, setGameOver] = useState(false);
     const [snakeScore, setSnakeScore] = useState(0);
@@ -1313,15 +1314,13 @@ const GameModal = ({ gameType, onClose }) => {
       3: Math.round(160 / 1.25 / 1.25)          // Level 3: 102ms (1.25x faster than L2)
     };
     
-    console.log('Speed levels:', LEVEL_SPEEDS); // Should show {1: 160, 2: 128, 3: 102}
-    
     const LEVEL_POINTS = {
       1: 2,  // Level 1: 2 points per food
       2: 5,  // Level 2: 5 points per food
       3: 10  // Level 3: 10 points per food
     };
 
-    // Handle keyboard input
+    // Keyboard input handling - queue direction changes for next game tick
     useEffect(() => {
       const handleKeyPress = (e) => {
         if (gameOver) {
@@ -1329,6 +1328,7 @@ const GameModal = ({ gameType, onClose }) => {
           // Restart game
           setSnake([{x: 7, y: 7}]);
           setDirection({x: 1, y: 0});
+          setNextDirection({x: 1, y: 0});
           setFood({x: 10, y: 10});
           setGameOver(false);
           setSnakeScore(0);
@@ -1339,30 +1339,30 @@ const GameModal = ({ gameType, onClose }) => {
         switch(e.key) {
           case 'ArrowUp':
             e.preventDefault(); // Prevent background scrolling
-            if (direction.y === 0) {
-              console.log('Direction changed to UP');
-              setDirection({x: 0, y: -1});
+            // Queue UP direction for next game tick (prevents 180° reversal)
+            if (direction.y !== 1) { // Only if not currently going DOWN
+              setNextDirection({x: 0, y: -1});
             }
             break;
           case 'ArrowDown':
             e.preventDefault(); // Prevent background scrolling
-            if (direction.y === 0) {
-              console.log('Direction changed to DOWN');
-              setDirection({x: 0, y: 1});
+            // Queue DOWN direction for next game tick (prevents 180° reversal)
+            if (direction.y !== -1) { // Only if not currently going UP
+              setNextDirection({x: 0, y: 1});
             }
             break;
           case 'ArrowLeft':
             e.preventDefault(); // Prevent background scrolling
-            if (direction.x === 0) {
-              console.log('Direction changed to LEFT');
-              setDirection({x: -1, y: 0});
+            // Queue LEFT direction for next game tick (prevents 180° reversal)
+            if (direction.x !== 1) { // Only if not currently going RIGHT
+              setNextDirection({x: -1, y: 0});
             }
             break;
           case 'ArrowRight':
             e.preventDefault(); // Prevent background scrolling
-            if (direction.x === 0) {
-              console.log('Direction changed to RIGHT');
-              setDirection({x: 1, y: 0});
+            // Queue RIGHT direction for next game tick (prevents 180° reversal)
+            if (direction.x !== -1) { // Only if not currently going LEFT
+              setNextDirection({x: 1, y: 0});
             }
             break;
         }
@@ -1372,21 +1372,19 @@ const GameModal = ({ gameType, onClose }) => {
       return () => window.removeEventListener('keydown', handleKeyPress);
     }, [direction, gameOver]);
 
-    // Game loop - FIXED: Proper snake movement without resets
+    // Game loop with movement-first processing to prevent 180-degree self-collision
+    // The key fix: snake ALWAYS moves forward first, then direction changes are applied
     useEffect(() => {
       if (isPaused || gameOver) return;
 
       const gameLoop = setInterval(() => {
         setSnake(prevSnake => {
-          console.log('Snake before move:', prevSnake);
-          
-          // Create new head based on current direction
+          // STEP 1: Move snake head according to CURRENT direction (not queued direction)
+          // This ensures the snake always moves forward to a new position first
           const newHead = {
             x: prevSnake[0].x + direction.x,
             y: prevSnake[0].y + direction.y
           };
-          
-          console.log('New head position:', newHead, 'Direction:', direction);
           
           // Wraparound mode - snake appears on opposite side
           if (newHead.x < 0) newHead.x = 14;
@@ -1400,7 +1398,6 @@ const GameModal = ({ gameType, onClose }) => {
           );
           
           if (bodyCollision) {
-            console.log('Self collision at:', newHead);
             setGameOver(true);
             return prevSnake;
           }
@@ -1408,8 +1405,8 @@ const GameModal = ({ gameType, onClose }) => {
           // Check food collision
           const ateFood = newHead.x === food.x && newHead.y === food.y;
           
+          let newSnake;
           if (ateFood) {
-            console.log('Food eaten at:', newHead);
             setSnakeScore(s => s + LEVEL_POINTS[level]);
             // Generate new food
             setFood({
@@ -1417,20 +1414,28 @@ const GameModal = ({ gameType, onClose }) => {
               y: Math.floor(Math.random() * 15)
             });
             // Snake grows: add new head, keep all body
-            const newSnake = [newHead, ...prevSnake];
-            console.log('Snake after eating food:', newSnake);
-            return newSnake;
+            newSnake = [newHead, ...prevSnake];
           } else {
             // Snake moves: add new head, remove tail
-            const newSnake = [newHead, ...prevSnake.slice(0, -1)];
-            console.log('Snake after moving:', newSnake);
-            return newSnake;
+            newSnake = [newHead, ...prevSnake.slice(0, -1)];
           }
+          
+          // STEP 2: Apply queued direction change for NEXT game tick
+          // This ensures the snake always moves forward first, then changes direction
+          // Only apply direction change if the snake has actually moved to a new position
+          if (nextDirection.x !== direction.x || nextDirection.y !== direction.y) {
+            // Use setTimeout to ensure direction change happens AFTER this game tick completes
+            setTimeout(() => {
+              setDirection(nextDirection);
+            }, 0);
+          }
+          
+          return newSnake;
         });
       }, LEVEL_SPEEDS[level]); // Level-based speed
 
       return () => clearInterval(gameLoop);
-    }, [direction, food, isPaused, gameOver]);
+    }, [direction, nextDirection, food, isPaused, gameOver]);
 
     // Render game
     useEffect(() => {
@@ -1523,6 +1528,27 @@ const GameModal = ({ gameType, onClose }) => {
         />
         <div className="mt-4">
           <p className="text-lg font-bold text-gray-800">Score: {snakeScore} | Level: {level}</p>
+          
+          {/* Direction Indicators */}
+          <div className="flex justify-center gap-4 mb-2 text-sm">
+            <div className="text-gray-600">
+              <span className="font-semibold">Current:</span> 
+              {direction.x === 1 && '→'} 
+              {direction.x === -1 && '←'} 
+              {direction.y === 1 && '↓'} 
+              {direction.y === -1 && '↑'}
+            </div>
+            {nextDirection.x !== direction.x || nextDirection.y !== direction.y ? (
+              <div className="text-blue-600">
+                <span className="font-semibold">Next:</span> 
+                {nextDirection.x === 1 && '→'} 
+                {nextDirection.x === -1 && '←'} 
+                {nextDirection.y === 1 && '↓'} 
+                {nextDirection.y === -1 && '↑'}
+              </div>
+            ) : null}
+          </div>
+          
           <p className="text-sm text-gray-600">Use arrow keys to control the snake</p>
           {gameOver && (
             <div className="mt-2">
@@ -1531,9 +1557,11 @@ const GameModal = ({ gameType, onClose }) => {
                 onClick={() => {
                   setSnake([{x: 7, y: 7}]);
                   setDirection({x: 1, y: 0});
+                  setNextDirection({x: 1, y: 0}); // Reset direction queue
                   setFood({x: 10, y: 10});
                   setGameOver(false);
-                  setScore(0);
+                  setSnakeScore(0);
+                  setLevel(1);
                 }}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
               >
