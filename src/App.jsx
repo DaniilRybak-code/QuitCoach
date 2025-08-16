@@ -1303,40 +1303,63 @@ const GameModal = ({ gameType, onClose }) => {
     const [food, setFood] = useState({x: 10, y: 10});
     const [gameOver, setGameOver] = useState(false);
     const [snakeScore, setSnakeScore] = useState(0);
+    const [level, setLevel] = useState(1);
+    
+    // Level system: Speed and scoring progression
+    const BASE_SPEED = 160; // Level 1 base speed
+    const LEVEL_SPEEDS = {
+      1: 160,                                    // Level 1: 160ms
+      2: Math.round(160 / 1.25),                // Level 2: 128ms (1.25x faster than L1)
+      3: Math.round(160 / 1.25 / 1.25)          // Level 3: 102ms (1.25x faster than L2)
+    };
+    
+    console.log('Speed levels:', LEVEL_SPEEDS); // Should show {1: 160, 2: 128, 3: 102}
+    
+    const LEVEL_POINTS = {
+      1: 2,  // Level 1: 2 points per food
+      2: 5,  // Level 2: 5 points per food
+      3: 10  // Level 3: 10 points per food
+    };
 
     // Handle keyboard input
     useEffect(() => {
       const handleKeyPress = (e) => {
         if (gameOver) {
+          e.preventDefault(); // Prevent any unwanted behavior
           // Restart game
           setSnake([{x: 7, y: 7}]);
           setDirection({x: 1, y: 0});
           setFood({x: 10, y: 10});
           setGameOver(false);
           setSnakeScore(0);
+          setLevel(1);
           return;
         }
 
         switch(e.key) {
           case 'ArrowUp':
+            e.preventDefault(); // Prevent background scrolling
             if (direction.y === 0) {
               console.log('Direction changed to UP');
               setDirection({x: 0, y: -1});
             }
             break;
           case 'ArrowDown':
+            e.preventDefault(); // Prevent background scrolling
             if (direction.y === 0) {
               console.log('Direction changed to DOWN');
               setDirection({x: 0, y: 1});
             }
             break;
           case 'ArrowLeft':
+            e.preventDefault(); // Prevent background scrolling
             if (direction.x === 0) {
               console.log('Direction changed to LEFT');
               setDirection({x: -1, y: 0});
             }
             break;
           case 'ArrowRight':
+            e.preventDefault(); // Prevent background scrolling
             if (direction.x === 0) {
               console.log('Direction changed to RIGHT');
               setDirection({x: 1, y: 0});
@@ -1387,7 +1410,7 @@ const GameModal = ({ gameType, onClose }) => {
           
           if (ateFood) {
             console.log('Food eaten at:', newHead);
-            setSnakeScore(s => s + 10);
+            setSnakeScore(s => s + LEVEL_POINTS[level]);
             // Generate new food
             setFood({
               x: Math.floor(Math.random() * 15),
@@ -1404,7 +1427,7 @@ const GameModal = ({ gameType, onClose }) => {
             return newSnake;
           }
         });
-      }, 300); // Slower for easier control
+      }, LEVEL_SPEEDS[level]); // Level-based speed
 
       return () => clearInterval(gameLoop);
     }, [direction, food, isPaused, gameOver]);
@@ -1454,6 +1477,43 @@ const GameModal = ({ gameType, onClose }) => {
 
     return (
       <div className="text-center">
+        {/* Level Selection */}
+        <div className="mb-4">
+          <div className="flex justify-center gap-2 mb-3">
+            <span className="text-white mr-2 text-sm">Level:</span>
+            {[1, 2, 3].map(lvl => (
+              <button
+                key={lvl}
+                onClick={() => setLevel(lvl)}
+                className={`
+                  px-4 py-2 text-sm font-mono border-2 border-green-500 transition-all
+                  ${level === lvl 
+                    ? 'bg-green-500 text-black' 
+                    : 'bg-green-900 text-green-400'
+                  }
+                  hover:bg-green-600 cursor-pointer
+                `}
+                style={{ minWidth: '80px' }}
+              >
+                <div>Level {lvl}</div>
+                <div className="text-xs mt-1">
+                  {lvl === 1 && 'Normal'}
+                  {lvl === 2 && 'Fast'}
+                  {lvl === 3 && 'Insane'}
+                </div>
+              </button>
+            ))}
+          </div>
+          
+          {/* Level Info */}
+          <div className="text-center text-yellow-400 text-xs mb-3">
+            <div>Speed: {LEVEL_SPEEDS[level]}ms | Points: {LEVEL_POINTS[level]} per food</div>
+            {level === 1 && 'Good for beginners'}
+            {level === 2 && 'For experienced players'}
+            {level === 3 && 'Ultimate challenge'}
+          </div>
+        </div>
+        
         <canvas
           ref={canvasRef}
           width="300"
@@ -1462,7 +1522,7 @@ const GameModal = ({ gameType, onClose }) => {
           style={{imageRendering: 'pixelated'}}
         />
         <div className="mt-4">
-          <p className="text-lg font-bold text-gray-800">Score: {snakeScore}</p>
+          <p className="text-lg font-bold text-gray-800">Score: {snakeScore} | Level: {level}</p>
           <p className="text-sm text-gray-600">Use arrow keys to control the snake</p>
           {gameOver && (
             <div className="mt-2">
