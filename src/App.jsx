@@ -36,7 +36,7 @@ const generateFallbackAvatar = (seed) => {
 };
 
 // Onboarding Flow Component
-const OnboardingFlow = ({ onComplete }) => {
+const OnboardingFlow = ({ onComplete, authUser }) => {
   const [step, setStep] = useState(1);
   const [userData, setUserData] = useState({
     heroName: '',
@@ -239,7 +239,10 @@ const OnboardingFlow = ({ onComplete }) => {
         
         // Convert to data URL
         const animeAvatar = canvas.toDataURL('image/png');
-        setUserData(prev => ({ ...prev, avatar: animeAvatar }));
+        const newData = { ...userData, avatar: animeAvatar };
+        setUserData(newData);
+        // Save to Firebase when photo is processed
+        saveOnboardingStep(newData, 3);
         setIsProcessingPhoto(false);
       };
       
@@ -261,19 +264,25 @@ const OnboardingFlow = ({ onComplete }) => {
     const tryDicebear = async () => {
       try {
         const avatar = generateAvatar(newSeed);
-        setUserData(prev => ({
-          ...prev,
+        const newData = {
+          ...userData,
           avatarSeed: newSeed,
           avatar: avatar
-        }));
+        };
+        setUserData(newData);
+        // Save to Firebase when avatar is generated
+        saveOnboardingStep(newData, 3);
       } catch (error) {
         // Fallback to local generation
         const fallbackAvatar = generateFallbackAvatar(newSeed);
-        setUserData(prev => ({
-          ...prev,
+        const newData = {
+          ...userData,
           avatarSeed: newSeed,
           avatar: fallbackAvatar
-        }));
+        };
+        setUserData(newData);
+        // Save to Firebase when fallback avatar is generated
+        saveOnboardingStep(newData, 3);
       }
     };
     
@@ -283,8 +292,10 @@ const OnboardingFlow = ({ onComplete }) => {
 
 
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step < 10) { // Updated to 10 steps
+      // Save current step data to Firebase before moving to next step
+      await saveOnboardingStep(userData, step);
       setStep(step + 1);
     } else {
       // Complete onboarding with calculated stats
@@ -304,6 +315,9 @@ const OnboardingFlow = ({ onComplete }) => {
           achievements: [],
           quitDate: new Date()
         };
+        
+        // Save final step data to Firebase
+        await saveOnboardingStep(finalUserData, 10);
         
         console.log('Final user data:', finalUserData);
         onComplete(finalUserData);
@@ -328,6 +342,13 @@ const OnboardingFlow = ({ onComplete }) => {
           achievements: [],
           quitDate: new Date()
         };
+        
+        // Try to save fallback data to Firebase
+        try {
+          await saveOnboardingStep(finalUserData, 10);
+        } catch (firebaseError) {
+          console.error('Failed to save fallback data to Firebase:', firebaseError);
+        }
         
         console.log('Using fallback stats:', finalUserData);
         onComplete(finalUserData);
@@ -354,6 +375,35 @@ const OnboardingFlow = ({ onComplete }) => {
       case 9: return userData.quitAttempts !== '';
       case 10: return userData.confidence > 0;
       default: return false;
+    }
+  };
+
+  // Function to save onboarding data to Firebase
+  const saveOnboardingStep = async (stepData, stepNumber) => {
+    if (!authUser) return; // Only save if user is authenticated
+    
+    try {
+      const { ref, set } = await import('firebase/database');
+      const userRef = ref(db, `users/${authUser.uid}/onboarding`);
+      
+      // Save the current step data
+      await set(ref(db, `users/${authUser.uid}/onboarding/step${stepNumber}`), {
+        ...stepData,
+        stepNumber,
+        timestamp: Date.now()
+      });
+      
+      // Also save to a general onboarding progress
+      await set(ref(db, `users/${authUser.uid}/onboarding/progress`), {
+        currentStep: stepNumber,
+        completedSteps: Array.from({ length: stepNumber }, (_, i) => i + 1),
+        lastUpdated: Date.now()
+      });
+      
+      console.log(`Step ${stepNumber} saved to Firebase successfully`);
+    } catch (error) {
+      console.error(`Error saving step ${stepNumber} to Firebase:`, error);
+      // Continue with onboarding even if Firebase save fails
     }
   };
 
@@ -406,7 +456,14 @@ const OnboardingFlow = ({ onComplete }) => {
               <input
                 type="text"
                 value={userData.heroName}
-                onChange={(e) => setUserData(prev => ({ ...prev, heroName: e.target.value }))}
+                onChange={(e) => {
+                  const newData = { ...userData, heroName: e.target.value };
+                  setUserData(newData);
+                  // Save to Firebase when user types
+                  if (e.target.value.trim().length > 0) {
+                    saveOnboardingStep(newData, 1);
+                  }
+                }}
                 placeholder="e.g., FreedomSeeker, HealthGuardian"
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
@@ -428,7 +485,12 @@ const OnboardingFlow = ({ onComplete }) => {
                 return (
                   <button
                     key={archetype.id}
-                    onClick={() => setUserData(prev => ({ ...prev, archetype: archetype.id }))}
+                    onClick={() => {
+                      const newData = { ...userData, archetype: archetype.id };
+                      setUserData(newData);
+                      // Save to Firebase immediately when archetype is selected
+                      saveOnboardingStep(newData, 2);
+                    }}
                     className={`w-full p-4 rounded-lg border-2 transition-all duration-300 text-left ${
                       userData.archetype === archetype.id
                         ? 'border-blue-500 bg-blue-500/20'
@@ -546,7 +608,10 @@ const OnboardingFlow = ({ onComplete }) => {
                 <button
                   onClick={() => {
                     const fallbackAvatar = generateFallbackAvatar(userData.avatarSeed);
-                    setUserData(prev => ({ ...prev, avatar: fallbackAvatar }));
+                    const newData = { ...userData, avatar: fallbackAvatar };
+                    setUserData(newData);
+                    // Save to Firebase when fallback avatar is selected
+                    saveOnboardingStep(newData, 3);
                   }}
                   className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                 >
@@ -571,12 +636,15 @@ const OnboardingFlow = ({ onComplete }) => {
                 <button
                   key={trigger}
                   onClick={() => {
-                    setUserData(prev => ({
-                      ...prev,
-                      triggers: prev.triggers.includes(trigger)
-                        ? prev.triggers.filter(t => t !== trigger)
-                        : [...prev.triggers, trigger]
-                    }));
+                    const newData = {
+                      ...userData,
+                      triggers: userData.triggers.includes(trigger)
+                        ? userData.triggers.filter(t => t !== trigger)
+                        : [...userData.triggers, trigger]
+                    };
+                    setUserData(newData);
+                    // Save to Firebase when triggers are updated
+                    saveOnboardingStep(newData, 4);
                   }}
                   className={`w-full p-4 rounded-lg border-2 transition-all duration-300 text-left ${
                     userData.triggers.includes(trigger)
@@ -612,12 +680,15 @@ const OnboardingFlow = ({ onComplete }) => {
                 <button
                   key={pattern}
                   onClick={() => {
-                    setUserData(prev => ({
-                      ...prev,
-                      dailyPatterns: prev.dailyPatterns.includes(pattern)
-                        ? prev.dailyPatterns.filter(p => p !== pattern)
-                        : [...prev.dailyPatterns, pattern]
-                    }));
+                    const newData = {
+                      ...userData,
+                      dailyPatterns: userData.dailyPatterns.includes(pattern)
+                        ? userData.dailyPatterns.filter(p => p !== pattern)
+                        : [...userData.dailyPatterns, pattern]
+                    };
+                    setUserData(newData);
+                    // Save to Firebase when daily patterns are updated
+                    saveOnboardingStep(newData, 5);
                   }}
                   className={`w-full p-4 rounded-lg border-2 transition-all duration-300 text-left ${
                     userData.dailyPatterns.includes(pattern)
@@ -653,12 +724,15 @@ const OnboardingFlow = ({ onComplete }) => {
                 <button
                   key={strategy}
                   onClick={() => {
-                    setUserData(prev => ({
-                      ...prev,
-                      copingStrategies: prev.copingStrategies.includes(strategy)
-                        ? prev.copingStrategies.filter(s => s !== strategy)
-                        : [...prev.copingStrategies, strategy]
-                    }));
+                    const newData = {
+                      ...userData,
+                      copingStrategies: userData.copingStrategies.includes(strategy)
+                        ? userData.copingStrategies.filter(s => s !== strategy)
+                        : [...userData.copingStrategies, strategy]
+                    };
+                    setUserData(newData);
+                    // Save to Firebase when coping strategies are updated
+                    saveOnboardingStep(newData, 6);
                   }}
                   className={`w-full p-4 rounded-lg border-2 transition-all duration-300 text-left ${
                     userData.copingStrategies.includes(strategy)
@@ -692,7 +766,14 @@ const OnboardingFlow = ({ onComplete }) => {
             <div className="mb-6">
               <select
                 value={userData.vapePodsPerWeek}
-                onChange={(e) => setUserData(prev => ({ ...prev, vapePodsPerWeek: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => {
+                  const newData = { ...userData, vapePodsPerWeek: parseFloat(e.target.value) || 0 };
+                  setUserData(newData);
+                  // Save to Firebase when vape usage is selected
+                  if (newData.vapePodsPerWeek > 0) {
+                    saveOnboardingStep(newData, 7);
+                  }
+                }}
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
               >
                 <option value="">Select pods per week</option>
@@ -722,7 +803,14 @@ const OnboardingFlow = ({ onComplete }) => {
             <div className="mb-6">
               <select
                 value={userData.nicotineStrength}
-                onChange={(e) => setUserData(prev => ({ ...prev, nicotineStrength: e.target.value }))}
+                onChange={(e) => {
+                  const newData = { ...userData, nicotineStrength: e.target.value };
+                  setUserData(newData);
+                  // Save to Firebase when nicotine strength is selected
+                  if (newData.nicotineStrength) {
+                    saveOnboardingStep(newData, 8);
+                  }
+                }}
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               >
                 <option value="">Select nicotine strength</option>
@@ -749,7 +837,14 @@ const OnboardingFlow = ({ onComplete }) => {
             <div className="mb-6">
               <select
                 value={userData.quitAttempts}
-                onChange={(e) => setUserData(prev => ({ ...prev, quitAttempts: e.target.value }))}
+                onChange={(e) => {
+                  const newData = { ...userData, quitAttempts: e.target.value };
+                  setUserData(newData);
+                  // Save to Firebase when quit attempts is selected
+                  if (newData.quitAttempts) {
+                    saveOnboardingStep(newData, 9);
+                  }
+                }}
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Select option</option>
@@ -780,7 +875,12 @@ const OnboardingFlow = ({ onComplete }) => {
                   min="1"
                   max="10"
                   value={userData.confidence}
-                  onChange={(e) => setUserData(prev => ({ ...prev, confidence: parseInt(e.target.value) }))}
+                  onChange={(e) => {
+                    const newData = { ...userData, confidence: parseInt(e.target.value) };
+                    setUserData(newData);
+                    // Save to Firebase when confidence level changes
+                    saveOnboardingStep(newData, 10);
+                  }}
                   className="flex-1 h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer slider"
                 />
                 <span className="text-gray-400 text-sm">10</span>
@@ -1022,13 +1122,35 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
   const ArchetypeIcon = archetype.icon;
   
   // Generate and store personalized special features based on onboarding responses
-  const getPersonalizedFeatures = (user) => {
-    // Check if features are already stored for this user
-    const storedFeaturesKey = `specialFeatures_${user.heroName || user.id || 'default'}`;
-    let storedFeatures = localStorage.getItem(storedFeaturesKey);
+  const getPersonalizedFeatures = async (user) => {
+    // Check if features are already stored in Firebase for this user
+    let storedFeatures = null;
+    
+    if (user.uid) {
+      try {
+        const { ref, get } = await import('firebase/database');
+        const userRef = ref(db, `users/${user.uid}/specialFeatures`);
+        const snapshot = await get(userRef);
+        
+        if (snapshot.exists()) {
+          storedFeatures = snapshot.val();
+        }
+      } catch (error) {
+        console.error('Error fetching special features from Firebase:', error);
+      }
+    }
+    
+    // Fallback to localStorage if Firebase fails
+    if (!storedFeatures) {
+      const storedFeaturesKey = `specialFeatures_${user.heroName || user.id || 'default'}`;
+      const localFeatures = localStorage.getItem(storedFeaturesKey);
+      if (localFeatures) {
+        storedFeatures = JSON.parse(localFeatures);
+      }
+    }
     
     if (storedFeatures) {
-      return JSON.parse(storedFeatures);
+      return storedFeatures;
     }
     
     // Generate new features based on onboarding responses
@@ -1100,13 +1222,41 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
     
     const finalFeatures = features.slice(0, 4);
     
-    // Store features permanently for this user
-    localStorage.setItem(storedFeaturesKey, JSON.stringify(finalFeatures));
+    // Store features in Firebase if user is authenticated
+    if (user.uid) {
+      try {
+        const { ref, set } = await import('firebase/database');
+        const userRef = ref(db, `users/${user.uid}/specialFeatures`);
+        await set(userRef, finalFeatures);
+        console.log('Special features saved to Firebase successfully');
+      } catch (error) {
+        console.error('Error saving special features to Firebase:', error);
+        // Fallback to localStorage
+        const storedFeaturesKey = `specialFeatures_${user.heroName || user.id || 'default'}`;
+        localStorage.setItem(storedFeaturesKey, JSON.stringify(finalFeatures));
+      }
+    } else {
+      // Fallback to localStorage if no user ID
+      const storedFeaturesKey = `specialFeatures_${user.heroName || user.id || 'default'}`;
+      localStorage.setItem(storedFeaturesKey, JSON.stringify(finalFeatures));
+    }
     
     return finalFeatures;
   };
   
-  const userSpecialFeatures = getPersonalizedFeatures(user);
+  const [userSpecialFeatures, setUserSpecialFeatures] = useState([]);
+  
+  // Load special features when user data changes
+  useEffect(() => {
+    const loadSpecialFeatures = async () => {
+      if (user && user.uid) {
+        const features = await getPersonalizedFeatures(user);
+        setUserSpecialFeatures(features);
+      }
+    };
+    
+    loadSpecialFeatures();
+  }, [user]);
   
   // Use new stat structure from enhanced onboarding
   const addictionLevel = user.stats.addictionLevel || 50;
@@ -1300,57 +1450,181 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
 // Arena View with Enhanced Battle Algorithm and Recommendations
 const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting }) => {
   const [showBattleInfo, setShowBattleInfo] = useState(false);
+  const [statManager, setStatManager] = useState(null);
   
-  // Calculate real-time stats based on user behavior data
-  const calculateRealTimeStats = (user) => {
+  // Handle achievement sharing for Motivation bonus
+  const handleAchievementShare = async () => {
+    if (statManager) {
+      await statManager.handleAchievementShare();
+    }
+  };
+  
+  // Calculate real-time stats based on user behavior data from Firebase
+  const calculateRealTimeStats = async (user) => {
     const stats = { ...user.stats };
     
-    // Calculate streak days from relapse data
-    const lastRelapse = localStorage.getItem('quitCoachRelapseDate');
-    if (lastRelapse) {
-      const relapseDate = new Date(lastRelapse);
-      const now = new Date();
-      const timeDiff = now.getTime() - relapseDate.getTime();
-      const daysSinceRelapse = Math.floor(timeDiff / (1000 * 3600 * 24));
-      stats.streakDays = daysSinceRelapse;
-    } else {
-      // If no relapse, calculate from quit date
-      const quitDate = user.quitDate ? new Date(user.quitDate) : new Date();
-      const now = new Date();
-      const timeDiff = now.getTime() - quitDate.getTime();
-      stats.streakDays = Math.floor(timeDiff / (1000 * 3600 * 24));
-    }
-    
-    // Get cravings resisted from localStorage
-    const cravingWins = parseInt(localStorage.getItem('cravingWins') || 0);
-    stats.cravingsResisted = cravingWins;
-    
-    // Calculate hydration streak for Mental Strength bonus
-    const today = new Date().toDateString();
-    let hydrationStreak = 0;
-    for (let i = 0; i < 7; i++) {
-      const checkDate = new Date();
-      checkDate.setDate(checkDate.getDate() - i);
-      const checkDateStr = checkDate.toDateString();
-      const waterData = localStorage.getItem(`water_${checkDateStr}`);
-      if (waterData && parseInt(waterData) > 0) {
-        hydrationStreak++;
+    if (!user?.uid) {
+      // Fallback to localStorage if no user ID
+      const lastRelapse = localStorage.getItem('quitCoachRelapseDate');
+      if (lastRelapse) {
+        const relapseDate = new Date(lastRelapse);
+        const now = new Date();
+        const timeDiff = now.getTime() - relapseDate.getTime();
+        const daysSinceRelapse = Math.floor(timeDiff / (1000 * 3600 * 24));
+        stats.streakDays = daysSinceRelapse;
       } else {
-        break;
+        const quitDate = user.quitDate ? new Date(user.quitDate) : new Date();
+        const now = new Date();
+        const timeDiff = now.getTime() - quitDate.getTime();
+        stats.streakDays = Math.floor(timeDiff / (1000 * 3600 * 24));
       }
+      
+      const cravingWins = parseInt(localStorage.getItem('cravingWins') || 0);
+      stats.cravingsResisted = cravingWins;
+      
+      const today = new Date().toDateString();
+      let hydrationStreak = 0;
+      for (let i = 0; i < 7; i++) {
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() - i);
+        const checkDateStr = checkDate.toDateString();
+        const waterData = localStorage.getItem(`water_${checkDateStr}`);
+        if (waterData && parseInt(waterData) > 0) {
+          hydrationStreak++;
+        } else {
+          break;
+        }
+      }
+      
+      if (hydrationStreak >= 3) {
+        stats.mentalStrength = Math.min(80, (stats.mentalStrength || 50) + 1);
+      }
+      
+      return stats;
     }
-    
-    // Apply hydration bonus to Mental Strength if streak >= 3
-    if (hydrationStreak >= 3) {
-      stats.mentalStrength = Math.min(80, (stats.mentalStrength || 50) + 1);
+
+    try {
+      const { ref, get } = await import('firebase/database');
+      
+      // Get relapse date from Firebase
+      const relapseRef = ref(db, `users/${user.uid}/profile/relapseDate`);
+      const relapseSnapshot = await get(relapseRef);
+      
+      if (relapseSnapshot.exists()) {
+        const relapseDate = new Date(relapseSnapshot.val());
+        const now = new Date();
+        const timeDiff = now.getTime() - relapseDate.getTime();
+        const daysSinceRelapse = Math.floor(timeDiff / (1000 * 3600 * 24));
+        stats.streakDays = daysSinceRelapse;
+      } else {
+        const quitDate = user.quitDate ? new Date(user.quitDate) : new Date();
+        const now = new Date();
+        const timeDiff = now.getTime() - quitDate.getTime();
+        stats.streakDays = Math.floor(timeDiff / (1000 * 3600 * 24));
+      }
+      
+      // Get cravings resisted from Firebase
+      const cravingsRef = ref(db, `users/${user.uid}/profile/cravingsResisted`);
+      const cravingsSnapshot = await get(cravingsRef);
+      stats.cravingsResisted = cravingsSnapshot.exists() ? cravingsSnapshot.val() : 0;
+      
+      // Calculate hydration streak from Firebase
+      const today = new Date().toDateString();
+      let hydrationStreak = 0;
+      for (let i = 0; i < 7; i++) {
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() - i);
+        const checkDateStr = checkDate.toDateString();
+        const waterRef = ref(db, `users/${user.uid}/profile/daily/${checkDateStr}/water`);
+        const waterSnapshot = await get(waterRef);
+        if (waterSnapshot.exists() && waterSnapshot.val() > 0) {
+          hydrationStreak++;
+        } else {
+          break;
+        }
+      }
+      
+      if (hydrationStreak >= 3) {
+        stats.mentalStrength = Math.min(80, (stats.mentalStrength || 50) + 1);
+      }
+      
+    } catch (error) {
+      console.error('Error fetching profile data from Firebase:', error);
+      // Fallback to localStorage
+      const lastRelapse = localStorage.getItem('quitCoachRelapseDate');
+      if (lastRelapse) {
+        const relapseDate = new Date(lastRelapse);
+        const now = new Date();
+        const timeDiff = now.getTime() - relapseDate.getTime();
+        const daysSinceRelapse = Math.floor(timeDiff / (1000 * 3600 * 24));
+        stats.streakDays = daysSinceRelapse;
+      } else {
+        const quitDate = user.quitDate ? new Date(user.quitDate) : new Date();
+        const now = new Date();
+        const timeDiff = now.getTime() - quitDate.getTime();
+        stats.streakDays = Math.floor(timeDiff / (1000 * 3600 * 24));
+      }
+      
+      const cravingWins = parseInt(localStorage.getItem('cravingWins') || 0);
+      stats.cravingsResisted = cravingWins;
+      
+      const today = new Date().toDateString();
+      let hydrationStreak = 0;
+      for (let i = 0; i < 7; i++) {
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() - i);
+        const checkDateStr = checkDate.toDateString();
+        const waterData = localStorage.getItem(`water_${checkDateStr}`);
+        if (waterData && parseInt(waterData) > 0) {
+          hydrationStreak++;
+        } else {
+          break;
+        }
+      }
+      
+      if (hydrationStreak >= 3) {
+        stats.mentalStrength = Math.min(80, (stats.mentalStrength || 50) + 1);
+      }
     }
     
     return stats;
   };
   
   // Get real-time stats for both user and nemesis
-  const realTimeUserStats = calculateRealTimeStats(user);
-  const realTimeNemesisStats = calculateRealTimeStats(nemesis);
+  const [realTimeUserStats, setRealTimeUserStats] = useState({ ...user?.stats });
+  const [realTimeNemesisStats, setRealTimeNemesisStats] = useState({ ...nemesis?.stats });
+
+  // Initialize StatManager and load real-time stats
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    // Initialize StatManager
+    const initializeStatManager = async () => {
+      try {
+        const StatManager = (await import('./services/statManager')).default;
+        const manager = new StatManager(db, user.uid);
+        await manager.initialize();
+        setStatManager(manager);
+      } catch (error) {
+        console.error('Error initializing StatManager:', error);
+      }
+    };
+
+    initializeStatManager();
+
+    const loadStats = async () => {
+      if (user) {
+        const userStats = await calculateRealTimeStats(user);
+        setRealTimeUserStats(userStats);
+      }
+      if (nemesis) {
+        const nemesisStats = await calculateRealTimeStats(nemesis);
+        setRealTimeNemesisStats(nemesisStats);
+      }
+    };
+    
+    loadStats();
+  }, [user, nemesis]);
   
   // Enhanced battle algorithm: (Mental Strength × 1.5) + (Motivation × 1.0) + (Trigger Defense × 1.2) - (Addiction × 1.0)
   const calculateBattleScore = (player) => {
@@ -1673,12 +1947,21 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting }) => {
           <div className="bg-slate-800 rounded-xl p-6 max-w-md w-full border border-slate-600">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-white">Battle Algorithm</h3>
-              <button
-                onClick={() => setShowBattleInfo(false)}
-                className="text-gray-400 hover:text-white text-2xl"
-              >
-                ×
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleAchievementShare}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-sm transition-colors"
+                  title="Share achievement for Motivation bonus"
+                >
+                  📤 Share
+                </button>
+                <button
+                  onClick={() => setShowBattleInfo(false)}
+                  className="text-gray-400 hover:text-white text-2xl"
+                >
+                  ×
+                </button>
+              </div>
             </div>
             
             <div className="space-y-4 text-sm">
@@ -2187,6 +2470,60 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
   const [selectedGame, setSelectedGame] = useState(null);
   const [showCustomPopup, setShowCustomPopup] = useState(false);
   const [popupData, setPopupData] = useState({ title: '', message: '', type: 'info' });
+  const [cravingsResisted, setCravingsResisted] = useState(0);
+  const [statManager, setStatManager] = useState(null);
+
+  // Initialize StatManager and load cravings resisted
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    // Initialize StatManager
+    const initializeStatManager = async () => {
+      try {
+        const StatManager = (await import('./services/statManager')).default;
+        const manager = new StatManager(db, user.uid);
+        await manager.initialize();
+        setStatManager(manager);
+      } catch (error) {
+        console.error('Error initializing StatManager:', error);
+      }
+    };
+
+    initializeStatManager();
+
+    const loadCravingsResisted = async () => {
+      try {
+        const { ref, get, onValue } = await import('firebase/database');
+        const cravingsRef = ref(db, `users/${user.uid}/profile/cravingsResisted`);
+        
+        // Load initial value
+        const snapshot = await get(cravingsRef);
+        if (snapshot.exists()) {
+          setCravingsResisted(snapshot.val() || 0);
+        } else {
+          // Fallback to localStorage
+          const localWins = parseInt(localStorage.getItem('cravingWins') || 0);
+          setCravingsResisted(localWins);
+        }
+        
+        // Set up real-time listener
+        const unsubscribe = onValue(cravingsRef, (snapshot) => {
+          if (snapshot.exists()) {
+            setCravingsResisted(snapshot.val() || 0);
+          }
+        });
+        
+        return unsubscribe;
+      } catch (error) {
+        console.error('Error loading cravings resisted from Firebase:', error);
+        // Fallback to localStorage
+        const localWins = parseInt(localStorage.getItem('cravingWins') || 0);
+        setCravingsResisted(localWins);
+      }
+    };
+
+    loadCravingsResisted();
+  }, [user?.uid]);
 
   const handleSOS = () => {
     // In a real app, this would send a push notification to the nemesis
@@ -2204,6 +2541,11 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
     
     // Auto-hide confirmation after 5 seconds
     setTimeout(() => setShowSOSConfirmation(false), 5000);
+    
+    // Track SOS usage for Mental Strength bonus
+    if (statManager) {
+      statManager.trackAppUsageDuringCravings();
+    }
     
     // In a real app, this would trigger:
     // 1. Push notification to nemesis
@@ -2224,37 +2566,31 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
 
   const handleCravingResistance = async () => {
     try {
-      // Update local storage
-      const currentWins = parseInt(localStorage.getItem('cravingWins') || 0);
+      // Update local storage as fallback
+      const currentWins = cravingsResisted;
       localStorage.setItem('cravingWins', currentWins + 1);
       
-      // Update user stats in Firebase
+      // Update cravings resisted in profile
       if (user && user.uid) {
-        const { ref, get, set } = await import('firebase/database');
-        const userRef = ref(db, `users/${user.uid}`);
-        const snapshot = await get(userRef);
+        const { ref, set } = await import('firebase/database');
+        const cravingsRef = ref(db, `users/${user.uid}/profile/cravingsResisted`);
+        await set(cravingsRef, currentWins + 1);
         
-        if (snapshot.exists()) {
-          const userData = snapshot.val();
-          const updatedStats = {
-            ...userData.stats,
-            mentalStrength: Math.min(100, (userData.stats.mentalStrength || 0) + 1),
-            triggerDefense: Math.min(100, (userData.stats.triggerDefense || 0) + 1)
-          };
-          
-          await set(userRef, {
-            ...userData,
-            stats: updatedStats
-          });
-          
-          console.log('Stats updated successfully:', updatedStats);
-        }
+        // Update local state
+        setCravingsResisted(currentWins + 1);
+        
+        console.log('Cravings resisted updated in profile:', currentWins + 1);
+      }
+      
+      // Use StatManager to handle stat updates
+      if (statManager) {
+        await statManager.handleCravingResistance();
       }
       
       // Show success popup
       setPopupData({
         title: 'Congratulations!',
-        message: '🎉 Great job resisting that craving!\n\nEvery trigger survival increases:\n• Mental Strength +1 point\n• Trigger Defense +1 point\n\nKeep up the amazing work!',
+        message: '🎉 Great job resisting that craving!\n\nEvery trigger survival increases:\n• Mental Strength +1 point\n• Trigger Defense +3 points\n\nKeep up the amazing work!',
         type: 'success'
       });
       setShowCustomPopup(true);
@@ -2451,7 +2787,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
             <div className="text-4xl mb-3">🎯</div>
             <p className="text-lg font-bold text-white mb-2">Total Wins</p>
             <p className="text-3xl font-bold text-green-400 mb-3">
-              {localStorage.getItem('cravingWins') || 0}
+              {cravingsResisted}
             </p>
             <p className="text-sm text-gray-300 mb-4">Times you successfully resisted cravings</p>
             
@@ -2468,7 +2804,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
   );
 };
 
-// Profile View - New Structure
+// Profile View - Firebase Migration with Real-time Sync
 const ProfileView = ({ user, onNavigate }) => {
   const [relapseDate, setRelapseDate] = useState(null);
   const [showWaterModal, setShowWaterModal] = useState(false);
@@ -2483,30 +2819,205 @@ const ProfileView = ({ user, onNavigate }) => {
   const [dailyMood, setDailyMood] = useState(null);
   const [dailyBreathing, setDailyBreathing] = useState(false);
   const [scheduledTriggers, setScheduledTriggers] = useState([]);
+  
+  // StatManager instance
+  const [statManager, setStatManager] = useState(null);
 
-  // Load relapse date and daily data from localStorage on mount
+  // Firebase data loading and real-time sync
   useEffect(() => {
-    const savedRelapseDate = localStorage.getItem('quitCoachRelapseDate');
-    if (savedRelapseDate) {
-      setRelapseDate(new Date(savedRelapseDate));
+    if (!user?.uid) return;
+
+    // Initialize StatManager
+    const initializeStatManager = async () => {
+      try {
+        const StatManager = (await import('./services/statManager')).default;
+        const manager = new StatManager(db, user.uid);
+        await manager.initialize();
+        setStatManager(manager);
+      } catch (error) {
+        console.error('Error initializing StatManager:', error);
+      }
+    };
+
+    initializeStatManager();
+
+    const loadProfileData = async () => {
+      try {
+        const { ref, get, onValue } = await import('firebase/database');
+        
+        // Load relapse date
+        const relapseRef = ref(db, `users/${user.uid}/profile/relapseDate`);
+        const relapseSnapshot = await get(relapseRef);
+        if (relapseSnapshot.exists()) {
+          setRelapseDate(new Date(relapseSnapshot.val()));
+        }
+
+        // Load scheduled triggers
+        const triggersRef = ref(db, `users/${user.uid}/profile/scheduledTriggers`);
+        const triggersSnapshot = await get(triggersRef);
+        if (triggersSnapshot.exists()) {
+          setScheduledTriggers(triggersSnapshot.val());
+        }
+
+        // Set up real-time listeners
+        const today = new Date().toDateString();
+        
+        // Water intake listener
+        const waterRef = ref(db, `users/${user.uid}/profile/daily/${today}/water`);
+        const waterUnsubscribe = onValue(waterRef, (snapshot) => {
+          if (snapshot.exists()) {
+            setDailyWater(snapshot.val() || 0);
+          }
+        });
+
+        // Mood listener
+        const moodRef = ref(db, `users/${user.uid}/profile/daily/${today}/mood`);
+        const moodUnsubscribe = onValue(moodRef, (snapshot) => {
+          if (snapshot.exists()) {
+            setDailyMood(snapshot.val());
+          }
+        });
+
+        // Breathing exercise listener
+        const breathingRef = ref(db, `users/${user.uid}/profile/daily/${today}/breathing`);
+        const breathingUnsubscribe = onValue(breathingRef, (snapshot) => {
+          if (snapshot.exists()) {
+            setDailyBreathing(snapshot.val() || false);
+          }
+        });
+
+        // Scheduled triggers listener
+        const triggersListenerRef = ref(db, `users/${user.uid}/profile/scheduledTriggers`);
+        const triggersUnsubscribe = onValue(triggersListenerRef, (snapshot) => {
+          if (snapshot.exists()) {
+            setScheduledTriggers(snapshot.val() || []);
+          }
+        });
+
+        // Cleanup function
+        return () => {
+          waterUnsubscribe();
+          moodUnsubscribe();
+          breathingUnsubscribe();
+          triggersUnsubscribe();
+        };
+      } catch (error) {
+        console.error('Error loading profile data from Firebase:', error);
+        // Fallback to localStorage if Firebase fails
+        loadFromLocalStorage();
+      }
+    };
+
+    const loadFromLocalStorage = () => {
+      const savedRelapseDate = localStorage.getItem('quitCoachRelapseDate');
+      if (savedRelapseDate) {
+        setRelapseDate(new Date(savedRelapseDate));
+      }
+      
+      const today = new Date().toDateString();
+      const savedWater = localStorage.getItem(`water_${today}`);
+      const savedMood = localStorage.getItem(`mood_${today}`);
+      const savedBreathing = localStorage.getItem(`breathing_${today}`);
+      
+      if (savedWater) setDailyWater(parseInt(savedWater));
+      if (savedMood) setDailyMood(JSON.parse(savedMood));
+      if (savedBreathing) setDailyBreathing(savedBreathing === 'true');
+      
+      const savedTriggers = localStorage.getItem('scheduledTriggers');
+      if (savedTriggers) {
+        setScheduledTriggers(JSON.parse(savedTriggers));
+      }
+    };
+
+    loadProfileData();
+  }, [user?.uid]);
+
+  // Track logging activity for Motivation stat
+  useEffect(() => {
+    if (statManager) {
+      statManager.trackLoggingActivity();
     }
-    
-    // Load daily data
-    const today = new Date().toDateString();
-    const savedWater = localStorage.getItem(`water_${today}`);
-    const savedMood = localStorage.getItem(`mood_${today}`);
-    const savedBreathing = localStorage.getItem(`breathing_${today}`);
-    
-    if (savedWater) setDailyWater(parseInt(savedWater));
-    if (savedMood) setDailyMood(JSON.parse(savedMood));
-    if (savedBreathing) setDailyBreathing(savedBreathing === 'true');
-    
-    // Load scheduled triggers
-    const savedTriggers = localStorage.getItem('scheduledTriggers');
-    if (savedTriggers) {
-      setScheduledTriggers(JSON.parse(savedTriggers));
-    }
-  }, []);
+  }, [statManager]);
+
+  // Migrate existing localStorage data to Firebase
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const migrateLocalStorageToFirebase = async () => {
+      try {
+        const { ref, get, set } = await import('firebase/database');
+        
+        // Check if profile data already exists
+        const profileRef = ref(db, `users/${user.uid}/profile`);
+        const profileSnapshot = await get(profileRef);
+        
+        if (!profileSnapshot.exists() || Object.keys(profileSnapshot.val()).length === 0) {
+          console.log('Migrating localStorage data to Firebase...');
+          
+          // Migrate relapse date
+          const savedRelapseDate = localStorage.getItem('quitCoachRelapseDate');
+          if (savedRelapseDate) {
+            await set(ref(db, `users/${user.uid}/profile/relapseDate`), savedRelapseDate);
+            setRelapseDate(new Date(savedRelapseDate));
+          }
+          
+          // Migrate cravings resisted
+          const cravingWins = parseInt(localStorage.getItem('cravingWins') || 0);
+          if (cravingWins > 0) {
+            await set(ref(db, `users/${user.uid}/profile/cravingsResisted`), cravingWins);
+          }
+          
+          // Migrate last 7 days of water intake
+          for (let i = 0; i < 7; i++) {
+            const checkDate = new Date();
+            checkDate.setDate(checkDate.getDate() - i);
+            const checkDateStr = checkDate.toDateString();
+            const waterData = localStorage.getItem(`water_${checkDateStr}`);
+            if (waterData) {
+              await set(ref(db, `users/${user.uid}/profile/daily/${checkDateStr}/water`), parseInt(waterData));
+            }
+          }
+          
+          // Migrate last 7 days of mood data
+          for (let i = 0; i < 7; i++) {
+            const checkDate = new Date();
+            checkDate.setDate(checkDate.getDate() - i);
+            const checkDateStr = checkDate.toDateString();
+            const moodData = localStorage.getItem(`mood_${checkDateStr}`);
+            if (moodData) {
+              await set(ref(db, `users/${user.uid}/profile/daily/${checkDateStr}/mood`), JSON.parse(moodData));
+            }
+          }
+          
+          // Migrate last 7 days of breathing data
+          for (let i = 0; i < 7; i++) {
+            const checkDate = new Date();
+            checkDate.setDate(checkDate.getDate() - i);
+            const checkDateStr = checkDate.toDateString();
+            const breathingData = localStorage.getItem(`breathing_${checkDateStr}`);
+            if (breathingData) {
+              await set(ref(db, `users/${user.uid}/profile/daily/${checkDateStr}/breathing`), breathingData === 'true');
+            }
+          }
+          
+          // Migrate scheduled triggers
+          const savedTriggers = localStorage.getItem('scheduledTriggers');
+          if (savedTriggers) {
+            const triggers = JSON.parse(savedTriggers);
+            await set(ref(db, `users/${user.uid}/profile/scheduledTriggers`), triggers);
+            setScheduledTriggers(triggers);
+          }
+          
+          console.log('localStorage data migration to Firebase completed');
+        }
+      } catch (error) {
+        console.error('Error migrating localStorage data to Firebase:', error);
+      }
+    };
+
+    // Run migration once when component mounts
+    migrateLocalStorageToFirebase();
+  }, [user?.uid]);
 
   // Get the start date for quit timer (onboarding completion or last relapse)
   const getQuitStartDate = () => {
@@ -2561,10 +3072,37 @@ const ProfileView = ({ user, onNavigate }) => {
     return () => clearInterval(interval);
   }, [relapseDate, user?.quitDate]);
 
-  const handleRelapse = () => {
+  // Save data to Firebase with fallback to localStorage
+  const saveToFirebase = async (path, data) => {
+    if (!user?.uid) return false;
+    
+    try {
+      const { ref, set } = await import('firebase/database');
+      const dataRef = ref(db, `users/${user.uid}/profile/${path}`);
+      await set(dataRef, data);
+      return true;
+    } catch (error) {
+      console.error('Error saving to Firebase:', error);
+      return false;
+    }
+  };
+
+  const handleRelapse = async () => {
     const now = new Date();
     setRelapseDate(now);
-    localStorage.setItem('quitCoachRelapseDate', now.toISOString());
+    
+    // Use StatManager to handle relapse with complex penalty system
+    if (statManager) {
+      await statManager.handleRelapse();
+    }
+    
+    // Save to Firebase
+    const success = await saveToFirebase('relapseDate', now.toISOString());
+    
+    // Fallback to localStorage if Firebase fails
+    if (!success) {
+      localStorage.setItem('quitCoachRelapseDate', now.toISOString());
+    }
   };
 
   // Get week days with proper coloring logic (only past days and today)
@@ -2601,39 +3139,91 @@ const ProfileView = ({ user, onNavigate }) => {
   const weekDays = getWeekDays();
 
   // Handle water intake
-  const handleWaterIntake = (glasses) => {
+  const handleWaterIntake = async (glasses) => {
     setDailyWater(glasses);
     const today = new Date().toDateString();
-    localStorage.setItem(`water_${today}`, glasses.toString());
+    
+    // Use StatManager to handle hydration tracking and streaks
+    if (statManager) {
+      await statManager.handleHydrationUpdate(glasses);
+    }
+    
+    // Save to Firebase
+    const success = await saveToFirebase(`daily/${today}/water`, glasses);
+    
+    // Fallback to localStorage if Firebase fails
+    if (!success) {
+      localStorage.setItem(`water_${today}`, glasses.toString());
+    }
+    
     setShowWaterModal(false);
   };
 
   // Handle mood selection
-  const handleMoodSelect = (mood) => {
+  const handleMoodSelect = async (mood) => {
     setDailyMood(mood);
     const today = new Date().toDateString();
-    localStorage.setItem(`mood_${today}`, JSON.stringify(mood));
+    
+    // Save to Firebase
+    const success = await saveToFirebase(`daily/${today}/mood`, mood);
+    
+    // Fallback to localStorage if Firebase fails
+    if (!success) {
+      localStorage.setItem(`mood_${today}`, JSON.stringify(mood));
+    }
+    
     setShowMoodModal(false);
   };
 
   // Handle breathing exercise completion
-  const handleBreathingComplete = () => {
+  const handleBreathingComplete = async () => {
     setDailyBreathing(true);
     const today = new Date().toDateString();
-    localStorage.setItem(`breathing_${today}`, 'true');
+    
+    // Use StatManager to handle breathing exercise and streaks
+    if (statManager) {
+      await statManager.handleBreathingExercise();
+    }
+    
+    // Save to Firebase
+    const success = await saveToFirebase(`daily/${today}/breathing`, true);
+    
+    // Fallback to localStorage if Firebase fails
+    if (!success) {
+      localStorage.setItem(`breathing_${today}`, 'true');
+    }
+    
     setShowBreathingModal(false);
   };
 
   // Handle trigger scheduling
-  const handleTriggerSchedule = (day, triggerType, time) => {
+  const handleTriggerSchedule = async (day, triggerType, time) => {
     const newTrigger = { day, triggerType, time, id: Date.now() };
     const updatedTriggers = [...scheduledTriggers, newTrigger];
     setScheduledTriggers(updatedTriggers);
-    localStorage.setItem('scheduledTriggers', JSON.stringify(updatedTriggers));
+    
+    // Use StatManager to handle trigger planning bonus
+    if (statManager) {
+      await statManager.handleTriggerPlanning();
+    }
+    
+    // Save to Firebase
+    const success = await saveToFirebase('scheduledTriggers', updatedTriggers);
+    
+    // Fallback to localStorage if Firebase fails
+    if (!success) {
+      localStorage.setItem('scheduledTriggers', JSON.stringify(updatedTriggers));
+    }
+    
     setShowTriggerModal(false);
   };
 
-
+  // Handle trigger list updates for Trigger Defense bonus
+  const handleTriggerListUpdate = async () => {
+    if (statManager) {
+      await statManager.handleTriggerListUpdate();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pb-20">
@@ -2816,23 +3406,43 @@ const ProfileView = ({ user, onNavigate }) => {
         <div>
           <h2 className="text-white text-2xl font-bold mb-4">This Week's Battle Plan</h2>
           
-          <button
-            onClick={() => setShowTriggerModal(true)}
-            className="w-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 bg-slate-800/50 rounded-xl p-4 text-left hover:scale-105 transition-all duration-300"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-xl">
-                🛡️
+          <div className="space-y-3">
+            <button
+              onClick={() => setShowTriggerModal(true)}
+              className="w-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 bg-slate-800/50 rounded-xl p-4 text-left hover:scale-105 transition-all duration-300"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-xl">
+                  🛡️
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white font-bold text-lg">Trigger defense planning</h3>
+                  <p className="text-gray-300 text-sm">
+                    {scheduledTriggers.length > 0 ? `${scheduledTriggers.length} triggers planned` : 'Plan your trigger defense strategy'}
+                  </p>
+                </div>
+                <div className="text-orange-400 text-2xl">→</div>
               </div>
-              <div className="flex-1">
-                <h3 className="text-white font-bold text-lg">Trigger defense planning</h3>
-                <p className="text-gray-300 text-sm">
-                  {scheduledTriggers.length > 0 ? `${scheduledTriggers.length} triggers planned` : 'Plan your trigger defense strategy'}
-                </p>
+            </button>
+            
+            <button
+              onClick={handleTriggerListUpdate}
+              className="w-full bg-gradient-to-r from-purple-500/20 to-purple-600/20 bg-slate-800/50 rounded-xl p-4 text-left hover:scale-105 transition-all duration-300"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-xl">
+                  📝
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white font-bold text-lg">Update trigger list</h3>
+                  <p className="text-gray-300 text-sm">
+                    Review and update your personal triggers for +1 Trigger Defense
+                  </p>
+                </div>
+                <div className="text-purple-400 text-2xl">→</div>
               </div>
-              <div className="text-orange-400 text-2xl">→</div>
-            </div>
-          </button>
+            </button>
+          </div>
         </div>
 
         {/* Benefits Monitor */}
@@ -4126,7 +4736,7 @@ const App = () => {
       {currentView === 'onboarding' && (
         <div>
           {console.log('Rendering OnboardingFlow')}
-          <OnboardingFlow onComplete={handleOnboardingComplete} />
+          <OnboardingFlow onComplete={handleOnboardingComplete} authUser={authUser} />
         </div>
       )}
 
