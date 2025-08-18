@@ -1724,6 +1724,51 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting }) => {
 
 
 
+// Custom Popup Component for Quick Actions and Messages
+const CustomPopup = ({ isOpen, onClose, title, message, type = 'info' }) => {
+  if (!isOpen) return null;
+
+  const getIcon = () => {
+    switch (type) {
+      case 'success': return '🎉';
+      case 'warning': return '⚠️';
+      case 'info': return 'ℹ️';
+      default: return '💡';
+    }
+  };
+
+  const getBgColor = () => {
+    switch (type) {
+      case 'success': return 'from-green-600 to-green-700';
+      case 'warning': return 'from-yellow-600 to-yellow-700';
+      case 'info': return 'from-blue-600 to-blue-700';
+      default: return 'from-slate-600 to-slate-700';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-600 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-slate-600 to-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">{getIcon()}</span>
+          </div>
+          <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
+          <div className="text-gray-300 mb-6 whitespace-pre-line text-sm leading-relaxed">
+            {message}
+          </div>
+          <button
+            onClick={onClose}
+            className={`w-full bg-gradient-to-r ${getBgColor()} hover:from-slate-700 hover:to-slate-800 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105`}
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Game Modal Component with Simple, Working Games
 const GameModal = ({ gameType, onClose }) => {
   const [score, setScore] = useState(0);
@@ -2050,183 +2095,7 @@ const GameModal = ({ gameType, onClose }) => {
     );
   };
 
-  // Simple, Working Tetris Game
-  const TetrisGame = () => {
-    const [board, setBoard] = useState(Array(15).fill().map(() => Array(8).fill(0)));
-    const [currentPiece, setCurrentPiece] = useState(null);
-    const [piecePosition, setPiecePosition] = useState({x: 3, y: 0});
-    const [linesCleared, setLinesCleared] = useState(0);
 
-    // Simple square piece for now
-    const piece = [[1, 1], [1, 1]];
-    const pieceColor = '#3B82F6';
-
-    // Initialize first piece
-    useEffect(() => {
-      if (!currentPiece) {
-        setCurrentPiece({ shape: piece, color: pieceColor });
-        setPiecePosition({x: 3, y: 0});
-      }
-    }, [currentPiece]);
-
-    // Handle keyboard input
-    useEffect(() => {
-      if (isPaused) return;
-
-      const handleKeyPress = (e) => {
-        switch(e.key) {
-          case 'ArrowLeft':
-            setPiecePosition(prev => {
-              const newPos = {...prev, x: Math.max(0, prev.x - 1)};
-              console.log('Piece moved LEFT:', { from: prev.x, to: newPos.x });
-              return newPos;
-            });
-            break;
-          case 'ArrowRight':
-            setPiecePosition(prev => {
-              const newPos = {...prev, x: Math.min(6, prev.x + 1)};
-              console.log('Piece moved RIGHT:', { from: prev.x, to: newPos.x });
-              return newPos;
-            });
-            break;
-          case 'ArrowDown':
-            setPiecePosition(prev => {
-              const newPos = {...prev, y: prev.y + 1};
-              console.log('Piece moved DOWN:', { from: prev.y, to: newPos.y });
-              return newPos;
-            });
-            break;
-        }
-      };
-
-      window.addEventListener('keydown', handleKeyPress);
-      return () => window.removeEventListener('keydown', handleKeyPress);
-    }, [isPaused]);
-
-    // Falling animation - FIXED: Proper piece falling without resets
-    useEffect(() => {
-      if (isPaused || !currentPiece) return;
-
-      const fallInterval = setInterval(() => {
-        setPiecePosition(prev => {
-          const newY = prev.y + 1;
-          
-          console.log('Tetris piece falling:', { prev, newY, pieceLength: piece.length });
-          
-          // Check if piece should stop (hit bottom or other pieces)
-          let shouldStop = false;
-          
-          // Check bottom collision - only when piece actually reaches bottom
-          if (newY + piece.length > 15) {
-            console.log('Bottom collision detected at Y:', newY);
-            shouldStop = true;
-          }
-          
-          // Check collision with existing pieces - only when piece is at new position
-          if (!shouldStop) {
-            piece.forEach((row, y) => {
-              row.forEach((cell, x) => {
-                if (cell && newY + y < 15 && prev.x + x >= 0 && prev.x + x < 8) {
-                  // Check if there's already a piece at the new position
-                  if (board[newY + y] && board[newY + y][prev.x + x] !== 0) {
-                    console.log('Piece collision detected at:', { x: prev.x + x, y: newY + y, boardValue: board[newY + y][prev.x + x] });
-                    shouldStop = true;
-                  }
-                }
-              });
-            });
-          }
-          
-          if (shouldStop) {
-            console.log('Placing piece on board at:', prev);
-            // Place piece on board at CURRENT position (not new position)
-            const newBoard = board.map(row => [...row]);
-            piece.forEach((row, y) => {
-              row.forEach((cell, x) => {
-                if (cell && prev.y + y < 15 && prev.x + x >= 0 && prev.x + x < 8) {
-                  newBoard[prev.y + y][prev.x + x] = pieceColor;
-                }
-              });
-            });
-            setBoard(newBoard);
-            
-            // Check for line clears
-            let newLinesCleared = 0;
-            for (let y = 14; y >= 0; y--) {
-              if (newBoard[y].every(cell => cell !== 0)) {
-                newBoard.splice(y, 1);
-                newBoard.unshift(Array(8).fill(0));
-                newLinesCleared++;
-              }
-            }
-            setLinesCleared(prev => prev + newLinesCleared);
-            setScore(prev => prev + newLinesCleared * 10);
-            
-            // Reset piece - this will trigger the useEffect to spawn a new piece
-            setCurrentPiece(null);
-            return {x: 3, y: 0};
-          }
-          
-          // Continue falling
-          console.log('Piece continuing to fall to Y:', newY);
-          return {x: prev.x, y: newY};
-        });
-      }, 800);
-
-      return () => clearInterval(fallInterval);
-    }, [isPaused, currentPiece, board]);
-
-    const renderBoard = () => {
-      const displayBoard = board.map(row => [...row]);
-      
-      // Draw current piece
-      if (currentPiece) {
-        currentPiece.shape.forEach((row, y) => {
-          row.forEach((cell, x) => {
-            if (cell && piecePosition.y + y < 15 && piecePosition.x + x >= 0 && piecePosition.x + x < 8) {
-              displayBoard[piecePosition.y + y][piecePosition.x + x] = currentPiece.color;
-            }
-          });
-        });
-      }
-      
-      return displayBoard;
-    };
-
-    return (
-      <div className="text-center">
-        <div className="bg-gray-800 p-4 rounded-lg inline-block">
-          <div className="grid grid-cols-8 gap-1">
-            {renderBoard().map((row, y) => 
-              row.map((cell, x) => (
-                <div 
-                  key={`${x}-${y}`}
-                  className="w-6 h-6 border border-gray-600"
-                  style={{ backgroundColor: cell || '#374151' }}
-                />
-              ))
-            )}
-          </div>
-        </div>
-        <div className="mt-4">
-          <p className="text-lg font-bold text-gray-800">Lines: {linesCleared}</p>
-          <p className="text-sm text-gray-600">Arrow keys to move piece</p>
-          <button
-            onClick={() => {
-              setBoard(Array(15).fill().map(() => Array(8).fill(0)));
-              setCurrentPiece(null);
-              setPiecePosition({x: 3, y: 0});
-              setLinesCleared(0);
-              setScore(0);
-            }}
-            className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
-          >
-            Reset Game
-          </button>
-        </div>
-      </div>
-    );
-  };
 
 
 
@@ -2234,7 +2103,6 @@ const GameModal = ({ gameType, onClose }) => {
     try {
       switch(gameType) {
         case 'snake': return <SnakeGame />;
-        case 'tetris': return <TetrisGame />;
         case 'click-counter': return <ClickCounterGame />;
         default: return <div>Game not found</div>;
       }
@@ -2261,7 +2129,7 @@ const GameModal = ({ gameType, onClose }) => {
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800">
             {gameType === 'snake' && '🐍 Snake Game'}
-            {gameType === 'tetris' && '🧩 Tetris Game'}
+
             {gameType === 'puzzle' && '🧠 Memory Puzzle'}
           </h3>
                       <div className="flex items-center gap-4">
@@ -2289,9 +2157,7 @@ const GameModal = ({ gameType, onClose }) => {
             {gameType === 'snake' && (
               <p>Arrow keys to move</p>
             )}
-            {gameType === 'tetris' && (
-              <p>Arrow keys to move piece</p>
-            )}
+
             {gameType === 'click-counter' && (
               <p>Click the button rapidly!</p>
             )}
@@ -2319,6 +2185,8 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
   const [showGameModal, setShowGameModal] = useState(false);
   const [showSOSConfirmation, setShowSOSConfirmation] = useState(false);
   const [selectedGame, setSelectedGame] = useState(null);
+  const [showCustomPopup, setShowCustomPopup] = useState(false);
+  const [popupData, setPopupData] = useState({ title: '', message: '', type: 'info' });
 
   const handleSOS = () => {
     // In a real app, this would send a push notification to the nemesis
@@ -2354,35 +2222,88 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
     setShowGameModal(false);
   };
 
+  const handleCravingResistance = async () => {
+    try {
+      // Update local storage
+      const currentWins = parseInt(localStorage.getItem('cravingWins') || 0);
+      localStorage.setItem('cravingWins', currentWins + 1);
+      
+      // Update user stats in Firebase
+      if (user && user.uid) {
+        const { ref, get, set } = await import('firebase/database');
+        const userRef = ref(db, `users/${user.uid}`);
+        const snapshot = await get(userRef);
+        
+        if (snapshot.exists()) {
+          const userData = snapshot.val();
+          const updatedStats = {
+            ...userData.stats,
+            mentalStrength: Math.min(100, (userData.stats.mentalStrength || 0) + 1),
+            triggerDefense: Math.min(100, (userData.stats.triggerDefense || 0) + 1)
+          };
+          
+          await set(userRef, {
+            ...userData,
+            stats: updatedStats
+          });
+          
+          console.log('Stats updated successfully:', updatedStats);
+        }
+      }
+      
+      // Show success popup
+      setPopupData({
+        title: 'Congratulations!',
+        message: '🎉 Great job resisting that craving!\n\nEvery trigger survival increases:\n• Mental Strength +1 point\n• Trigger Defense +1 point\n\nKeep up the amazing work!',
+        type: 'success'
+      });
+      setShowCustomPopup(true);
+      
+    } catch (error) {
+      console.error('Error updating stats:', error);
+      // Still show success message even if Firebase update fails
+      setPopupData({
+        title: 'Congratulations!',
+        message: '🎉 Great job resisting that craving!\n\nYour progress has been recorded locally.\n\nKeep up the amazing work!',
+        type: 'success'
+      });
+      setShowCustomPopup(true);
+    }
+  };
+
+  const showQuickActionPopup = (title, message) => {
+    setPopupData({ title, message, type: 'info' });
+    setShowCustomPopup(true);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8 pb-20">
       <div className="max-w-2xl mx-auto px-4">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-red-400 mb-2">🎮 Distraction Games</h1>
-          <p className="text-gray-300">Take your mind off cravings with simple games</p>
+        {/* Header - Removed explanatory text for cleaner design */}
+        <div className="mb-8">
+          {/* Navigation Buttons */}
+          <div className="flex justify-start gap-3">
+            <button
+              onClick={onBackToLogin}
+              className="px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition-colors flex items-center gap-2"
+            >
+              ← Back to Login
+            </button>
+            
+            {/* Development Testing: Reset Account Button */}
+            {process.env.NODE_ENV === 'development' && (
+              <button
+                onClick={onResetForTesting}
+                className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors flex items-center gap-2"
+                title="Reset ALL user data for testing - clears entire database"
+              >
+                🔄 Reset ALL User Data
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Navigation Buttons */}
-        <div className="flex justify-start mb-6 gap-3">
-          <button
-            onClick={onBackToLogin}
-            className="px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition-colors flex items-center gap-2"
-          >
-            ← Back to Login
-          </button>
-          
-          {/* Development Testing: Reset Account Button */}
-          {process.env.NODE_ENV === 'development' && (
-            <button
-              onClick={onResetForTesting}
-              className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors flex items-center gap-2"
-              title="Reset ALL user data for testing - clears entire database"
-            >
-              🔄 Reset ALL User Data
-            </button>
-          )}
-        </div>
+
 
         {/* SOS Button - Top Priority */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border-2 border-red-200">
@@ -2421,86 +2342,66 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
         </div>
 
         {/* Mini-Games Section */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border-2 border-orange-200">
+        <div className="bg-slate-800/50 rounded-xl p-6 mb-6 border border-slate-600">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-orange-600 mb-4">🎮 Distract Yourself</h2>
-                          <p className="text-gray-600 mb-6">
-                Play games to take your mind off the craving
-              </p>
-                          <button
+            <h2 className="text-xl font-bold text-white mb-4">🎮 Distract Yourself</h2>
+            <div className="grid grid-cols-1 gap-3">
+              <button
                 onClick={() => handleMiniGame('snake')}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-lg mb-4"
+                className="w-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 border border-orange-500/30"
               >
                 🐍 Play Snake
-              </button>
-              <button
-                onClick={() => handleMiniGame('tetris')}
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-lg mb-4"
-              >
-                🧩 Play Tetris
               </button>
               
               <button
                 onClick={() => handleMiniGame('click-counter')}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-lg mb-4"
+                className="w-full bg-gradient-to-r from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 border border-blue-500/30"
               >
                 ⚡ Click Counter
               </button>
-
+            </div>
           </div>
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border-2 border-blue-200">
-          <h2 className="text-2xl font-bold text-blue-600 mb-4 text-center">⚡ Quick Actions</h2>
-          <div className="grid grid-cols-2 gap-4">
+        <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-600">
+          <h2 className="text-xl font-bold text-white mb-4 text-center">⚡ Quick Actions</h2>
+          <div className="grid grid-cols-2 gap-3">
             <button 
-              onClick={() => {
-                alert('💧 Hydration helps reduce cravings!\n\nDrink a full glass of water slowly.\n\nThis will help you feel full and reduce the urge to vape.');
-              }}
-              className="bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold py-4 px-4 rounded-xl transition-colors"
+              onClick={() => showQuickActionPopup(
+                '💧 Drink Water',
+                'Hydration helps reduce cravings!\n\nDrink a full glass of water slowly.\n\nThis will help you feel full and reduce the urge to vape.'
+              )}
+              className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 text-white font-semibold py-4 px-4 rounded-xl transition-all duration-300 border border-blue-500/30 hover:scale-105"
             >
               💧 Drink Water
             </button>
             <button 
-              onClick={() => {
-                alert('🫁 Take 3 deep breaths:\n\n1. Inhale for 4 seconds\n2. Hold for 4 seconds\n3. Exhale for 4 seconds\n\nRepeat 3 times');
-              }}
-              className="bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold py-4 px-4 rounded-xl transition-colors"
+              onClick={() => showQuickActionPopup(
+                '🫁 Breathe',
+                'Take 3 deep breaths:\n\n1. Inhale for 4 seconds\n2. Hold for 4 seconds\n3. Exhale for 4 seconds\n\nRepeat 3 times'
+              )}
+              className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 text-white font-semibold py-4 px-4 rounded-xl transition-all duration-300 border border-blue-500/30 hover:scale-105"
             >
               🫁 Breathe
             </button>
             <button 
-              onClick={() => {
-                alert('🚶‍♂️ Take a 5-minute walk:\n\nPhysical activity releases endorphins that can help reduce cravings.\n\nWalk around your room or step outside if possible.');
-              }}
-              className="bg-purple-100 hover:bg-purple-200 text-purple-700 font-semibold py-4 px-4 rounded-xl transition-colors"
+              onClick={() => showQuickActionPopup(
+                '🚶‍♂️ Walk',
+                'Take a 5-minute walk:\n\nPhysical activity releases endorphins that can help reduce cravings.\n\nWalk around your room or step outside if possible.'
+              )}
+              className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 hover:from-purple-500/30 hover:to-purple-600/30 text-white font-semibold py-4 px-4 rounded-xl transition-all duration-300 border border-purple-500/30 hover:scale-105"
             >
               🚶‍♂️ Walk
             </button>
             <button 
-              onClick={() => {
-                alert('📱 Call a supportive friend or family member:\n\nTalking to someone can help distract you and provide emotional support during this difficult moment.');
-              }}
-              className="bg-yellow-100 hover:bg-yellow-200 text-yellow-700 font-semibold py-4 px-4 rounded-xl transition-colors"
-            >
-              📱 Call Friend
-            </button>
-            <button 
-              onClick={() => {
-                alert('🧘‍♀️ Quick Meditation:\n\n1. Close your eyes\n2. Focus on your breath\n3. Count to 10 slowly\n4. Repeat 3 times\n\nThis helps calm your mind and reduce stress.');
-              }}
-              className="bg-green-100 hover:bg-green-200 text-green-700 font-semibold py-4 px-4 rounded-xl transition-colors"
+              onClick={() => showQuickActionPopup(
+                '🧘‍♀️ Meditate',
+                'Quick Meditation:\n\n1. Close your eyes\n2. Focus on your breath\n3. Count to 10 slowly\n4. Repeat 3 times\n\nThis helps calm your mind and reduce stress.'
+              )}
+              className="bg-gradient-to-r from-green-500/20 to-green-600/20 hover:from-green-500/30 hover:to-green-600/30 text-white font-semibold py-4 px-4 rounded-xl transition-all duration-300 border border-green-500/30 hover:scale-105"
             >
               🧘‍♀️ Meditate
-            </button>
-            <button 
-              onClick={() => {
-                alert('📚 Read something engaging:\n\nPick up a book, magazine, or read an article online.\n\nReading helps shift your focus away from cravings and engages your mind.');
-              }}
-              className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-semibold py-4 px-4 rounded-xl transition-colors"
-            >
-              📚 Read
             </button>
           </div>
         </div>
@@ -2533,54 +2434,30 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
             onClose={closeGame} 
           />
         )}
+
+        {/* Custom Popup for Quick Actions and Messages */}
+        <CustomPopup
+          isOpen={showCustomPopup}
+          onClose={() => setShowCustomPopup(false)}
+          title={popupData.title}
+          message={popupData.message}
+          type={popupData.type}
+        />
         
-        {/* Progress Tracking */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border-2 border-green-200 mt-8">
-          <h2 className="text-2xl font-bold text-green-600 mb-4 text-center">📊 Your Progress</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="text-3xl mb-2">🎯</div>
-              <p className="text-lg font-bold text-green-700">Craving Wins</p>
-              <p className="text-2xl font-bold text-green-600">
-                {localStorage.getItem('cravingWins') || 0}
-              </p>
-              <p className="text-sm text-green-600">Times you resisted</p>
-            </div>
+        {/* Progress Tracking - Simplified to focus on cravings only */}
+        <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-600 mt-6">
+          <h2 className="text-xl font-bold text-white mb-4 text-center">📊 Cravings Resisted</h2>
+          <div className="text-center p-6 bg-slate-700/50 rounded-lg border border-slate-500/30">
+            <div className="text-4xl mb-3">🎯</div>
+            <p className="text-lg font-bold text-white mb-2">Total Wins</p>
+            <p className="text-3xl font-bold text-green-400 mb-3">
+              {localStorage.getItem('cravingWins') || 0}
+            </p>
+            <p className="text-sm text-gray-300 mb-4">Times you successfully resisted cravings</p>
             
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="text-3xl mb-2">⏱️</div>
-              <p className="text-lg font-bold text-blue-700">Total Time</p>
-              <p className="text-2xl font-bold text-blue-600">
-                {(() => {
-                  const totalMinutes = parseInt(localStorage.getItem('totalGameTime') || 0);
-                  const hours = Math.floor(totalMinutes / 60);
-                  const minutes = totalMinutes % 60;
-                  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-                })()}
-              </p>
-              <p className="text-sm text-blue-600">Distracted from cravings</p>
-            </div>
-            
-            <div className="text-center p-4 bg-purple-50 rounded-lg">
-              <div className="text-3xl mb-2">🏆</div>
-              <p className="text-lg font-bold text-purple-700">Best Score</p>
-              <p className="text-2xl font-bold text-purple-600">
-                {localStorage.getItem('bestGameScore') || 0}
-              </p>
-              <p className="text-sm text-purple-600">Highest game score</p>
-            </div>
-          </div>
-          
-          <div className="mt-6 text-center">
             <button 
-              onClick={() => {
-                // Mark a craving win
-                const currentWins = parseInt(localStorage.getItem('cravingWins') || 0);
-                localStorage.setItem('cravingWins', currentWins + 1);
-                alert('🎉 Great job resisting that craving!\n\nYour progress has been recorded.\n\nKeep up the amazing work!');
-                window.location.reload(); // Refresh to show updated stats
-              }}
-              className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+              onClick={handleCravingResistance}
+              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
             >
               🎯 I Resisted a Craving!
             </button>
