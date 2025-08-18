@@ -1400,7 +1400,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
 };
 
 // Bottom Navigation Component
-const BottomNavigation = ({ activeTab, onTabChange }) => {
+const BottomNavigation = ({ activeTab, onTabChange, dataLoadingState, onRefreshData }) => {
   const tabs = [
     { id: 'arena', label: 'Arena', icon: Home },
     { id: 'craving-support', label: 'Craving Support', icon: Shield },
@@ -1418,6 +1418,40 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
           <span className="text-white">Session Active</span>
           <span className="text-gray-400">•</span>
           <span className="text-gray-300">30 days persistence</span>
+          
+          {/* Data Sync Status */}
+          {dataLoadingState && (
+            <>
+              <span className="text-gray-400">•</span>
+              {dataLoadingState.isComplete ? (
+                <span className="text-green-400 flex items-center gap-1">
+                  <span className="text-xs">✓</span>
+                  <span>Synced</span>
+                </span>
+              ) : dataLoadingState.error ? (
+                <span className="text-red-400 flex items-center gap-1">
+                  <span className="text-xs">⚠</span>
+                  <span>Sync Error</span>
+                </span>
+              ) : (
+                <span className="text-yellow-400 flex items-center gap-1">
+                  <span className="text-xs">⟳</span>
+                  <span>Syncing...</span>
+                </span>
+              )}
+              
+              {/* Refresh Button */}
+              {dataLoadingState.isComplete && (
+                <button
+                  onClick={onRefreshData}
+                  className="ml-2 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                  title="Refresh data from server"
+                >
+                  🔄
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
       
@@ -4198,6 +4232,365 @@ const App = () => {
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
+  // ===== COMPREHENSIVE DATA LOADING SYSTEM =====
+  
+  // Centralized data loading state
+  const [dataLoadingState, setDataLoadingState] = useState({
+    isLoading: false,
+    progress: 0,
+    currentStep: '',
+    error: null,
+    isComplete: false
+  });
+
+  // Store unsubscribe functions for cleanup
+  const [unsubscribeFunctions, setUnsubscribeFunctions] = useState([]);
+
+  // Helper function to get default stats
+  const getDefaultStats = () => ({
+    mentalStrength: 50,
+    motivation: 50,
+    triggerDefense: 30,
+    addictionLevel: 50,
+    moneySaved: 0
+  });
+
+  // Helper function to get default profile
+  const getDefaultProfile = () => ({
+    dailyWater: 0,
+    dailyMood: null,
+    dailyBreathing: false,
+    scheduledTriggers: [],
+    relapseDate: null,
+    cravingsResisted: 0
+  });
+
+  // Helper function to update profile state
+  const updateProfileState = (profileData) => {
+    if (profileData.relapseDate) {
+      setRelapseDate(new Date(profileData.relapseDate));
+    }
+    if (profileData.dailyWater !== undefined) {
+      setDailyWater(profileData.dailyWater);
+    }
+    if (profileData.dailyMood !== undefined) {
+      setDailyMood(profileData.dailyMood);
+    }
+    if (profileData.dailyBreathing !== undefined) {
+      setDailyBreathing(profileData.dailyBreathing);
+    }
+    if (profileData.scheduledTriggers) {
+      setScheduledTriggers(profileData.scheduledTriggers);
+    }
+  };
+
+  // Helper function to show error notifications
+  const showErrorNotification = (title, message) => {
+    // Create a notification element
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-20 right-4 z-50 p-4 rounded-lg shadow-lg bg-red-500 text-white max-w-sm';
+    
+    notification.innerHTML = `
+      <div class="font-bold">${title}</div>
+      <div class="text-sm opacity-90">${message}</div>
+      <button class="mt-2 text-sm underline" onclick="this.parentElement.remove()">Dismiss</button>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Auto-remove after 10 seconds
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 10000);
+  };
+
+  // Comprehensive data loading function
+  const loadAllUserData = async (userUID) => {
+    if (!userUID) return false;
+    
+    setDataLoadingState({
+      isLoading: true,
+      progress: 0,
+      currentStep: 'Initializing...',
+      error: null,
+      isComplete: false
+    });
+
+    try {
+      const { ref, get, onValue } = await import('firebase/database');
+      
+      // Step 1: Load user profile and onboarding data
+      setDataLoadingState(prev => ({ ...prev, currentStep: 'Loading profile data...', progress: 20 }));
+      
+      const userRef = ref(db, `users/${userUID}`);
+      const userSnapshot = await get(userRef);
+      
+      if (!userSnapshot.exists()) {
+        throw new Error('User profile not found');
+      }
+      
+      const userData = userSnapshot.val();
+      
+      // Validate user data integrity
+      const validatedUserData = validateUserData(userData);
+      
+      // Step 2: Load stats
+      setDataLoadingState(prev => ({ ...prev, currentStep: 'Loading battle stats...', progress: 40 }));
+      
+      const statsRef = ref(db, `users/${userUID}/stats`);
+      const statsSnapshot = await get(statsRef);
+      const userStats = statsSnapshot.exists() ? validateStats(statsSnapshot.val()) : getDefaultStats();
+      
+      // Step 3: Load profile data
+      setDataLoadingState(prev => ({ ...prev, currentStep: 'Loading habits and progress...', progress: 60 }));
+      
+      const profileRef = ref(db, `users/${userUID}/profile`);
+      const profileSnapshot = await get(profileRef);
+      const profileData = profileSnapshot.exists() ? validateProfileData(profileSnapshot.val()) : getDefaultProfile();
+      
+      // Step 4: Load cravings and achievements
+      setDataLoadingState(prev => ({ ...prev, currentStep: 'Loading achievements...', progress: 80 }));
+      
+      const cravingsRef = ref(db, `users/${userUID}/profile/cravingsResisted`);
+      const cravingsSnapshot = await get(cravingsRef);
+      const cravingsResisted = cravingsSnapshot.exists() ? Math.max(0, parseInt(cravingsSnapshot.val()) || 0) : 0;
+      
+      // Step 5: Set up real-time listeners for live updates
+      setDataLoadingState(prev => ({ ...prev, currentStep: 'Setting up live sync...', progress: 90 }));
+      
+      // Set up real-time listeners
+      const unsubscribeStats = onValue(statsRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const newStats = validateStats(snapshot.val());
+          setUserStats(newStats);
+          // Update real-time stats if user is in Arena
+          if (currentView === 'arena' && user) {
+            const updatedUser = { ...user, stats: newStats };
+            calculateRealTimeStats(updatedUser).then(setRealTimeUserStats);
+          }
+        }
+      });
+      
+      const unsubscribeProfile = onValue(profileRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const newProfile = validateProfileData(snapshot.val());
+          // Update profile state based on current view
+          if (currentView === 'profile') {
+            updateProfileState(newProfile);
+          }
+        }
+      });
+      
+      const unsubscribeCravings = onValue(cravingsRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const newCravings = Math.max(0, parseInt(snapshot.val()) || 0);
+          if (currentView === 'craving-support') {
+            setCravingsResisted(newCravings);
+          }
+        }
+      });
+      
+      // Store unsubscribe functions for cleanup
+      setUnsubscribeFunctions([unsubscribeStats, unsubscribeProfile, unsubscribeCravings]);
+      
+      // Step 6: Update all app state
+      setDataLoadingState(prev => ({ ...prev, currentStep: 'Finalizing...', progress: 100 }));
+      
+      // Update user state
+      setUser(prevUser => ({
+        ...prevUser,
+        ...validatedUserData,
+        stats: userStats
+      }));
+      
+      // Update profile state
+      updateProfileState(profileData);
+      
+      // Update cravings state
+      setCravingsResisted(cravingsResisted);
+      
+      // Set onboarding completion status
+      if (validatedUserData.onboardingCompleted) {
+        setHasCompletedOnboarding(true);
+      }
+      
+      // Complete loading
+      setDataLoadingState({
+        isLoading: false,
+        progress: 100,
+        currentStep: 'Data loaded successfully!',
+        error: null,
+        isComplete: true
+      });
+      
+      console.log('✅ All user data loaded successfully:', {
+        profile: validatedUserData,
+        stats: userStats,
+        profileData: profileData,
+        cravingsResisted: cravingsResisted
+      });
+      
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Error loading user data:', error);
+      
+      setDataLoadingState({
+        isLoading: false,
+        progress: 0,
+        currentStep: 'Failed to load data',
+        error: error.message,
+        isComplete: false
+      });
+      
+      // Show error notification
+      showErrorNotification('Failed to load user data', error.message);
+      
+      return false;
+    }
+  };
+
+  // Data validation functions
+  const validateUserData = (userData) => {
+    if (!userData) return getDefaultUserData();
+    
+    return {
+      uid: userData.uid || '',
+      email: userData.email || '',
+      heroName: userData.heroName || 'Hero',
+      archetype: userData.archetype || 'The Determined',
+      avatar: userData.avatar || generateAvatar('default'),
+      quitDate: userData.quitDate || new Date().toISOString(),
+      onboardingCompleted: !!userData.onboardingCompleted,
+      updatedAt: userData.updatedAt || Date.now(),
+      ...userData
+    };
+  };
+
+  const validateStats = (stats) => {
+    if (!stats) return getDefaultStats();
+    
+    return {
+      mentalStrength: Math.max(0, Math.min(100, parseInt(stats.mentalStrength) || 50)),
+      motivation: Math.max(0, Math.min(100, parseInt(stats.motivation) || 50)),
+      triggerDefense: Math.max(0, Math.min(100, parseInt(stats.triggerDefense) || 30)),
+      addictionLevel: Math.max(0, Math.min(100, parseInt(stats.addictionLevel) || 50)),
+      moneySaved: Math.max(0, parseInt(stats.moneySaved) || 0),
+      ...stats
+    };
+  };
+
+  const validateProfileData = (profileData) => {
+    if (!profileData) return getDefaultProfile();
+    
+    return {
+      dailyWater: Math.max(0, parseInt(profileData.dailyWater) || 0),
+      dailyMood: profileData.dailyMood || null,
+      dailyBreathing: !!profileData.dailyBreathing,
+      scheduledTriggers: Array.isArray(profileData.scheduledTriggers) ? profileData.scheduledTriggers : [],
+      relapseDate: profileData.relapseDate ? new Date(profileData.relapseDate).toISOString() : null,
+      cravingsResisted: Math.max(0, parseInt(profileData.cravingsResisted) || 0),
+      ...profileData
+    };
+  };
+
+  const getDefaultUserData = () => ({
+    uid: '',
+    email: '',
+    heroName: 'Hero',
+    archetype: 'The Determined',
+    avatar: generateAvatar('default'),
+    quitDate: new Date().toISOString(),
+    onboardingCompleted: false,
+    updatedAt: Date.now()
+  });
+
+  // Cleanup function for real-time listeners
+  useEffect(() => {
+    return () => {
+      unsubscribeFunctions.forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') {
+        unsubscribe();
+        }
+      });
+    };
+  }, [unsubscribeFunctions]);
+
+  // Handle online/offline state changes
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('🌐 Internet connection restored');
+      if (authUser?.uid && dataLoadingState.isComplete) {
+        // Auto-refresh data when connection is restored
+        console.log('🔄 Auto-refreshing data after connection restore...');
+        loadAllUserData(authUser.uid);
+      }
+    };
+
+    const handleOffline = () => {
+      console.log('📡 Internet connection lost');
+      // Update data loading state to show offline status
+      setDataLoadingState(prev => ({
+        ...prev,
+        currentStep: 'Offline mode - data will sync when connection is restored',
+        error: 'No internet connection'
+      }));
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [authUser?.uid, dataLoadingState.isComplete]);
+
+  // Manual data refresh function
+  const refreshUserData = async () => {
+    if (!authUser?.uid) {
+      showErrorNotification('Cannot Refresh', 'No authenticated user found');
+      return;
+    }
+    
+    console.log('🔄 Manually refreshing user data...');
+    const success = await loadAllUserData(authUser.uid);
+    
+    if (success) {
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-20 right-4 z-50 p-4 rounded-lg shadow-lg bg-green-500 text-white max-w-sm';
+      
+      notification.innerHTML = `
+        <div class="font-bold">✅ Data Refreshed!</div>
+        <div class="text-sm opacity-90">Your data has been synced across all devices</div>
+        <button class="mt-2 text-sm underline" onclick="this.parentElement.remove()">Dismiss</button>
+      `;
+
+      document.body.appendChild(notification);
+
+      // Auto-remove after 5 seconds
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 5000);
+    } else {
+      showErrorNotification('Refresh Failed', 'Could not refresh data. Please try again.');
+    }
+  };
+
+  // Add missing state variables for profile data
+  const [relapseDate, setRelapseDate] = useState(null);
+  const [dailyWater, setDailyWater] = useState(0);
+  const [dailyMood, setDailyMood] = useState(null);
+  const [dailyBreathing, setDailyBreathing] = useState(false);
+  const [scheduledTriggers, setScheduledTriggers] = useState([]);
+  const [cravingsResisted, setCravingsResisted] = useState(0);
+  const [userStats, setUserStats] = useState(getDefaultStats());
+
   // Global error handler for unhandled errors
   useEffect(() => {
     const handleError = (error) => {
@@ -4373,11 +4766,21 @@ const App = () => {
 
       if (snapshot.exists()) {
         const userData = snapshot.val();
-        console.log('Existing user data found - going to Arena');
-        setUser(userData);
-        const completed = !!userData.onboardingCompleted;
-        setHasCompletedOnboarding(completed);
-        setCurrentView('arena');
+        console.log('Existing user data found - loading all user data...');
+        
+        // Use comprehensive data loading system
+        const dataLoaded = await loadAllUserData(firebaseUser.uid);
+        
+        if (dataLoaded) {
+          console.log('✅ All user data loaded successfully, going to Arena');
+          setCurrentView('arena');
+        } else {
+          console.log('⚠️ Data loading failed, but proceeding to Arena with basic data');
+          setUser(userData);
+          const completed = !!userData.onboardingCompleted;
+          setHasCompletedOnboarding(completed);
+          setCurrentView('arena');
+        }
       } else {
         console.log('No user data found - starting onboarding');
         setCurrentView('onboarding');
@@ -4459,6 +4862,17 @@ const App = () => {
       // Update app state AFTER successful Firebase save
       setUser(completeUserData);
       setHasCompletedOnboarding(true);
+      
+      // Load all user data to ensure complete synchronization
+      console.log('Loading all user data after onboarding completion...');
+      const dataLoaded = await loadAllUserData(authUser.uid);
+      
+      if (dataLoaded) {
+        console.log('✅ All user data loaded successfully after onboarding');
+      } else {
+        console.log('⚠️ Data loading failed after onboarding, but proceeding');
+      }
+      
       setCurrentView('arena');
       
       console.log('Onboarding completed successfully:', {
@@ -4649,6 +5063,68 @@ const App = () => {
     return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
   }
 
+  // Show data loading screen while fetching user data
+  if (dataLoadingState.isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-6"></div>
+          <h2 className="text-3xl font-bold mb-4">📊 Loading Your Data...</h2>
+          <p className="text-xl text-gray-300 mb-4">{dataLoadingState.currentStep}</p>
+          
+          {/* Progress Bar */}
+          <div className="bg-slate-800/50 rounded-lg p-4 max-w-md mx-auto mb-6">
+            <div className="w-full bg-slate-700 rounded-full h-3 mb-3">
+              <div 
+                className="bg-blue-500 h-3 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${dataLoadingState.progress}%` }}
+              ></div>
+            </div>
+            <div className="text-sm text-gray-400">
+              {dataLoadingState.progress}% Complete
+            </div>
+          </div>
+          
+          <div className="bg-slate-800/50 rounded-lg p-4 max-w-md mx-auto">
+            <div className="text-sm text-gray-400 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-blue-400">✓</span>
+                Profile and onboarding data
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-blue-400">✓</span>
+                Battle stats and progress
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-blue-400">✓</span>
+                Habits and achievements
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-blue-400">✓</span>
+                Setting up live sync
+              </div>
+            </div>
+          </div>
+          
+          {dataLoadingState.error && (
+            <div className="mt-4 p-3 bg-red-600/20 border border-red-500/30 rounded-lg max-w-md mx-auto">
+              <p className="text-red-300 text-sm">
+                <span className="font-semibold">Error:</span> {dataLoadingState.error}
+              </p>
+              <p className="text-red-400 text-xs mt-1">
+                Don't worry, you can still use the app with basic functionality
+              </p>
+            </div>
+          )}
+          
+          <p className="text-gray-400 text-sm mt-4">
+            Syncing your data across all devices...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
               {/* Debug Info */}
@@ -4686,6 +5162,21 @@ const App = () => {
               <div className="text-xs text-gray-300">Content script errors are from browser extensions</div>
               <div className="text-xs text-gray-300">Background frame errors are from browser tabs</div>
               <div className="text-xs text-gray-300">None affect app functionality</div>
+            </div>
+            
+            <div className="border-t border-gray-600 mt-2 pt-2">
+              <div className="text-blue-300 font-semibold">🔄 Cross-Device Testing</div>
+              <div className="text-xs text-gray-300">Data sync status: {dataLoadingState.isComplete ? '✅ Complete' : dataLoadingState.error ? '❌ Error' : '⏳ Loading'}</div>
+              <button 
+                onClick={refreshUserData}
+                className="mt-1 px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 w-full"
+                disabled={!authUser?.uid}
+              >
+                Force Data Refresh
+              </button>
+              <div className="text-xs text-gray-400 mt-1">
+                Test: Login on Device A, update data, then login on Device B
+              </div>
             </div>
             <button 
               onClick={() => {
@@ -4812,6 +5303,8 @@ const App = () => {
           <BottomNavigation 
             activeTab={activeTab} 
             onTabChange={handleTabChange}
+            dataLoadingState={dataLoadingState}
+            onRefreshData={refreshUserData}
           />
         </>
       ) : (
