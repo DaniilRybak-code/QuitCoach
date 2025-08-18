@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+// Initialize Firebase once app mounts; safe to tree-shake unused exports
+import { db, auth } from './services/firebase';
 import { Users, Zap, Trophy, Target, Heart, DollarSign, Calendar, Star, Shield, Sword, Home, User, MessageCircle, Settings, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
 
 // Avatar generation utility with fallback
@@ -3377,6 +3379,8 @@ const BuddyChatView = ({ user, nemesis }) => {
   ]);
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [testResults, setTestResults] = useState(null);
+  const [isTesting, setIsTesting] = useState(false);
 
   const handleSendMessage = () => {
     if (newMessage.trim().length === 0) return;
@@ -3425,6 +3429,81 @@ const BuddyChatView = ({ user, nemesis }) => {
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
       handleSendMessage();
+    }
+  };
+
+  // Test buddy matching algorithm
+  const testBuddyMatching = async () => {
+    setIsTesting(true);
+    setTestResults(null);
+    
+    try {
+      // Import the buddy matching service dynamically
+      const { 
+        calculateCompatibility, 
+        findBuddyMatch, 
+        createBuddyPair 
+      } = await import('./services/buddyMatching.js');
+      
+      const { mockUsers } = await import('./data/mockUsers.js');
+      
+      console.log('🧪 Starting Buddy Matching Algorithm Test...');
+      
+      // 1. Load and display count of mock users
+      const userCount = mockUsers.length;
+      console.log(`Found ${userCount} mock users`);
+      
+      // 2. Calculate compatibility between first two mock users
+      const user1 = mockUsers[0];
+      const user2 = mockUsers[1];
+      const compatibilityScore = calculateCompatibility(user1, user2);
+      console.log(`Compatibility between ${user1.heroName} and ${user2.heroName}: ${compatibilityScore} points`);
+      
+      // 3. Find best match for a test user
+      const testUser = mockUsers[0]; // Use first user as test user
+      const availableUsers = mockUsers.filter(u => u.id !== testUser.id);
+      const bestMatch = findBuddyMatch(testUser, availableUsers);
+      
+      let matchResult = 'No suitable match found';
+      let matchScore = 0;
+      
+      if (bestMatch) {
+        matchResult = bestMatch.heroName;
+        matchScore = calculateCompatibility(testUser, bestMatch);
+        console.log(`Best match for ${testUser.heroName}: ${bestMatch.heroName} (Score: ${matchScore})`);
+        
+        // 4. Create buddy pair
+        const buddyPair = createBuddyPair(testUser, bestMatch);
+        console.log('Buddy pair created:', buddyPair);
+      } else {
+        console.log('No suitable match found for test user');
+      }
+      
+      // 5. Show results on screen
+      const results = {
+        userCount,
+        user1Name: user1.heroName,
+        user2Name: user2.heroName,
+        compatibilityScore,
+        testUserName: testUser.heroName,
+        matchResult,
+        matchScore,
+        timestamp: new Date().toLocaleTimeString()
+      };
+      
+      setTestResults(results);
+      console.log('✅ Buddy Matching Algorithm Test completed successfully!');
+      console.log('Check console for detailed logs');
+      
+    } catch (error) {
+      console.error('❌ Error testing buddy matching algorithm:', error);
+      setTestResults({
+        error: true,
+        message: error.message,
+        timestamp: new Date().toLocaleTimeString()
+      });
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -3517,6 +3596,58 @@ const BuddyChatView = ({ user, nemesis }) => {
             </div>
           </div>
         </div>
+
+        {/* Test Algorithm Section */}
+        <div className="mt-6 bg-slate-800 rounded-2xl p-6 shadow-2xl border border-slate-700">
+          <div className="text-center mb-4">
+            <h3 className="text-xl font-bold text-white mb-2">🧪 Test Buddy Matching Algorithm</h3>
+            <p className="text-gray-300 text-sm mb-4">Verify the matching service works correctly</p>
+            
+            <button
+              onClick={testBuddyMatching}
+              disabled={isTesting}
+              className="bg-purple-600 hover:bg-purple-700 disabled:bg-slate-600 text-white px-6 py-3 rounded-xl transition-colors disabled:cursor-not-allowed font-semibold"
+            >
+              {isTesting ? 'Testing...' : 'Test Algorithm'}
+            </button>
+          </div>
+
+          {/* Test Results */}
+          {testResults && (
+            <div className="mt-4 p-4 bg-slate-700 rounded-xl border border-slate-600">
+              <h4 className="text-lg font-bold text-white mb-3">Testing Results:</h4>
+              
+              {testResults.error ? (
+                <div className="text-red-400">
+                  <p className="font-semibold">❌ Test Failed:</p>
+                  <p className="text-sm">{testResults.message}</p>
+                  <p className="text-xs text-gray-400 mt-2">Timestamp: {testResults.timestamp}</p>
+                </div>
+              ) : (
+                <div className="space-y-2 text-sm">
+                  <p className="text-green-400">
+                    <span className="font-semibold">✅ Found {testResults.userCount} mock users</span>
+                  </p>
+                  
+                  <p className="text-blue-400">
+                    <span className="font-semibold">Compatibility score between {testResults.user1Name} and {testResults.user2Name}: {testResults.compatibilityScore} points</span>
+                  </p>
+                  
+                  <p className="text-yellow-400">
+                    <span className="font-semibold">Best match for {testResults.testUserName}: {testResults.matchResult}</span>
+                    {testResults.matchScore > 0 && ` (Score: ${testResults.matchScore})`}
+                  </p>
+                  
+                  <p className="text-gray-400 text-xs mt-3">
+                    <span className="font-semibold">Check console for detailed logs</span>
+                    <br />
+                    Timestamp: {testResults.timestamp}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -3529,6 +3660,22 @@ const App = () => {
   const [selectedMood, setSelectedMood] = useState(null);
   const [user, setUser] = useState(null);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  
+  // One-time Firebase connectivity test (Realtime Database)
+  useEffect(() => {
+    (async () => {
+      try {
+        const { ref, set, get, child, serverTimestamp: rtdbServerTimestamp } = await import('firebase/database');
+        const rootRef = ref(db);
+        const hcRef = child(rootRef, 'healthchecks/vite_dev');
+        await set(hcRef, { lastRun: Date.now() });
+        const snap = await get(hcRef);
+        console.log('🔥 Firebase RTDB connected. Healthcheck exists:', snap.exists());
+      } catch (err) {
+        console.error('Firebase connectivity test failed:', err?.message || err);
+      }
+    })();
+  }, []);
   
   // Check if user has completed onboarding (local storage)
   useEffect(() => {
