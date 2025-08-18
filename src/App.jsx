@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 // Initialize Firebase once app mounts; safe to tree-shake unused exports
 import { db, auth } from './services/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { ref, get } from 'firebase/database';
+import { ref, get, set } from 'firebase/database';
 import AuthScreen from './components/AuthScreen';
 import { Users, Zap, Trophy, Target, Heart, DollarSign, Calendar, Star, Shield, Sword, Home, User, MessageCircle, Settings, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
 
@@ -1285,7 +1285,7 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
 };
 
 // Arena View with Enhanced Battle Algorithm and Recommendations
-const ArenaView = ({ user, nemesis, onBackToLogin }) => {
+const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting }) => {
   const [showBattleInfo, setShowBattleInfo] = useState(false);
   
   // Calculate real-time stats based on user behavior data
@@ -1518,13 +1518,24 @@ const ArenaView = ({ user, nemesis, onBackToLogin }) => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8 pb-20">
       <div className="max-w-7xl mx-auto px-4">
         {/* Back to Login Button */}
-        <div className="flex justify-start mb-6">
+        <div className="flex justify-start mb-6 gap-3">
           <button
             onClick={onBackToLogin}
             className="px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition-colors flex items-center gap-2"
           >
             ← Back to Login
           </button>
+          
+          {/* Development Testing: Reset Account Button */}
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={onResetForTesting}
+              className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors flex items-center gap-2"
+              title="Reset account for testing - allows reuse of same Gmail account"
+            >
+              🔄 Reset for Testing
+            </button>
+          )}
         </div>
         
         {/* Enhanced Battle Status with Info Button */}
@@ -2291,7 +2302,7 @@ const GameModal = ({ gameType, onClose }) => {
 };
 
 // Craving Support View - Emergency Support for Cravings
-const CravingSupportView = ({ user, nemesis, onBackToLogin }) => {
+const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting }) => {
   const [showGameModal, setShowGameModal] = useState(false);
   const [showSOSConfirmation, setShowSOSConfirmation] = useState(false);
   const [selectedGame, setSelectedGame] = useState(null);
@@ -2337,6 +2348,27 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin }) => {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-red-400 mb-2">🎮 Distraction Games</h1>
           <p className="text-gray-300">Take your mind off cravings with simple games</p>
+        </div>
+
+        {/* Navigation Buttons */}
+        <div className="flex justify-start mb-6 gap-3">
+          <button
+            onClick={onBackToLogin}
+            className="px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition-colors flex items-center gap-2"
+          >
+            ← Back to Login
+          </button>
+          
+          {/* Development Testing: Reset Account Button */}
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={onResetForTesting}
+              className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors flex items-center gap-2"
+              title="Reset account for testing - allows reuse of same Gmail account"
+            >
+              🔄 Reset for Testing
+            </button>
+          )}
         </div>
 
         {/* SOS Button - Top Priority */}
@@ -3665,6 +3697,35 @@ const App = () => {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Global error handler for unhandled errors
+  useEffect(() => {
+    const handleError = (error) => {
+      // Filter out content script errors from browser extensions
+      if (error.message && error.message.includes('content_script')) {
+        console.warn('Browser extension error (ignored):', error.message);
+        return;
+      }
+      console.error('Global error caught:', error);
+    };
+
+    const handleUnhandledRejection = (event) => {
+      // Filter out content script errors from browser extensions
+      if (event.reason && event.reason.message && event.reason.message.includes('content_script')) {
+        console.warn('Browser extension promise rejection (ignored):', event.reason.message);
+        return;
+      }
+      console.error('Unhandled promise rejection:', event.reason);
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
   
   // One-time Firebase connectivity test (Realtime Database)
   useEffect(() => {
@@ -3683,64 +3744,112 @@ const App = () => {
   }, []);
   
   // Authentication state listener
-  useEffect(() => {
+    useEffect(() => {
+    let isMounted = true;
+    
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!isMounted) return;
+      
+      console.log('Auth state changed:', firebaseUser ? `User: ${firebaseUser.uid}` : 'No user');
       setAuthLoading(true);
-      if (firebaseUser) {
-        console.log('Firebase user authenticated:', firebaseUser.uid);
-        setAuthUser(firebaseUser);
-        
-        // Check if user exists in our database
-        try {
-          const userRef = ref(db, `users/${firebaseUser.uid}`);
-          const snapshot = await get(userRef);
-          
-          if (snapshot.exists()) {
-            const userData = snapshot.val();
-            console.log('User data from database:', userData);
-            
-            if (userData.onboardingCompleted) {
-              // Returning user - go to main app
-              setUser(userData);
-              setHasCompletedOnboarding(true);
-              setCurrentView('arena');
+      
+      try {
+        if (firebaseUser) {
+          setAuthUser(firebaseUser);
+
+          // Check if user exists in our database
+          try {
+            const userRef = ref(db, `users/${firebaseUser.uid}`);
+            const snapshot = await get(userRef);
+
+            if (snapshot.exists()) {
+              const userData = snapshot.val();
+              console.log('Existing user data found:', userData);
+
+              if (userData.onboardingCompleted) {
+                // Returning user - go to main app
+                setUser(userData);
+                setHasCompletedOnboarding(true);
+                setCurrentView('arena');
+              } else {
+                // User exists but hasn't completed onboarding
+                setUser(userData);
+                setHasCompletedOnboarding(false);
+                setCurrentView('onboarding');
+              }
             } else {
-              // User exists but hasn't completed onboarding
-              setUser(userData);
-              setHasCompletedOnboarding(false);
+              // New user - go to onboarding
               setCurrentView('onboarding');
             }
-          } else {
-            // New user - will be handled by AuthScreen
-            setCurrentView('auth');
+          } catch (error) {
+            console.error('Error fetching user data:', error);
+            setCurrentView('onboarding'); // Default to onboarding for new users
           }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
+        } else {
+          console.log('No Firebase user authenticated');
+          setAuthUser(null);
+          setUser(null);
+          setHasCompletedOnboarding(false);
           setCurrentView('auth');
         }
-      } else {
-        console.log('No Firebase user authenticated');
-        setAuthUser(null);
-        setUser(null);
-        setHasCompletedOnboarding(false);
+      } catch (error) {
+        console.error('Unexpected error in auth state listener:', error);
         setCurrentView('auth');
+      } finally {
+        if (isMounted) {
+          setAuthLoading(false);
+        }
       }
-      setAuthLoading(false);
     });
 
-    return () => unsubscribe();
+      // Add timeout to prevent infinite loading
+  const timeoutId = setTimeout(() => {
+    console.warn('Auth loading timeout - forcing to auth screen');
+    setAuthLoading(false);
+    setCurrentView('auth');
+  }, 5000); // Reduced to 5 seconds for faster recovery
+
+          return () => {
+        isMounted = false;
+        unsubscribe();
+        clearTimeout(timeoutId);
+      };
   }, []);
 
   // Handle authentication success
-  const handleAuthSuccess = async (firebaseUser, isNewUser) => {
+    const handleAuthSuccess = async (firebaseUser, isNewUser) => {
     console.log('Auth success:', { firebaseUser, isNewUser });
-    
-    if (isNewUser) {
-      // New user - go to onboarding
+
+    try {
+      // Check if user exists in our database
+      const userRef = ref(db, `users/${firebaseUser.uid}`);
+      const snapshot = await get(userRef);
+
+      if (snapshot.exists()) {
+        const userData = snapshot.val();
+        console.log('Existing user data found:', userData);
+
+        if (userData.onboardingCompleted) {
+          // Returning user who completed onboarding - go to main app
+          setUser(userData);
+          setHasCompletedOnboarding(true);
+          setCurrentView('arena');
+        } else {
+          // Returning user who hasn't completed onboarding - go to onboarding
+          setUser(userData);
+          setHasCompletedOnboarding(false);
+          setCurrentView('onboarding');
+        }
+      } else {
+        // Truly new user - go to onboarding
+        console.log('New user detected, going to onboarding');
+        setCurrentView('onboarding');
+      }
+    } catch (error) {
+      console.error('Error checking user data in handleAuthSuccess:', error);
+      // Fallback to onboarding for new users
+      console.log('Fallback: going to onboarding for new user');
       setCurrentView('onboarding');
-    } else {
-      // Returning user - go to main app
-      setCurrentView('arena');
     }
   };
 
@@ -3800,16 +3909,20 @@ const App = () => {
         updatedAt: Date.now()
       };
       
+      console.log('Saving user data to Firebase:', completeUserData);
+      
       // Save to Firebase
       const userRef = ref(db, `users/${authUser.uid}`);
       await set(userRef, completeUserData);
       
-      console.log('Setting app state...');
+      console.log('Firebase save successful, updating app state...');
+      
+      // Update app state AFTER successful Firebase save
       setUser(completeUserData);
       setHasCompletedOnboarding(true);
       setCurrentView('arena');
       
-      console.log('State updated successfully:', {
+      console.log('Onboarding completed successfully:', {
         user: completeUserData,
         hasCompletedOnboarding: true,
         currentView: 'arena'
@@ -3817,7 +3930,8 @@ const App = () => {
       
     } catch (error) {
       console.error('Error in handleOnboardingComplete:', error);
-      // Fallback to basic user data
+      
+      // Create fallback user data
       const fallbackUser = {
         heroName: userData?.heroName || 'Hero',
         archetype: userData?.archetype || 'The Determined',
@@ -3838,20 +3952,27 @@ const App = () => {
         onboardingCompleted: true
       };
       
-      console.log('Using fallback user data:', fallbackUser);
-      setUser(fallbackUser);
-      setHasCompletedOnboarding(true);
-      setCurrentView('arena');
+      console.log('Using fallback user data due to error:', fallbackUser);
       
       // Try to save fallback data to Firebase
       if (authUser) {
         try {
+          console.log('Attempting to save fallback data to Firebase...');
           const userRef = ref(db, `users/${authUser.uid}`);
           await set(userRef, fallbackUser);
+          console.log('Fallback data saved to Firebase successfully');
         } catch (firebaseError) {
           console.error('Failed to save fallback data to Firebase:', firebaseError);
+          // Continue with local state even if Firebase save fails
         }
       }
+      
+      // Set app state with fallback data
+      setUser(fallbackUser);
+      setHasCompletedOnboarding(true);
+      setCurrentView('arena');
+      
+      console.log('App state set with fallback data');
     }
   };
 
@@ -3870,6 +3991,32 @@ const App = () => {
   const handleBackToLogin = () => {
     // Sign out and return to login screen for testing
     handleSignOut();
+  };
+
+  const handleResetForTesting = async () => {
+    if (!authUser) {
+      console.error('No authenticated user to reset');
+      return;
+    }
+
+    try {
+      console.log('Resetting account for testing...');
+      
+      // Clear user data from Firebase
+      const userRef = ref(db, `users/${authUser.uid}`);
+      await set(userRef, null);
+      
+      // Reset local state
+      setUser(null);
+      setHasCompletedOnboarding(false);
+      
+      // Go back to onboarding
+      setCurrentView('onboarding');
+      
+      console.log('Account reset successful - ready for fresh onboarding');
+    } catch (error) {
+      console.error('Error resetting account for testing:', error);
+    }
   };
 
   const handleTabChange = (tabId) => {
@@ -3902,6 +4049,8 @@ const App = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <h2 className="text-xl font-semibold text-white">Loading...</h2>
+          <p className="text-gray-400 text-sm mt-2">Checking authentication status...</p>
+          <p className="text-gray-400 text-xs mt-1">This should take only a few seconds</p>
         </div>
       </div>
     );
@@ -3914,15 +4063,67 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-      {/* Debug Info */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed top-4 right-4 bg-black/80 text-white p-2 rounded text-xs z-50">
-          <div>View: {currentView}</div>
-          <div>Onboarding: {hasCompletedOnboarding ? 'Yes' : 'No'}</div>
-          <div>User: {user ? 'Yes' : 'No'}</div>
-          <div>Active Tab: {activeTab}</div>
-        </div>
-      )}
+              {/* Debug Info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="fixed top-4 right-4 bg-black/80 text-white p-2 rounded text-xs z-50">
+            <div>View: {currentView}</div>
+            <div>Onboarding: {hasCompletedOnboarding ? 'Yes' : 'No'}</div>
+            <div>User: {user ? 'Yes' : 'No'}</div>
+            <div>Active Tab: {activeTab}</div>
+            <div>Auth User: {authUser ? 'Yes' : 'No'}</div>
+            <div>Auth Loading: {authLoading ? 'Yes' : 'No'}</div>
+            <div className="border-t border-gray-600 mt-2 pt-2">
+              <div className="text-yellow-300 font-semibold">🧪 Testing Mode</div>
+              <div className="text-xs text-gray-300">Use "Reset for Testing" in Arena/Craving tabs</div>
+            </div>
+            <div className="border-t border-gray-600 mt-2 pt-2">
+              <div className="text-red-300 font-semibold">⚠️ Known Issues</div>
+              <div className="text-xs text-gray-300">Content script errors are from browser extensions</div>
+              <div className="text-xs text-gray-300">Not affecting app functionality</div>
+            </div>
+            <button 
+              onClick={() => {
+                console.log('=== DEBUG STATE ===');
+                console.log('Current View:', currentView);
+                console.log('Onboarding Completed:', hasCompletedOnboarding);
+                console.log('User Data:', user);
+                console.log('Auth User:', authUser);
+                console.log('Auth Loading:', authLoading);
+                console.log('==================');
+              }}
+              className="mt-1 px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+            >
+              Debug
+            </button>
+            <button 
+              onClick={async () => {
+                if (authUser) {
+                  try {
+                    const userRef = ref(db, `users/${authUser.uid}`);
+                    await set(userRef, null);
+                    console.log('User data cleared from Firebase');
+                    window.location.reload();
+                  } catch (error) {
+                    console.error('Error clearing user data:', error);
+                  }
+                }
+              }}
+              className="mt-1 px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+            >
+              Reset Account
+            </button>
+            <button 
+              onClick={() => {
+                setCurrentView('onboarding');
+                setHasCompletedOnboarding(false);
+                console.log('Forced to onboarding view');
+              }}
+              className="mt-1 px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+            >
+              Force Onboarding
+            </button>
+          </div>
+        )}
 
       {/* Onboarding Flow */}
       {currentView === 'onboarding' && (
@@ -3946,6 +4147,7 @@ const App = () => {
                       user={user}
                       nemesis={mockNemesis}
                       onBackToLogin={handleBackToLogin}
+                      onResetForTesting={handleResetForTesting}
                     />
                   );
                 } catch (error) {
@@ -3974,6 +4176,7 @@ const App = () => {
                 user={user}
                 nemesis={mockNemesis}
                 onBackToLogin={handleBackToLogin}
+                onResetForTesting={handleResetForTesting}
               />
             </div>
           )}
