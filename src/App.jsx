@@ -4,6 +4,7 @@ import { db, auth } from './services/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 import AuthScreen from './components/AuthScreen';
+import OfflineIndicator from './components/OfflineIndicator';
 import { Users, Zap, Trophy, Target, Heart, DollarSign, Calendar, Star, Shield, Sword, Home, User, MessageCircle, Settings, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
 
 // Avatar generation utility with fallback
@@ -1400,7 +1401,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
 };
 
 // Bottom Navigation Component
-const BottomNavigation = ({ activeTab, onTabChange, dataLoadingState, onRefreshData }) => {
+const BottomNavigation = ({ activeTab, onTabChange, dataLoadingState, onRefreshData, offlineManager }) => {
   const tabs = [
     { id: 'arena', label: 'Arena', icon: Home },
     { id: 'craving-support', label: 'Craving Support', icon: Shield },
@@ -1449,6 +1450,32 @@ const BottomNavigation = ({ activeTab, onTabChange, dataLoadingState, onRefreshD
                 >
                   🔄
                 </button>
+              )}
+            </>
+          )}
+
+          {/* Offline Status */}
+          {offlineManager && (
+            <>
+              <span className="text-gray-400">•</span>
+              {offlineManager.isOnline ? (
+                <span className="text-green-400 flex items-center gap-1">
+                  <span className="text-xs">🌐</span>
+                  <span>Online</span>
+                </span>
+              ) : (
+                <span className="text-yellow-400 flex items-center gap-1">
+                  <span className="text-xs">📡</span>
+                  <span>Offline</span>
+                </span>
+              )}
+              
+              {/* Offline Actions Count */}
+              {offlineManager.syncQueue.length > 0 && (
+                <span className="text-blue-400 flex items-center gap-1">
+                  <span className="text-xs">📝</span>
+                  <span>{offlineManager.syncQueue.length} pending</span>
+                </span>
               )}
             </>
           )}
@@ -4548,6 +4575,136 @@ const App = () => {
     };
   }, [authUser?.uid, dataLoadingState.isComplete]);
 
+  // ===== OFFLINE SUPPORT INTEGRATION =====
+  
+  // Initialize offline manager
+  const [offlineManager, setOfflineManager] = useState(null);
+  
+  useEffect(() => {
+    const initOfflineManager = async () => {
+      try {
+        const OfflineManager = (await import('./services/offlineManager')).default;
+        const manager = new OfflineManager();
+        setOfflineManager(manager);
+        
+        // Make refreshUserData available globally for offline manager
+        window.refreshUserData = refreshUserData;
+        
+        console.log('✅ Offline manager initialized');
+      } catch (error) {
+        console.error('Error initializing offline manager:', error);
+      }
+    };
+    
+    initOfflineManager();
+  }, []);
+
+  // Enhanced data loading with offline support
+  const loadAllUserDataWithOffline = async (userUID) => {
+    if (!userUID) return false;
+    
+    // First try to load from Firebase
+    const onlineDataLoaded = await loadAllUserData(userUID);
+    
+    if (onlineDataLoaded && offlineManager) {
+      // Cache the data for offline use
+      await offlineManager.cacheUserData(user);
+      await offlineManager.cacheProfileData({
+        dailyWater,
+        dailyMood,
+        dailyBreathing,
+        scheduledTriggers,
+        relapseDate,
+        cravingsResisted
+      });
+    }
+    
+    // If online loading failed, try offline data
+    if (!onlineDataLoaded && offlineManager) {
+      console.log('📱 Loading offline data...');
+      const offlineUserData = await offlineManager.getCachedUserData();
+      const offlineProfileData = await offlineManager.getCachedProfileData();
+      
+      if (offlineUserData) {
+        console.log('📱 Using offline user data');
+        setUser(offlineUserData);
+        setHasCompletedOnboarding(offlineUserData.onboardingCompleted);
+        
+        if (offlineProfileData) {
+          updateProfileState(offlineProfileData);
+        }
+        
+        return true;
+      }
+    }
+    
+    return onlineDataLoaded;
+  };
+
+  // Enhanced data refresh with offline support
+  const refreshUserDataWithOffline = async () => {
+    if (!authUser?.uid) return false;
+    
+    console.log('🔄 Refreshing user data with offline support...');
+    return await loadAllUserDataWithOffline(authUser.uid);
+  };
+
+  // ===== OFFLINE ACTION HANDLERS =====
+
+  // Handle offline habit tracking
+  const handleOfflineHabit = async (habitType, value, date = new Date().toDateString()) => {
+    if (!offlineManager || !authUser?.uid) return false;
+    
+    const action = {
+      type: 'TRACK_HABIT',
+      userId: authUser.uid,
+      habitType,
+      value,
+      date
+    };
+    
+    return await offlineManager.handleOfflineAction(action);
+  };
+
+  // Handle offline craving resistance
+  const handleOfflineCravingResistance = async () => {
+    if (!offlineManager || !authUser?.uid) return false;
+    
+    const action = {
+      type: 'RESIST_CRAVING',
+      userId: authUser.uid,
+      count: cravingsResisted + 1
+    };
+    
+    return await offlineManager.handleOfflineAction(action);
+  };
+
+  // Handle offline stat updates
+  const handleOfflineStatUpdate = async (statName, value) => {
+    if (!offlineManager || !authUser?.uid) return false;
+    
+    const action = {
+      type: 'UPDATE_STATS',
+      userId: authUser.uid,
+      data: { [statName]: value }
+    };
+    
+    return await offlineManager.handleOfflineAction(action);
+  };
+
+  // Handle offline profile updates
+  const handleOfflineProfileUpdate = async (profileData) => {
+    if (!offlineManager || !authUser?.uid) return false;
+    
+    const action = {
+      type: 'UPDATE_PROFILE',
+      userId: authUser.uid,
+      data: profileData
+    };
+    
+    return await offlineManager.handleOfflineAction(action);
+  };
+
   // Manual data refresh function
   const refreshUserData = async () => {
     if (!authUser?.uid) {
@@ -4556,7 +4713,7 @@ const App = () => {
     }
     
     console.log('🔄 Manually refreshing user data...');
-    const success = await loadAllUserData(authUser.uid);
+    const success = await refreshUserDataWithOffline();
     
     if (success) {
       // Show success notification
@@ -4768,8 +4925,8 @@ const App = () => {
         const userData = snapshot.val();
         console.log('Existing user data found - loading all user data...');
         
-        // Use comprehensive data loading system
-        const dataLoaded = await loadAllUserData(firebaseUser.uid);
+        // Use comprehensive data loading system with offline support
+        const dataLoaded = await loadAllUserDataWithOffline(firebaseUser.uid);
         
         if (dataLoaded) {
           console.log('✅ All user data loaded successfully, going to Arena');
@@ -4865,7 +5022,7 @@ const App = () => {
       
       // Load all user data to ensure complete synchronization
       console.log('Loading all user data after onboarding completion...');
-      const dataLoaded = await loadAllUserData(authUser.uid);
+      const dataLoaded = await loadAllUserDataWithOffline(authUser.uid);
       
       if (dataLoaded) {
         console.log('✅ All user data loaded successfully after onboarding');
@@ -5127,7 +5284,10 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-              {/* Debug Info */}
+      {/* Offline Indicator */}
+      <OfflineIndicator />
+      
+      {/* Debug Info */}
         {process.env.NODE_ENV === 'development' && (
           <div className="fixed top-4 right-4 bg-black/80 text-white p-2 rounded text-xs z-50">
             <div>View: {currentView}</div>
@@ -5169,13 +5329,40 @@ const App = () => {
               <div className="text-xs text-gray-300">Data sync status: {dataLoadingState.isComplete ? '✅ Complete' : dataLoadingState.error ? '❌ Error' : '⏳ Loading'}</div>
               <button 
                 onClick={refreshUserData}
-                className="mt-1 px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 w-full"
+                className="mt-1 px-2 px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 w-full"
                 disabled={!authUser?.uid}
               >
                 Force Data Refresh
               </button>
               <div className="text-xs text-gray-400 mt-1">
                 Test: Login on Device A, update data, then login on Device B
+              </div>
+            </div>
+
+            <div className="border-t border-gray-600 mt-2 pt-2">
+              <div className="text-purple-300 font-semibold">📱 Offline Testing</div>
+              <div className="text-xs text-gray-300">
+                Status: {offlineManager ? (offlineManager.isOnline ? '🌐 Online' : '📡 Offline') : '❓ Unknown'}
+              </div>
+              <div className="text-xs text-gray-300">
+                Pending: {offlineManager ? offlineManager.syncQueue.length : 0} actions
+              </div>
+              <button 
+                onClick={() => offlineManager?.checkForPendingSync()}
+                className="mt-1 px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 w-full"
+                disabled={!offlineManager?.isOnline}
+              >
+                Check Pending Sync
+              </button>
+              <button 
+                onClick={() => offlineManager?.clearOfflineData()}
+                className="mt-1 px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 w-full"
+                disabled={!offlineManager}
+              >
+                Clear Offline Data
+              </button>
+              <div className="text-xs text-gray-400 mt-1">
+                Test: Disconnect internet, use app, reconnect to see sync
               </div>
             </div>
             <button 
@@ -5305,6 +5492,7 @@ const App = () => {
             onTabChange={handleTabChange}
             dataLoadingState={dataLoadingState}
             onRefreshData={refreshUserData}
+            offlineManager={offlineManager}
           />
         </>
       ) : (
