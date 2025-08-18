@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 // Initialize Firebase once app mounts; safe to tree-shake unused exports
 import { db, auth } from './services/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { ref, get } from 'firebase/database';
+import AuthScreen from './components/AuthScreen';
 import { Users, Zap, Trophy, Target, Heart, DollarSign, Calendar, Star, Shield, Sword, Home, User, MessageCircle, Settings, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
 
 // Avatar generation utility with fallback
@@ -3656,10 +3659,12 @@ const BuddyChatView = ({ user, nemesis }) => {
 // Main App Component
 const App = () => {
   const [activeTab, setActiveTab] = useState('arena');
-  const [currentView, setCurrentView] = useState('onboarding');
+  const [currentView, setCurrentView] = useState('auth');
   const [selectedMood, setSelectedMood] = useState(null);
   const [user, setUser] = useState(null);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   
   // One-time Firebase connectivity test (Realtime Database)
   useEffect(() => {
@@ -3677,25 +3682,80 @@ const App = () => {
     })();
   }, []);
   
-  // Check if user has completed onboarding (local storage)
+  // Authentication state listener
   useEffect(() => {
-    console.log('App component mounted');
-    try {
-      const savedUser = localStorage.getItem('quitCoachUser');
-      if (savedUser) {
-        const parsedUser = JSON.parse(savedUser);
-        console.log('Loaded saved user:', parsedUser);
-        setUser(parsedUser);
-        setHasCompletedOnboarding(true);
-        setCurrentView('arena');
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setAuthLoading(true);
+      if (firebaseUser) {
+        console.log('Firebase user authenticated:', firebaseUser.uid);
+        setAuthUser(firebaseUser);
+        
+        // Check if user exists in our database
+        try {
+          const userRef = ref(db, `users/${firebaseUser.uid}`);
+          const snapshot = await get(userRef);
+          
+          if (snapshot.exists()) {
+            const userData = snapshot.val();
+            console.log('User data from database:', userData);
+            
+            if (userData.onboardingCompleted) {
+              // Returning user - go to main app
+              setUser(userData);
+              setHasCompletedOnboarding(true);
+              setCurrentView('arena');
+            } else {
+              // User exists but hasn't completed onboarding
+              setUser(userData);
+              setHasCompletedOnboarding(false);
+              setCurrentView('onboarding');
+            }
+          } else {
+            // New user - will be handled by AuthScreen
+            setCurrentView('auth');
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          setCurrentView('auth');
+        }
       } else {
-        console.log('No saved user found, starting onboarding');
+        console.log('No Firebase user authenticated');
+        setAuthUser(null);
+        setUser(null);
+        setHasCompletedOnboarding(false);
+        setCurrentView('auth');
       }
-    } catch (error) {
-      console.error('Error parsing saved user:', error);
-      localStorage.removeItem('quitCoachUser');
-    }
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
+
+  // Handle authentication success
+  const handleAuthSuccess = async (firebaseUser, isNewUser) => {
+    console.log('Auth success:', { firebaseUser, isNewUser });
+    
+    if (isNewUser) {
+      // New user - go to onboarding
+      setCurrentView('onboarding');
+    } else {
+      // Returning user - go to main app
+      setCurrentView('arena');
+    }
+  };
+
+  // Handle sign out
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+      setHasCompletedOnboarding(false);
+      setCurrentView('auth');
+      localStorage.removeItem('quitCoachUser');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   // Mock nemesis data (this could be replaced with real opponent matching later)
   const mockNemesis = {
@@ -3715,7 +3775,7 @@ const App = () => {
     avatar: generateAvatar('nemesis-emma', 'adventurer')
   };
 
-  const handleOnboardingComplete = (userData) => {
+  const handleOnboardingComplete = async (userData) => {
     console.log('Onboarding completed with user data:', userData);
     
     try {
@@ -3724,25 +3784,36 @@ const App = () => {
         throw new Error('Invalid user data received from onboarding');
       }
       
+      // Ensure we have an authenticated user
+      if (!authUser) {
+        throw new Error('No authenticated user found');
+      }
+      
+      // Add Firebase user data to the user profile
+      const completeUserData = {
+        ...userData,
+        uid: authUser.uid,
+        email: authUser.email,
+        displayName: authUser.displayName || userData.heroName,
+        photoURL: authUser.photoURL,
+        onboardingCompleted: true,
+        updatedAt: Date.now()
+      };
+      
+      // Save to Firebase
+      const userRef = ref(db, `users/${authUser.uid}`);
+      await set(userRef, completeUserData);
+      
       console.log('Setting app state...');
-      setUser(userData);
+      setUser(completeUserData);
       setHasCompletedOnboarding(true);
       setCurrentView('arena');
       
-      // Save user data to local storage
-      localStorage.setItem('quitCoachUser', JSON.stringify(userData));
-      
       console.log('State updated successfully:', {
-        user: userData,
+        user: completeUserData,
         hasCompletedOnboarding: true,
         currentView: 'arena'
       });
-      
-      // Force a re-render
-      setTimeout(() => {
-        console.log('Forcing re-render...');
-        setUser({...userData});
-      }, 100);
       
     } catch (error) {
       console.error('Error in handleOnboardingComplete:', error);
@@ -3761,14 +3832,26 @@ const App = () => {
           experiencePoints: 0
         },
         achievements: [],
-        quitDate: new Date()
+        quitDate: new Date(),
+        uid: authUser?.uid,
+        email: authUser?.email,
+        onboardingCompleted: true
       };
       
       console.log('Using fallback user data:', fallbackUser);
       setUser(fallbackUser);
       setHasCompletedOnboarding(true);
       setCurrentView('arena');
-      localStorage.setItem('quitCoachUser', JSON.stringify(fallbackUser));
+      
+      // Try to save fallback data to Firebase
+      if (authUser) {
+        try {
+          const userRef = ref(db, `users/${authUser.uid}`);
+          await set(userRef, fallbackUser);
+        } catch (firebaseError) {
+          console.error('Failed to save fallback data to Firebase:', firebaseError);
+        }
+      }
     }
   };
 
@@ -3785,8 +3868,8 @@ const App = () => {
   };
 
   const handleBackToLogin = () => {
-    // Navigate back to onboarding flow
-    setCurrentView('onboarding');
+    // Sign out and return to login screen for testing
+    handleSignOut();
   };
 
   const handleTabChange = (tabId) => {
@@ -3811,6 +3894,23 @@ const App = () => {
   const handleBackToProfile = () => {
     setCurrentView('profile');
   };
+
+  // Show loading screen while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-white">Loading...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  // Show authentication screen if not authenticated
+  if (currentView === 'auth') {
+    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
