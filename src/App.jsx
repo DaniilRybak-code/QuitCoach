@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 // Initialize Firebase once app mounts; safe to tree-shake unused exports
 import { db, auth } from './services/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { ref, get, set } from 'firebase/database';
+
 import AuthScreen from './components/AuthScreen';
 import { Users, Zap, Trophy, Target, Heart, DollarSign, Calendar, Star, Shield, Sword, Home, User, MessageCircle, Settings, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
 
@@ -1531,9 +1531,9 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting }) => {
             <button
               onClick={onResetForTesting}
               className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors flex items-center gap-2"
-              title="Reset account for testing - allows reuse of same Gmail account"
+              title="Reset ALL user data for testing - clears entire database"
             >
-              🔄 Reset for Testing
+              🔄 Reset ALL User Data
             </button>
           )}
         </div>
@@ -2364,9 +2364,9 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
             <button
               onClick={onResetForTesting}
               className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors flex items-center gap-2"
-              title="Reset account for testing - allows reuse of same Gmail account"
+              title="Reset ALL user data for testing - clears entire database"
             >
-              🔄 Reset for Testing
+              🔄 Reset ALL User Data
             </button>
           )}
         </div>
@@ -3706,6 +3706,13 @@ const App = () => {
         console.warn('Browser extension error (ignored):', error.message);
         return;
       }
+      
+      // Filter out background frame errors
+      if (error.message && (error.message.includes('FrameDoesNotExistError') || error.message.includes('background.js'))) {
+        console.warn('Background frame error (ignored):', error.message);
+        return;
+      }
+      
       console.error('Global error caught:', error);
     };
 
@@ -3715,6 +3722,13 @@ const App = () => {
         console.warn('Browser extension promise rejection (ignored):', event.reason.message);
         return;
       }
+      
+      // Filter out background frame errors
+      if (event.reason && event.reason.message && (event.reason.message.includes('FrameDoesNotExistError') || event.reason.message.includes('background.js'))) {
+        console.warn('Background frame promise rejection (ignored):', event.reason.message);
+        return;
+      }
+      
       console.error('Unhandled promise rejection:', event.reason);
     };
 
@@ -3729,9 +3743,9 @@ const App = () => {
   
   // One-time Firebase connectivity test (Realtime Database)
   useEffect(() => {
-    (async () => {
+    const testFirebaseConnection = async (retryCount = 0) => {
       try {
-        const { ref, set, get, child, serverTimestamp: rtdbServerTimestamp } = await import('firebase/database');
+        const { ref, set, get, child } = await import('firebase/database');
         const rootRef = ref(db);
         const hcRef = child(rootRef, 'healthchecks/vite_dev');
         await set(hcRef, { lastRun: Date.now() });
@@ -3739,8 +3753,19 @@ const App = () => {
         console.log('🔥 Firebase RTDB connected. Healthcheck exists:', snap.exists());
       } catch (err) {
         console.error('Firebase connectivity test failed:', err?.message || err);
+        
+        // Retry up to 3 times with exponential backoff
+        if (retryCount < 3) {
+          const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+          console.log(`Retrying Firebase connection in ${delay}ms... (attempt ${retryCount + 1}/3)`);
+          setTimeout(() => testFirebaseConnection(retryCount + 1), delay);
+        } else {
+          console.error('Firebase connection failed after 3 retries. Check your internet connection and Firebase configuration.');
+        }
       }
-    })();
+    };
+    
+    testFirebaseConnection();
   }, []);
   
   // Authentication state listener
@@ -3757,6 +3782,9 @@ const App = () => {
         if (firebaseUser) {
           setAuthUser(firebaseUser);
 
+          // Import Firebase functions dynamically
+          const { ref, get } = await import('firebase/database');
+          
           // Check if user exists in our database
           try {
             const userRef = ref(db, `users/${firebaseUser.uid}`);
@@ -3816,39 +3844,31 @@ const App = () => {
       };
   }, []);
 
-  // Handle authentication success
-    const handleAuthSuccess = async (firebaseUser, isNewUser) => {
-    console.log('Auth success:', { firebaseUser, isNewUser });
+  // Handle authentication success (check database for ALL auth methods)
+  const handleAuthSuccess = async (firebaseUser) => {
+    console.log('Authentication successful, checking for existing user data...', { uid: firebaseUser?.uid, email: firebaseUser?.email });
 
     try {
-      // Check if user exists in our database
+      const { ref, get } = await import('firebase/database');
+      console.log('Checking database for existing user data...');
+
       const userRef = ref(db, `users/${firebaseUser.uid}`);
       const snapshot = await get(userRef);
 
       if (snapshot.exists()) {
         const userData = snapshot.val();
-        console.log('Existing user data found:', userData);
-
-        if (userData.onboardingCompleted) {
-          // Returning user who completed onboarding - go to main app
-          setUser(userData);
-          setHasCompletedOnboarding(true);
-          setCurrentView('arena');
-        } else {
-          // Returning user who hasn't completed onboarding - go to onboarding
-          setUser(userData);
-          setHasCompletedOnboarding(false);
-          setCurrentView('onboarding');
-        }
+        console.log('Existing user data found - going to Arena');
+        setUser(userData);
+        const completed = !!userData.onboardingCompleted;
+        setHasCompletedOnboarding(completed);
+        setCurrentView('arena');
       } else {
-        // Truly new user - go to onboarding
-        console.log('New user detected, going to onboarding');
+        console.log('No user data found - starting onboarding');
         setCurrentView('onboarding');
       }
     } catch (error) {
-      console.error('Error checking user data in handleAuthSuccess:', error);
-      // Fallback to onboarding for new users
-      console.log('Fallback: going to onboarding for new user');
+      console.error('Database check failed:', error);
+      // Conservative default: allow user to proceed to onboarding
       setCurrentView('onboarding');
     }
   };
@@ -3911,9 +3931,12 @@ const App = () => {
       
       console.log('Saving user data to Firebase:', completeUserData);
       
-      // Save to Firebase
-      const userRef = ref(db, `users/${authUser.uid}`);
-      await set(userRef, completeUserData);
+                      // Import Firebase functions dynamically
+                const { ref, set } = await import('firebase/database');
+                
+                // Save to Firebase
+                const userRef = ref(db, `users/${authUser.uid}`);
+                await set(userRef, completeUserData);
       
       console.log('Firebase save successful, updating app state...');
       
@@ -3954,18 +3977,19 @@ const App = () => {
       
       console.log('Using fallback user data due to error:', fallbackUser);
       
-      // Try to save fallback data to Firebase
-      if (authUser) {
-        try {
-          console.log('Attempting to save fallback data to Firebase...');
-          const userRef = ref(db, `users/${authUser.uid}`);
-          await set(userRef, fallbackUser);
-          console.log('Fallback data saved to Firebase successfully');
-        } catch (firebaseError) {
-          console.error('Failed to save fallback data to Firebase:', firebaseError);
-          // Continue with local state even if Firebase save fails
-        }
-      }
+                      // Try to save fallback data to Firebase
+                if (authUser) {
+                  try {
+                    console.log('Attempting to save fallback data to Firebase...');
+                    const { ref, set } = await import('firebase/database');
+                    const userRef = ref(db, `users/${authUser.uid}`);
+                    await set(userRef, fallbackUser);
+                    console.log('Fallback data saved to Firebase successfully');
+                  } catch (firebaseError) {
+                    console.error('Failed to save fallback data to Firebase:', firebaseError);
+                    // Continue with local state even if Firebase save fails
+                  }
+                }
       
       // Set app state with fallback data
       setUser(fallbackUser);
@@ -3993,26 +4017,30 @@ const App = () => {
     handleSignOut();
   };
 
+  // Reset account for testing - clear ALL user data from database
   const handleResetForTesting = async () => {
     if (!authUser) {
       console.error('No authenticated user to reset');
       return;
     }
-
     try {
-      console.log('Resetting account for testing...');
+      console.log('Resetting ALL user data for testing...');
+      const { ref, set } = await import('firebase/database');
       
-      // Clear user data from Firebase
+      // Clear current user data
       const userRef = ref(db, `users/${authUser.uid}`);
       await set(userRef, null);
+      
+      // Clear ALL users data (for complete system reset)
+      const allUsersRef = ref(db, 'users');
+      await set(allUsersRef, null);
+      
+      console.log('All user data cleared from database');
       
       // Reset local state
       setUser(null);
       setHasCompletedOnboarding(false);
-      
-      // Go back to onboarding
       setCurrentView('onboarding');
-      
       console.log('Account reset successful - ready for fresh onboarding');
     } catch (error) {
       console.error('Error resetting account for testing:', error);
@@ -4074,12 +4102,13 @@ const App = () => {
             <div>Auth Loading: {authLoading ? 'Yes' : 'No'}</div>
             <div className="border-t border-gray-600 mt-2 pt-2">
               <div className="text-yellow-300 font-semibold">🧪 Testing Mode</div>
-              <div className="text-xs text-gray-300">Use "Reset for Testing" in Arena/Craving tabs</div>
+              <div className="text-xs text-gray-300">Use "Reset ALL User Data" in Arena/Craving tabs</div>
             </div>
             <div className="border-t border-gray-600 mt-2 pt-2">
               <div className="text-red-300 font-semibold">⚠️ Known Issues</div>
               <div className="text-xs text-gray-300">Content script errors are from browser extensions</div>
-              <div className="text-xs text-gray-300">Not affecting app functionality</div>
+              <div className="text-xs text-gray-300">Background frame errors are from browser tabs</div>
+              <div className="text-xs text-gray-300">None affect app functionality</div>
             </div>
             <button 
               onClick={() => {
@@ -4099,6 +4128,7 @@ const App = () => {
               onClick={async () => {
                 if (authUser) {
                   try {
+                    const { ref, set } = await import('firebase/database');
                     const userRef = ref(db, `users/${authUser.uid}`);
                     await set(userRef, null);
                     console.log('User data cleared from Firebase');
@@ -4110,7 +4140,7 @@ const App = () => {
               }}
               className="mt-1 px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
             >
-              Reset Account
+              Reset Current User
             </button>
             <button 
               onClick={() => {

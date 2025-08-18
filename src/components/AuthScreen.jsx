@@ -34,42 +34,14 @@ const AuthScreen = ({ onAuthSuccess, isNewUser }) => {
                 setLoading(true);
                 setError('');
                 try {
+                  console.log('Starting Google sign-in process...');
                   const result = await signInWithPopup(auth, googleProvider);
                   const user = result.user;
 
-                  console.log('Google sign-in successful for:', user.email);
+                  console.log('Google sign-in successful for:', user.email, 'UID:', user.uid);
 
-                  // Check if user exists in our database
-                  const userRef = ref(db, `users/${user.uid}`);
-                  const snapshot = await get(userRef);
-
-                  if (snapshot.exists()) {
-                    const userData = snapshot.val();
-                    console.log('Existing user found:', userData);
-
-                    if (userData.onboardingCompleted) {
-                      // Returning user who completed onboarding - go to main app
-                      onAuthSuccess(user, false);
-                    } else {
-                      // Returning user who hasn't completed onboarding - go to onboarding
-                      onAuthSuccess(user, false);
-                    }
-                  } else {
-                    // New user - create profile and go to onboarding
-                    const userProfile = {
-                      uid: user.uid,
-                      email: user.email,
-                      displayName: user.displayName || user.email.split('@')[0],
-                      photoURL: user.photoURL,
-                      createdAt: Date.now(),
-                      authProvider: 'google',
-                      onboardingCompleted: false
-                    };
-
-                    console.log('Creating new user profile:', userProfile);
-                    await set(userRef, userProfile);
-                    onAuthSuccess(user, true);
-                  }
+                  // Always call onAuthSuccess - database check will be handled in App.jsx
+                  onAuthSuccess(user);
                 } catch (error) {
                   console.error('Google sign-in error:', error);
                   setError(getAuthErrorMessage(error.code));
@@ -86,36 +58,10 @@ const AuthScreen = ({ onAuthSuccess, isNewUser }) => {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
       const user = result.user;
+      console.log('Email sign-in successful for:', user.email);
       
-      // Check if user exists in our database
-      const userRef = ref(db, `users/${user.uid}`);
-      const snapshot = await get(userRef);
-      
-      if (snapshot.exists()) {
-        const userData = snapshot.val();
-        console.log('Existing user found:', userData);
-        
-        if (userData.onboardingCompleted) {
-          // Returning user who completed onboarding - go to main app
-          onAuthSuccess(user, false);
-        } else {
-          // Returning user who hasn't completed onboarding - go to onboarding
-          onAuthSuccess(user, false); // Still a returning user, but needs onboarding
-        }
-      } else {
-        // New user - create profile and go to onboarding
-        const userProfile = {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.email.split('@')[0],
-          createdAt: Date.now(),
-          authProvider: 'email',
-          onboardingCompleted: false
-        };
-        
-        await set(userRef, userProfile);
-        onAuthSuccess(user, true);
-      }
+      // Always call onAuthSuccess - database check will be handled in App.jsx
+      onAuthSuccess(user);
     } catch (error) {
       console.error('Email sign-in error:', error);
       setError(getAuthErrorMessage(error.code));
@@ -144,27 +90,13 @@ const AuthScreen = ({ onAuthSuccess, isNewUser }) => {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
       const user = result.user;
+      console.log('Email sign-up successful for:', user.email);
       
       // Send email verification
       await sendEmailVerification(user);
       
-      // Create user profile
-      const userProfile = {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.email.split('@')[0],
-        createdAt: Date.now(),
-        authProvider: 'email',
-        onboardingCompleted: false
-      };
-      
-      await set(ref(db, `users/${user.uid}`), userProfile);
-      
-      setSuccess('Account created successfully! Please check your email for verification.');
-      clearForm();
-      setActiveTab('signin');
-      
-      // Don't automatically redirect - let user verify email first
+      // Always call onAuthSuccess - database check will be handled in App.jsx
+      onAuthSuccess(user);
     } catch (error) {
       console.error('Email sign-up error:', error);
       setError(getAuthErrorMessage(error.code));
