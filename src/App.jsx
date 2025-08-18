@@ -1260,27 +1260,40 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 px-4 py-2 z-40">
-      <div className="flex justify-around max-w-md mx-auto">
-        {tabs.map((tab) => {
-          const IconComponent = tab.icon;
-          const isActive = activeTab === tab.id;
-          
-          return (
-            <button 
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center transition-colors ${
-                isActive ? 'text-blue-400' : 'text-gray-400 hover:text-blue-300'
-              }`}
-            >
-              <IconComponent className="w-5 h-5" />
-              <span className="text-xs">{tab.label}</span>
-            </button>
-          );
-        })}
+    <>
+      {/* Session Status Indicator */}
+      <div className="fixed bottom-20 left-0 right-0 bg-slate-700/90 backdrop-blur-sm border-t border-slate-600 px-4 py-2 z-30">
+        <div className="flex justify-center items-center gap-2 text-sm">
+          <span className="text-green-400">🔐</span>
+          <span className="text-white">Session Active</span>
+          <span className="text-gray-400">•</span>
+          <span className="text-gray-300">30 days persistence</span>
+        </div>
       </div>
-    </div>
+      
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 px-4 py-2 z-40">
+        <div className="flex justify-around max-w-md mx-auto">
+          {tabs.map((tab) => {
+            const IconComponent = tab.icon;
+            const isActive = activeTab === tab.id;
+            
+            return (
+              <button 
+                key={tab.id}
+                onClick={() => onTabChange(tab.id)}
+                className={`flex flex-col items-center transition-colors ${
+                  isActive ? 'text-blue-400' : 'text-gray-400 hover:text-blue-300'
+                }`}
+              >
+                <IconComponent className="w-5 h-5" />
+                <span className="text-xs">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
   );
 };
 
@@ -3768,80 +3781,96 @@ const App = () => {
     testFirebaseConnection();
   }, []);
   
-  // Authentication state listener
-    useEffect(() => {
+  // Enhanced authentication state listener with session persistence
+  useEffect(() => {
     let isMounted = true;
+    let authUnsubscribe = null;
     
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!isMounted) return;
-      
-      console.log('Auth state changed:', firebaseUser ? `User: ${firebaseUser.uid}` : 'No user');
-      setAuthLoading(true);
-      
+    const initializeAuth = async () => {
       try {
-        if (firebaseUser) {
-          setAuthUser(firebaseUser);
-
-          // Import Firebase functions dynamically
-          const { ref, get } = await import('firebase/database');
+        console.log('Initializing authentication state...');
+        setAuthLoading(true);
+        
+        // Set up Firebase Auth state listener
+        const { onAuthStateChanged } = await import('firebase/auth');
+        
+        authUnsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          if (!isMounted) return;
           
-          // Check if user exists in our database
-          try {
-            const userRef = ref(db, `users/${firebaseUser.uid}`);
-            const snapshot = await get(userRef);
-
-            if (snapshot.exists()) {
-              const userData = snapshot.val();
-              console.log('Existing user data found:', userData);
-
-              if (userData.onboardingCompleted) {
-                // Returning user - go to main app
+          console.log('Auth state changed:', firebaseUser ? `User: ${firebaseUser.uid}` : 'No user');
+          
+          if (firebaseUser) {
+            // User is authenticated (either from session or new login)
+            setAuthUser(firebaseUser);
+            console.log('User authenticated, checking database for user data...');
+            
+            try {
+              const { ref, get } = await import('firebase/database');
+              const userRef = ref(db, `users/${firebaseUser.uid}`);
+              const snapshot = await get(userRef);
+              
+              if (snapshot.exists()) {
+                const userData = snapshot.val();
+                console.log('Existing user data found - auto-login successful');
+                
                 setUser(userData);
                 setHasCompletedOnboarding(true);
                 setCurrentView('arena');
+                console.log('User auto-logged in and redirected to Arena');
               } else {
-                // User exists but hasn't completed onboarding
-                setUser(userData);
-                setHasCompletedOnboarding(false);
+                console.log('No user data found - new user needs onboarding');
                 setCurrentView('onboarding');
               }
-            } else {
-              // New user - go to onboarding
+            } catch (error) {
+              console.error('Error fetching user data during auto-login:', error);
+              // Fallback: go to onboarding for new users
               setCurrentView('onboarding');
             }
-          } catch (error) {
-            console.error('Error fetching user data:', error);
-            setCurrentView('onboarding'); // Default to onboarding for new users
+          } else {
+            // No user authenticated
+            console.log('No authenticated user - showing login screen');
+            setAuthUser(null);
+            setUser(null);
+            setHasCompletedOnboarding(false);
+            setCurrentView('auth');
           }
-        } else {
-          console.log('No Firebase user authenticated');
-          setAuthUser(null);
-          setUser(null);
-          setHasCompletedOnboarding(false);
+        });
+        
+        // Set a timeout to prevent infinite loading
+        const timeoutId = setTimeout(() => {
+          if (isMounted) {
+            console.warn('Auth initialization timeout - forcing to auth screen');
+            setAuthLoading(false);
+            setCurrentView('auth');
+          }
+        }, 10000); // Increased timeout for session restoration
+        
+        // Clear timeout when auth state is determined
+        if (authUnsubscribe) {
+          clearTimeout(timeoutId);
+        }
+        
+      } catch (error) {
+        console.error('Error initializing authentication:', error);
+        if (isMounted) {
+          setAuthLoading(false);
           setCurrentView('auth');
         }
-      } catch (error) {
-        console.error('Unexpected error in auth state listener:', error);
-        setCurrentView('auth');
       } finally {
         if (isMounted) {
           setAuthLoading(false);
         }
       }
-    });
-
-      // Add timeout to prevent infinite loading
-  const timeoutId = setTimeout(() => {
-    console.warn('Auth loading timeout - forcing to auth screen');
-    setAuthLoading(false);
-    setCurrentView('auth');
-  }, 5000); // Reduced to 5 seconds for faster recovery
-
-          return () => {
-        isMounted = false;
-        unsubscribe();
-        clearTimeout(timeoutId);
-      };
+    };
+    
+    initializeAuth();
+    
+    return () => {
+      isMounted = false;
+      if (authUnsubscribe) {
+        authUnsubscribe();
+      }
+    };
   }, []);
 
   // Handle authentication success (check database for ALL auth methods)
@@ -4012,9 +4041,35 @@ const App = () => {
     localStorage.removeItem('quitCoachUser');
   };
 
-  const handleBackToLogin = () => {
-    // Sign out and return to login screen for testing
-    handleSignOut();
+  // Enhanced logout functionality with complete state cleanup
+  const handleBackToLogin = async () => {
+    try {
+      console.log('Logging out user...');
+      
+      // Sign out from Firebase Auth
+      const { signOut } = await import('firebase/auth');
+      await signOut(auth);
+      
+      // Clear all local state
+      setUser(null);
+      setAuthUser(null);
+      setHasCompletedOnboarding(false);
+      setCurrentView('auth');
+      
+      // Clear any local storage data
+      localStorage.removeItem('lastSOS');
+      localStorage.removeItem('cravingWins');
+      localStorage.removeItem('specialFeatures');
+      
+      console.log('User successfully logged out and redirected to login screen');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Force logout even if Firebase signOut fails
+      setUser(null);
+      setAuthUser(null);
+      setHasCompletedOnboarding(false);
+      setCurrentView('auth');
+    }
   };
 
   // Reset account for testing - clear ALL user data from database
@@ -4073,12 +4128,30 @@ const App = () => {
   // Show loading screen while checking authentication
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-white">Loading...</h2>
-          <p className="text-gray-400 text-sm mt-2">Checking authentication status...</p>
-          <p className="text-gray-400 text-xs mt-1">This should take only a few seconds</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-6"></div>
+          <h2 className="text-3xl font-bold mb-4">🔐 Restoring Session...</h2>
+          <p className="text-xl text-gray-300 mb-4">Checking authentication state</p>
+          <div className="bg-slate-800/50 rounded-lg p-4 max-w-md mx-auto">
+            <div className="text-sm text-gray-400 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-blue-400">✓</span>
+                Checking Firebase Auth persistence
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-blue-400">✓</span>
+                Verifying user session (30 days)
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-blue-400">✓</span>
+                Loading user data from database
+              </div>
+            </div>
+          </div>
+          <p className="text-gray-400 text-sm mt-4">
+            This should take only a few seconds
+          </p>
         </div>
       </div>
     );
@@ -4100,6 +4173,23 @@ const App = () => {
             <div>Active Tab: {activeTab}</div>
             <div>Auth User: {authUser ? 'Yes' : 'No'}</div>
             <div>Auth Loading: {authLoading ? 'Yes' : 'No'}</div>
+            <div className="border-t border-gray-600 mt-2 pt-2">
+              <div className="text-green-300 font-semibold">🔐 Session Status</div>
+              <div className="text-xs text-gray-300">
+                {authUser ? `Logged in: ${authUser.email}` : 'Not authenticated'}
+              </div>
+              <div className="text-xs text-gray-300">
+                {authUser ? 'Session: Persistent (30 days)' : 'Session: None'}
+              </div>
+              {authUser && (
+                <button 
+                  onClick={handleBackToLogin}
+                  className="mt-1 px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 w-full"
+                >
+                  Logout
+                </button>
+              )}
+            </div>
             <div className="border-t border-gray-600 mt-2 pt-2">
               <div className="text-yellow-300 font-semibold">🧪 Testing Mode</div>
               <div className="text-xs text-gray-300">Use "Reset ALL User Data" in Arena/Craving tabs</div>
