@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 // Initialize Firebase once app mounts; safe to tree-shake unused exports
 import { db, auth } from './services/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import StatManager from './services/statManager.js';
+import BuddyMatchingService from './services/buddyMatchingService.js';
 
 import AuthScreen from './components/AuthScreen';
 import OfflineIndicator from './components/OfflineIndicator';
@@ -1098,6 +1100,28 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [currentStatType, setCurrentStatType] = useState(null);
 
+  // Handle empty nemesis (no buddy matched yet)
+  if (user.isEmpty) {
+    return (
+      <div className="w-80 h-[520px] bg-slate-800 rounded-xl border-2 border-slate-600 p-4 text-white text-center mx-auto flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-24 h-24 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-4xl text-slate-400">🔍</span>
+          </div>
+          <h3 className="text-slate-300 text-lg font-semibold mb-2">Looking for Buddy</h3>
+          <p className="text-slate-400 text-sm leading-relaxed">
+            We are searching for a suitable quit buddy for you. This may take a few minutes.
+          </p>
+          <div className="mt-4 p-3 bg-slate-700/50 rounded-lg">
+            <p className="text-slate-300 text-xs">
+              💡 Tip: Complete your profile to help us find better matches
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!user || !user.archetype || !user.stats) {
     return (
       <div className="w-80 h-[520px] bg-slate-800 rounded-xl border-2 border-gray-400 p-4 text-white text-center mx-auto flex items-center justify-center">
@@ -1509,7 +1533,7 @@ const BottomNavigation = ({ activeTab, onTabChange, dataLoadingState, onRefreshD
 };
 
 // Arena View with Enhanced Battle Algorithm and Recommendations
-const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting }) => {
+const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoading, buddyError, onRefreshBuddy, onAutoMatch, realBuddy }) => {
   const [showBattleInfo, setShowBattleInfo] = useState(false);
   const [statManager, setStatManager] = useState(null);
   
@@ -1662,7 +1686,6 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting }) => {
     // Initialize StatManager
     const initializeStatManager = async () => {
       try {
-        const StatManager = (await import('./services/statManager')).default;
         const manager = new StatManager(db, user.uid);
         await manager.initialize();
         setStatManager(manager);
@@ -1671,7 +1694,19 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting }) => {
       }
     };
 
+    // Initialize BuddyMatchingService
+    const initializeBuddyMatchingService = async () => {
+      try {
+        const service = new BuddyMatchingService(db);
+        setBuddyMatchingService(service);
+        console.log('✅ BuddyMatchingService initialized successfully');
+      } catch (error) {
+        console.error('Error initializing BuddyMatchingService:', error);
+      }
+    };
+
     initializeStatManager();
+    initializeBuddyMatchingService();
 
     const loadStats = async () => {
       if (user) {
@@ -1911,6 +1946,57 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting }) => {
             >
               <span className="text-lg font-bold">i</span>
             </button>
+            
+            {/* Buddy Refresh Button */}
+            <button
+              onClick={onRefreshBuddy}
+              disabled={buddyLoading}
+              className="w-10 h-10 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+              title="Refresh Buddy Data"
+            >
+              {buddyLoading ? (
+                <RefreshCw className="w-5 h-5 animate-spin" />
+              ) : (
+                <span className="text-lg">🔄</span>
+              )}
+            </button>
+            
+            {/* Manual Buddy Match Button */}
+            <button
+              onClick={onAutoMatch}
+              disabled={buddyLoading || realBuddy}
+              className="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+              title="Find Buddy Match"
+            >
+              <span className="text-lg">🤝</span>
+            </button>
+          </div>
+          
+          {/* Buddy Status Indicator */}
+          <div className="mt-4">
+            {buddyLoading && (
+              <div className="inline-flex items-center px-4 py-2 bg-yellow-600/20 border border-yellow-500/50 rounded-lg">
+                <span className="text-yellow-400 text-sm font-semibold">🔍 Searching for buddy...</span>
+              </div>
+            )}
+            
+            {buddyError && (
+              <div className="inline-flex items-center px-4 py-2 bg-red-600/20 border border-red-500/50 rounded-lg">
+                <span className="text-red-400 text-sm font-semibold">❌ Buddy loading failed</span>
+              </div>
+            )}
+            
+            {realBuddy && !buddyLoading && !buddyError && (
+              <div className="inline-flex items-center px-4 py-2 bg-green-600/20 border border-green-500/50 rounded-lg">
+                <span className="text-green-400 text-sm font-semibold">✅ Battling {realBuddy.heroName}</span>
+              </div>
+            )}
+            
+            {!realBuddy && !buddyLoading && !buddyError && (
+              <div className="inline-flex items-center px-4 py-2 bg-blue-600/20 border border-blue-500/50 rounded-lg">
+                <span className="text-blue-400 text-sm font-semibold">🤝 No buddy yet - Click 🤝 button to find one!</span>
+              </div>
+            )}
           </div>
         </div>
         
@@ -1953,6 +2039,49 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting }) => {
           </div>
           
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
+            {/* Buddy State Indicator */}
+            {nemesis.isEmpty && (
+              <div className="mb-2 text-center">
+                <div className="bg-slate-600/20 border border-slate-500/50 rounded-lg px-4 py-2">
+                  <p className="text-slate-400 text-sm font-semibold">🔍 Looking for Buddy</p>
+                  <p className="text-slate-300 text-xs">We are searching for a suitable match</p>
+                </div>
+              </div>
+            )}
+            
+            {nemesis.isLoading && (
+              <div className="mb-2 text-center">
+                <div className="bg-yellow-600/20 border border-yellow-500/50 rounded-lg px-4 py-2">
+                  <p className="text-yellow-400 text-sm font-semibold">🔍 Loading Buddy...</p>
+                  <p className="text-yellow-300 text-xs">Please wait while we find your match</p>
+                </div>
+              </div>
+            )}
+            
+            {nemesis.isError && (
+              <div className="mb-2 text-center">
+                <div className="bg-red-600/20 border border-red-500/50 rounded-lg px-4 py-2 mb-2">
+                  <p className="text-red-400 text-sm font-semibold">❌ Error Loading Buddy</p>
+                  <p className="text-red-300 text-xs">{nemesis.errorMessage || 'Failed to load buddy data'}</p>
+                </div>
+                <button
+                  onClick={onRefreshBuddy}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            
+            {nemesis.isRealBuddy && (
+              <div className="mb-2 text-center">
+                <div className="bg-green-600/20 border border-green-500/50 rounded-lg px-4 py-2">
+                  <p className="text-green-400 text-sm font-semibold">✅ Connected with Buddy</p>
+                  <p className="text-green-300 text-xs">You're battling {nemesis.heroName}!</p>
+                </div>
+              </div>
+            )}
+            
             <TradingCard user={{ ...nemesis, stats: realTimeNemesisStats }} isNemesis={true} showComparison={false} nemesisUser={user} />
           </div>
         </div>
@@ -2541,7 +2670,6 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
     // Initialize StatManager
     const initializeStatManager = async () => {
       try {
-        const StatManager = (await import('./services/statManager')).default;
         const manager = new StatManager(db, user.uid);
         await manager.initialize();
         setStatManager(manager);
@@ -2891,7 +3019,6 @@ const ProfileView = ({ user, onNavigate }) => {
     // Initialize StatManager
     const initializeStatManager = async () => {
       try {
-        const StatManager = (await import('./services/statManager')).default;
         const manager = new StatManager(db, user.uid);
         await manager.initialize();
         setStatManager(manager);
@@ -3958,7 +4085,7 @@ const SettingsView = ({ onResetApp }) => (
 );
 
 // Buddy Chat View Component
-const BuddyChatView = ({ user, nemesis }) => {
+const BuddyChatView = ({ user, nemesis, buddyMatchingService }) => {
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -3977,6 +4104,39 @@ const BuddyChatView = ({ user, nemesis }) => {
   const [isTyping, setIsTyping] = useState(false);
   const [testResults, setTestResults] = useState(null);
   const [isTesting, setIsTesting] = useState(false);
+  
+  // Real buddy matching state
+  const [matchedBuddy, setMatchedBuddy] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState(null);
+  const [buddyPair, setBuddyPair] = useState(null);
+
+  // Load existing buddy pair on mount
+  useEffect(() => {
+    const loadExistingBuddyPair = async () => {
+      if (!buddyMatchingService || !user?.uid) return;
+      
+      try {
+        console.log('🔍 Checking for existing buddy pair...');
+        const existingPair = await buddyMatchingService.getUserBuddyInfo(user.uid);
+        
+        if (existingPair) {
+          console.log('✅ Found existing buddy pair:', existingPair);
+          setBuddyPair(existingPair);
+          
+          // Get buddy details
+          const buddyDetails = await buddyMatchingService.getBuddyPairInfo(existingPair.id);
+          if (buddyDetails) {
+            setMatchedBuddy(buddyDetails);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading existing buddy pair:', error);
+      }
+    };
+
+    loadExistingBuddyPair();
+  }, [buddyMatchingService, user?.uid]);
 
   const handleSendMessage = () => {
     if (newMessage.trim().length === 0) return;
@@ -4028,71 +4188,209 @@ const BuddyChatView = ({ user, nemesis }) => {
     }
   };
 
-  // Test buddy matching algorithm
+  // Real buddy matching functions
+  const findMyBuddy = async () => {
+    if (!buddyMatchingService || !user?.uid) {
+      setSearchResults({
+        error: true,
+        message: 'Buddy matching service not available'
+      });
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchResults(null);
+
+    try {
+      console.log('🔍 Searching for compatible buddies...');
+      
+      // Find compatible matches
+      const matches = await buddyMatchingService.findCompatibleMatches(user.uid, 5);
+      
+      if (matches && matches.length > 0) {
+        console.log('✅ Found compatible matches:', matches);
+        
+        // Get the best match
+        const bestMatch = matches[0];
+        const compatibilityScore = bestMatch.compatibilityScore;
+        const matchReasons = bestMatch.matchReasons;
+        
+        setSearchResults({
+          success: true,
+          matches: matches,
+          bestMatch: bestMatch,
+          compatibilityScore: compatibilityScore,
+          matchReasons: matchReasons,
+          message: `Found ${matches.length} compatible buddy${matches.length > 1 ? 's' : ''}!`
+        });
+        
+        // Auto-select the best match
+        setMatchedBuddy(bestMatch);
+        
+      } else {
+        console.log('⚠️ No compatible matches found');
+        setSearchResults({
+          success: false,
+          message: 'No compatible buddies found at the moment. Check back later!',
+          suggestion: 'Make sure your profile is complete and you\'re available for matching.'
+        });
+      }
+      
+    } catch (error) {
+      console.error('❌ Error finding buddy:', error);
+      setSearchResults({
+        error: true,
+        message: 'Failed to search for buddies. Please try again.',
+        details: error.message
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const createBuddyPair = async () => {
+    if (!buddyMatchingService || !user?.uid || !matchedBuddy) {
+      console.error('Cannot create buddy pair: missing required data');
+      return;
+    }
+
+    try {
+      console.log('🤝 Creating buddy pair...');
+      
+      const pairId = await buddyMatchingService.createBuddyPair(
+        user.uid, 
+        matchedBuddy.userId, 
+        {
+          compatibilityScore: matchedBuddy.compatibilityScore,
+          matchReasons: matchedBuddy.matchReasons,
+          matchedAt: Date.now()
+        }
+      );
+      
+      console.log('✅ Buddy pair created successfully:', pairId);
+      
+      // Update local state
+      setBuddyPair({
+        id: pairId,
+        user1: user.uid,
+        user2: matchedBuddy.userId,
+        matchedAt: Date.now()
+      });
+      
+      // Remove both users from matching pool
+      await buddyMatchingService.removeFromMatchingPool(user.uid);
+      await buddyMatchingService.removeFromMatchingPool(matchedBuddy.userId);
+      
+      // Show success message
+      setSearchResults({
+        success: true,
+        message: '🎉 Buddy pair created successfully! You can now chat with your new buddy.',
+        pairId: pairId
+      });
+      
+    } catch (error) {
+      console.error('❌ Error creating buddy pair:', error);
+      setSearchResults({
+        error: true,
+        message: 'Failed to create buddy pair. Please try again.',
+        details: error.message
+      });
+    }
+  };
+
+  const removeFromMatchingPool = async () => {
+    if (!buddyMatchingService || !user?.uid) return;
+    
+    try {
+      await buddyMatchingService.removeFromMatchingPool(user.uid);
+      console.log('✅ Removed from matching pool');
+      
+      // Clear any search results
+      setSearchResults({
+        success: true,
+        message: 'You have been removed from the matching pool. You can rejoin anytime by clicking "Find My Buddy" again.'
+      });
+      
+      // Clear matched buddy
+      setMatchedBuddy(null);
+      
+    } catch (error) {
+      console.error('❌ Error removing from matching pool:', error);
+    }
+  };
+
+  // Test buddy matching algorithm with real service
   const testBuddyMatching = async () => {
     setIsTesting(true);
     setTestResults(null);
     
     try {
-      // Import the buddy matching service dynamically
-      const { 
-        calculateCompatibility, 
-        findBuddyMatch, 
-        createBuddyPair 
-      } = await import('./services/buddyMatching.js');
-      
-      const { mockUsers } = await import('./data/mockUsers.js');
-      
-      console.log('🧪 Starting Buddy Matching Algorithm Test...');
-      
-      // 1. Load and display count of mock users
-      const userCount = mockUsers.length;
-      console.log(`Found ${userCount} mock users`);
-      
-      // 2. Calculate compatibility between first two mock users
-      const user1 = mockUsers[0];
-      const user2 = mockUsers[1];
-      const compatibilityScore = calculateCompatibility(user1, user2);
-      console.log(`Compatibility between ${user1.heroName} and ${user2.heroName}: ${compatibilityScore} points`);
-      
-      // 3. Find best match for a test user
-      const testUser = mockUsers[0]; // Use first user as test user
-      const availableUsers = mockUsers.filter(u => u.id !== testUser.id);
-      const bestMatch = findBuddyMatch(testUser, availableUsers);
-      
-      let matchResult = 'No suitable match found';
-      let matchScore = 0;
-      
-      if (bestMatch) {
-        matchResult = bestMatch.heroName;
-        matchScore = calculateCompatibility(testUser, bestMatch);
-        console.log(`Best match for ${testUser.heroName}: ${bestMatch.heroName} (Score: ${matchScore})`);
-        
-        // 4. Create buddy pair
-        const buddyPair = createBuddyPair(testUser, bestMatch);
-        console.log('Buddy pair created:', buddyPair);
-      } else {
-        console.log('No suitable match found for test user');
+      if (!buddyMatchingService) {
+        throw new Error('BuddyMatchingService not available');
       }
       
-      // 5. Show results on screen
-      const results = {
-        userCount,
-        user1Name: user1.heroName,
-        user2Name: user2.heroName,
-        compatibilityScore,
-        testUserName: testUser.heroName,
-        matchResult,
-        matchScore,
-        timestamp: new Date().toLocaleTimeString()
-      };
+      console.log('🧪 Starting Real Buddy Matching Service Test...');
       
-      setTestResults(results);
-      console.log('✅ Buddy Matching Algorithm Test completed successfully!');
-      console.log('Check console for detailed logs');
+      // 1. Test matching pool stats
+      const poolStats = await buddyMatchingService.getMatchingPoolStats();
+      console.log('Matching pool stats:', poolStats);
+      
+      // 2. Test finding compatible matches for current user
+      if (user?.uid) {
+        const matches = await buddyMatchingService.findCompatibleMatches(user.uid, 3);
+        console.log(`Found ${matches.length} compatible matches for current user`);
+        
+        if (matches.length > 0) {
+          const bestMatch = matches[0];
+          console.log('Best match:', bestMatch);
+          
+          // 3. Test creating a buddy pair
+          const pairId = await buddyMatchingService.createBuddyPair(
+            user.uid,
+            bestMatch.userId,
+            {
+              compatibilityScore: bestMatch.compatibilityScore,
+              matchReasons: bestMatch.matchReasons,
+              matchedAt: Date.now()
+            }
+          );
+          
+          console.log('Buddy pair created with ID:', pairId);
+          
+          // 4. Test getting buddy pair info
+          const pairInfo = await buddyMatchingService.getBuddyPairInfo(pairId);
+          console.log('Buddy pair info:', pairInfo);
+          
+          // 5. Clean up test pair
+          await buddyMatchingService.removeFromMatchingPool(user.uid);
+          await buddyMatchingService.removeFromMatchingPool(bestMatch.userId);
+          
+          setTestResults({
+            success: true,
+            userCount: poolStats.totalUsers,
+            poolStats: poolStats,
+            matchesFound: matches.length,
+            bestMatch: bestMatch.heroName,
+            compatibilityScore: bestMatch.compatibilityScore,
+            pairId: pairId,
+            message: 'Real buddy matching service test completed successfully!',
+            timestamp: new Date().toLocaleTimeString()
+          });
+          
+        } else {
+          setTestResults({
+            success: false,
+            message: 'No compatible matches found for testing',
+            poolStats: poolStats,
+            timestamp: new Date().toLocaleTimeString()
+          });
+        }
+      } else {
+        throw new Error('No authenticated user for testing');
+      }
       
     } catch (error) {
-      console.error('❌ Error testing buddy matching algorithm:', error);
+      console.error('❌ Error testing real buddy matching service:', error);
       setTestResults({
         error: true,
         message: error.message,
@@ -4179,7 +4477,124 @@ const BuddyChatView = ({ user, nemesis }) => {
           </div>
         </div>
 
-        {/* Buddy Info */}
+        {/* Buddy Matching Section */}
+        <div className="mt-6 bg-slate-800 rounded-2xl p-6 shadow-2xl border border-slate-700">
+          <div className="text-center mb-4">
+            <h3 className="text-xl font-bold text-white mb-2">🤝 Find Your Quit Buddy</h3>
+            <p className="text-gray-300 text-sm mb-4">Connect with someone on a similar quit journey</p>
+            
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={findMyBuddy}
+                disabled={isSearching || !buddyMatchingService}
+                className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-6 py-3 rounded-xl transition-colors disabled:cursor-not-allowed font-semibold"
+              >
+                {isSearching ? '🔍 Searching...' : 'Find My Buddy'}
+              </button>
+              
+              <button
+                onClick={removeFromMatchingPool}
+                disabled={!buddyMatchingService}
+                className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-3 rounded-xl transition-colors font-semibold"
+              >
+                Leave Pool
+              </button>
+            </div>
+          </div>
+
+          {/* Search Results */}
+          {searchResults && (
+            <div className="mt-4 p-4 bg-slate-700 rounded-xl border border-slate-600">
+              {searchResults.error ? (
+                <div className="text-red-400">
+                  <p className="font-semibold">❌ {searchResults.message}</p>
+                  {searchResults.details && (
+                    <p className="text-sm mt-1">{searchResults.details}</p>
+                  )}
+                </div>
+              ) : searchResults.success && searchResults.bestMatch ? (
+                <div className="space-y-3">
+                  <div className="text-green-400">
+                    <p className="font-semibold">✅ {searchResults.message}</p>
+                  </div>
+                  
+                  {/* Best Match Display */}
+                  <div className="bg-slate-600 rounded-lg p-3">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                        {searchResults.bestMatch.heroName?.charAt(0) || 'B'}
+                      </div>
+                      <div>
+                        <h4 className="text-white font-semibold">{searchResults.bestMatch.heroName || 'Buddy'}</h4>
+                        <p className="text-gray-300 text-sm">Compatibility: {searchResults.compatibilityScore} points</p>
+                      </div>
+                    </div>
+                    
+                    {/* Match Reasons */}
+                    {searchResults.matchReasons && searchResults.matchReasons.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-gray-300 text-xs mb-1">Why you're a great match:</p>
+                        <ul className="text-xs text-gray-400 space-y-1">
+                          {searchResults.matchReasons.slice(0, 3).map((reason, index) => (
+                            <li key={index} className="flex items-center">
+                              <span className="text-green-400 mr-2">•</span>
+                              {reason}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Create Pair Button */}
+                  <button
+                    onClick={createBuddyPair}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition-colors font-semibold"
+                  >
+                    🤝 Connect with {searchResults.bestMatch.heroName || 'Buddy'}
+                  </button>
+                </div>
+              ) : (
+                <div className="text-yellow-400">
+                  <p className="font-semibold">⚠️ {searchResults.message}</p>
+                  {searchResults.suggestion && (
+                    <p className="text-sm mt-1 text-gray-300">{searchResults.suggestion}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Current Buddy Info */}
+          {buddyPair ? (
+            <div className="mt-4 p-4 bg-green-900/20 rounded-xl border border-green-600/50">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">
+                  🤝
+                </div>
+                <div>
+                  <h4 className="text-green-400 font-semibold">Connected with Buddy</h4>
+                  <p className="text-gray-300 text-sm">You can now chat and support each other!</p>
+                  <p className="text-xs text-gray-400">Connected: {new Date(buddyPair.matchedAt).toLocaleDateString()}</p>
+                </div>
+              </div>
+            </div>
+          ) : matchedBuddy ? (
+            <div className="mt-4 p-4 bg-blue-900/20 rounded-xl border border-blue-600/50">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                  👥
+                </div>
+                <div>
+                  <h4 className="text-blue-400 font-semibold">Buddy Found</h4>
+                  <p className="text-gray-300 text-sm">Click "Connect" above to start your journey together!</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Legacy Buddy Info (fallback) */}
         <div className="mt-6 bg-slate-800 rounded-2xl p-6 shadow-2xl border border-slate-700">
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
@@ -4219,26 +4634,42 @@ const BuddyChatView = ({ user, nemesis }) => {
                   <p className="text-sm">{testResults.message}</p>
                   <p className="text-xs text-gray-400 mt-2">Timestamp: {testResults.timestamp}</p>
                 </div>
-              ) : (
+              ) : testResults.success ? (
                 <div className="space-y-2 text-sm">
                   <p className="text-green-400">
-                    <span className="font-semibold">✅ Found {testResults.userCount} mock users</span>
+                    <span className="font-semibold">✅ {testResults.message}</span>
                   </p>
                   
                   <p className="text-blue-400">
-                    <span className="font-semibold">Compatibility score between {testResults.user1Name} and {testResults.user2Name}: {testResults.compatibilityScore} points</span>
+                    <span className="font-semibold">Matching Pool: {testResults.userCount} users available</span>
                   </p>
                   
                   <p className="text-yellow-400">
-                    <span className="font-semibold">Best match for {testResults.testUserName}: {testResults.matchResult}</span>
-                    {testResults.matchScore > 0 && ` (Score: ${testResults.matchScore})`}
+                    <span className="font-semibold">Best Match: {testResults.bestMatch}</span>
+                    {testResults.compatibilityScore > 0 && ` (Score: ${testResults.compatibilityScore})`}
                   </p>
+                  
+                  {testResults.pairId && (
+                    <p className="text-purple-400">
+                      <span className="font-semibold">Buddy Pair Created: {testResults.pairId}</span>
+                    </p>
+                  )}
                   
                   <p className="text-gray-400 text-xs mt-3">
                     <span className="font-semibold">Check console for detailed logs</span>
                     <br />
                     Timestamp: {testResults.timestamp}
                   </p>
+                </div>
+              ) : (
+                <div className="text-yellow-400">
+                  <p className="font-semibold">⚠️ {testResults.message}</p>
+                  {testResults.poolStats && (
+                    <p className="text-sm text-gray-300">
+                      Pool Stats: {testResults.poolStats.totalUsers} users, {testResults.poolStats.activeUsers} active
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-2">Timestamp: {testResults.timestamp}</p>
                 </div>
               )}
             </div>
@@ -4272,6 +4703,9 @@ const App = () => {
 
   // Store unsubscribe functions for cleanup
   const [unsubscribeFunctions, setUnsubscribeFunctions] = useState([]);
+
+  // Buddy matching service
+  const [buddyMatchingService, setBuddyMatchingService] = useState(null);
 
   // Helper function to get default stats
   const getDefaultStats = () => ({
@@ -4962,22 +5396,238 @@ const App = () => {
     }
   };
 
-  // Mock nemesis data (this could be replaced with real opponent matching later)
-  const mockNemesis = {
-    heroName: 'HealthGuardian Emma',
+  // Real buddy data state
+  const [realBuddy, setRealBuddy] = useState(null);
+  const [buddyLoading, setBuddyLoading] = useState(false);
+  const [buddyError, setBuddyError] = useState(null);
+
+  // Load real buddy data
+  const loadRealBuddy = async () => {
+    if (!buddyMatchingService || !user?.uid) {
+      console.log('⚠️ Cannot load buddy: missing buddyMatchingService or user UID');
+      setBuddyLoading(false);
+      return;
+    }
+    
+    setBuddyLoading(true);
+    setBuddyError(null);
+    
+    try {
+      console.log('🔍 Loading real buddy data...');
+      console.log('User UID:', user.uid);
+      
+      // Check if user has an existing buddy pair
+      const existingPair = await buddyMatchingService.getUserBuddyInfo(user.uid);
+      console.log('Existing buddy pair check result:', existingPair);
+      
+      if (existingPair) {
+        console.log('✅ Found existing buddy pair:', existingPair);
+        
+        // Get the buddy's user ID (the other user in the pair)
+        const buddyUserId = existingPair.user1 === user.uid ? existingPair.user2 : existingPair.user1;
+        console.log('Buddy user ID:', buddyUserId);
+        
+        // Load buddy's user data from Firebase
+        const { ref, get } = await import('firebase/database');
+        const buddyUserRef = ref(db, `users/${buddyUserId}`);
+        const buddySnapshot = await get(buddyUserRef);
+        
+        if (buddySnapshot.exists()) {
+          const buddyData = buddySnapshot.val();
+          console.log('✅ Loaded buddy user data:', buddyData);
+          
+          // Transform buddy data to match expected format
+          const transformedBuddy = {
+            heroName: buddyData.heroName || 'Buddy',
+            stats: {
+              streakDays: buddyData.stats?.streakDays || 0,
+              addictionLevel: buddyData.stats?.addictionLevel || 50,
+              willpower: buddyData.stats?.mentalStrength || 50, // Map mentalStrength to willpower
+              motivation: buddyData.stats?.mentalStrength || 50,
+              cravingResistance: buddyData.stats?.mentalStrength || 50, // For Mental Strength calculation
+              triggerDefense: buddyData.stats?.triggerDefense || 30,
+              moneySaved: buddyData.stats?.moneySaved || 0,
+              experiencePoints: buddyData.stats?.experiencePoints || 0
+            },
+            achievements: buddyData.achievements || [],
+            archetype: buddyData.archetype || 'The Determined',
+            avatar: buddyData.avatar || generateAvatar(buddyData.heroName || 'buddy', 'adventurer'),
+            userId: buddyUserId,
+            isRealBuddy: true
+          };
+          
+          console.log('Transformed buddy data:', transformedBuddy);
+          setRealBuddy(transformedBuddy);
+        } else {
+          console.log('⚠️ Buddy user data not found for ID:', buddyUserId);
+          setRealBuddy(null);
+        }
+      } else {
+        console.log('ℹ️ No existing buddy pair found for user:', user.uid);
+        setRealBuddy(null);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error loading real buddy:', error);
+      setBuddyError(error.message);
+      setRealBuddy(null);
+    } finally {
+      setBuddyLoading(false);
+    }
+  };
+
+  // Load buddy data when user or buddyMatchingService changes
+  useEffect(() => {
+    if (user?.uid && buddyMatchingService) {
+      loadRealBuddy();
+      // Also try to find and create matches automatically
+      autoMatchUsers();
+    }
+  }, [user?.uid, buddyMatchingService]);
+
+  // Auto-match available users
+  const autoMatchUsers = async () => {
+    if (!buddyMatchingService || !user?.uid) {
+      console.log('⚠️ Cannot auto-match: missing buddyMatchingService or user UID');
+      return;
+    }
+    
+    try {
+      console.log('🔍 Auto-matching available users...');
+      console.log('Current user UID:', user.uid);
+      
+      // Check if user already has a buddy
+      const existingPair = await buddyMatchingService.getUserBuddyInfo(user.uid);
+      if (existingPair) {
+        console.log('✅ User already has a buddy, skipping auto-match');
+        return;
+      }
+      
+      // Check matching pool status
+      const poolStats = await buddyMatchingService.getMatchingPoolStats();
+      console.log('Matching pool stats:', poolStats);
+      
+      // Find compatible matches
+      const matches = await buddyMatchingService.findCompatibleMatches(user.uid, 3);
+      console.log(`Found ${matches.length} compatible matches:`, matches);
+      
+      if (matches.length > 0) {
+        const bestMatch = matches[0];
+        console.log('🎯 Best match found:', bestMatch);
+        
+        // Create buddy pair automatically
+        const pairId = await buddyMatchingService.createBuddyPair(
+          user.uid,
+          bestMatch.userId,
+          {
+            compatibilityScore: bestMatch.compatibilityScore,
+            matchReasons: bestMatch.matchReasons,
+            matchedAt: Date.now()
+          }
+        );
+        
+        console.log('✅ Auto-created buddy pair:', pairId);
+        
+        // Reload buddy data to show the new match
+        await loadRealBuddy();
+      } else {
+        console.log('ℹ️ No compatible matches found for auto-matching');
+        console.log('This could mean:');
+        console.log('- No other users in matching pool');
+        console.log('- Compatibility score too low (< 0.6)');
+        console.log('- Users not available for matching');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in auto-matching:', error);
+      // Show user-friendly error message
+      alert('Failed to find buddy match. Please try again later.');
+    }
+  };
+
+  // Handle navigation events from Arena
+  useEffect(() => {
+    const handleNavigateToTab = (event) => {
+      const tabName = event.detail;
+      console.log('Navigating to tab:', tabName);
+      
+      if (tabName === 'buddy-chat') {
+        setCurrentView('buddy-chat');
+        setActiveTab('buddy-chat');
+      }
+    };
+
+    window.addEventListener('navigateToTab', handleNavigateToTab);
+    
+    return () => {
+      window.removeEventListener('navigateToTab', handleNavigateToTab);
+    };
+  }, []);
+
+  // Empty nemesis data (used when no real buddy is available)
+  const emptyNemesis = {
+    heroName: '',
     stats: {
-      streakDays: Math.floor(Math.random() * 5) + 1, // Random streak for variety
-      addictionLevel: 50, // Scaled to 100-point system
-      willpower: 80, // Scaled to 100-point system
-      motivation: 90, // Scaled to 100-point system
-      cravingResistance: 85, // For Mental Strength calculation
-      triggerDefense: 75, // Scaled to 100-point system
-      moneySaved: Math.floor(Math.random() * 30) + 10,
-      experiencePoints: Math.floor(Math.random() * 100) + 20
+      streakDays: 0,
+      addictionLevel: 0,
+      willpower: 0,
+      motivation: 0,
+      cravingResistance: 0,
+      triggerDefense: 0,
+      moneySaved: 0,
+      experiencePoints: 0
     },
     achievements: [],
-    archetype: 'HEALTH_WARRIOR',
-    avatar: generateAvatar('nemesis-emma', 'adventurer')
+    archetype: '',
+    avatar: null,
+    isEmpty: true,
+    message: 'We are looking for a suitable buddy for you'
+  };
+
+  // Get current opponent (real buddy or fallback)
+  const getCurrentOpponent = () => {
+    if (buddyLoading) {
+      return {
+        heroName: 'Loading Buddy...',
+        stats: {
+          streakDays: 0,
+          addictionLevel: 50,
+          willpower: 50,
+          motivation: 50,
+          cravingResistance: 50,
+          triggerDefense: 30,
+          moneySaved: 0,
+          experiencePoints: 0
+        },
+        achievements: [],
+        archetype: 'LOADING',
+        avatar: generateAvatar('loading', 'adventurer'),
+        isLoading: true
+      };
+    }
+    
+    if (buddyError) {
+      return {
+        heroName: 'Error Loading Buddy',
+        stats: {
+          streakDays: 0,
+          addictionLevel: 50,
+          willpower: 50,
+          motivation: 50,
+          cravingResistance: 50,
+          triggerDefense: 30,
+          moneySaved: 0,
+          experiencePoints: 0
+        },
+        achievements: [],
+        archetype: 'ERROR',
+        avatar: generateAvatar('error', 'adventurer'),
+        isError: true,
+        errorMessage: buddyError
+      };
+    }
+    
+    return realBuddy || emptyNemesis;
   };
 
   const handleOnboardingComplete = async (userData) => {
@@ -5019,6 +5669,29 @@ const App = () => {
       // Update app state AFTER successful Firebase save
       setUser(completeUserData);
       setHasCompletedOnboarding(true);
+      
+      // Add user to buddy matching pool
+      if (buddyMatchingService) {
+        try {
+          console.log('Adding user to buddy matching pool...');
+          await buddyMatchingService.addToMatchingPool(authUser.uid, {
+            quitStartDate: completeUserData.quitDate,
+            addictionLevel: completeUserData.stats.addictionLevel,
+            triggers: completeUserData.triggers || [],
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            quitExperience: completeUserData.quitAttempts || 'first',
+            availableForMatching: true,
+            lastActive: Date.now(),
+            userId: authUser.uid,
+            heroName: completeUserData.heroName,
+            archetype: completeUserData.archetype
+          });
+          console.log('✅ User added to buddy matching pool successfully');
+        } catch (error) {
+          console.error('⚠️ Failed to add user to buddy matching pool:', error);
+          // Continue with onboarding even if buddy matching fails
+        }
+      }
       
       // Load all user data to ensure complete synchronization
       console.log('Loading all user data after onboarding completion...');
@@ -5427,14 +6100,20 @@ const App = () => {
               {console.log('Rendering ArenaView with user:', user)}
               {(() => {
                 try {
-                  return (
-                    <ArenaView 
-                      user={user}
-                      nemesis={mockNemesis}
-                      onBackToLogin={handleBackToLogin}
-                      onResetForTesting={handleResetForTesting}
-                    />
-                  );
+                  const currentOpponent = getCurrentOpponent();
+                                          return (
+                          <ArenaView 
+                            user={user}
+                            nemesis={currentOpponent}
+                            onBackToLogin={handleBackToLogin}
+                            onResetForTesting={handleResetForTesting}
+                            buddyLoading={buddyLoading}
+                            buddyError={buddyError}
+                            onRefreshBuddy={loadRealBuddy}
+                            onAutoMatch={autoMatchUsers}
+                            realBuddy={realBuddy}
+                          />
+                        );
                 } catch (error) {
                   console.error('Error rendering ArenaView:', error);
                   return (
@@ -5459,7 +6138,7 @@ const App = () => {
               {console.log('Rendering CravingSupportView with user:', user)}
               <CravingSupportView 
                 user={user}
-                nemesis={mockNemesis}
+                nemesis={getCurrentOpponent()}
                 onBackToLogin={handleBackToLogin}
                 onResetForTesting={handleResetForTesting}
               />
@@ -5483,7 +6162,7 @@ const App = () => {
             />
           )}
           
-          {currentView === 'buddy-chat' && <BuddyChatView user={user} nemesis={mockNemesis} />}
+          {currentView === 'buddy-chat' && <BuddyChatView user={user} nemesis={getCurrentOpponent()} buddyMatchingService={buddyMatchingService} />}
           {currentView === 'settings' && <SettingsView onResetApp={handleResetApp} />}
 
           {/* Bottom Navigation */}
