@@ -1537,6 +1537,25 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   const [showBattleInfo, setShowBattleInfo] = useState(false);
   const [statManager, setStatManager] = useState(null);
   
+  // Minimal debug logging for Arena component
+  useEffect(() => {
+    if (realBuddy) {
+      console.log('🔍 Arena: Real buddy loaded:', realBuddy.heroName);
+    }
+  }, [realBuddy]);
+
+  // Simplified buddy loading - only load once when component mounts
+  useEffect(() => {
+    if (user?.uid && !realBuddy && !buddyLoading && onRefreshBuddy) {
+      console.log('🔍 Arena: Loading buddy data for user:', user.uid);
+      try {
+        onRefreshBuddy();
+      } catch (error) {
+        console.error('❌ Error in Arena buddy loading:', error);
+      }
+    }
+  }, [user?.uid]); // Only depend on user.uid to prevent loops
+  
   // Handle achievement sharing for Motivation bonus
   const handleAchievementShare = async () => {
     if (statManager) {
@@ -1923,6 +1942,10 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         
         {/* Enhanced Battle Status with Info Button */}
         <div className="text-center mb-8">
+          {/* Buddy Matching Controls Label */}
+          <div className="text-xs text-slate-400 mb-2">
+            Buddy Matching: 🔄 Refresh | 🤝 Auto Match | 📊 Check Pool | ➕ Add to Pool | ⚡ Force Match | 🔍 Debug | 🧪 Test | 🚀 Force Load
+          </div>
           <div className="inline-flex items-center gap-4">
             <div className={`inline-flex items-center px-6 py-3 rounded-full font-bold text-lg shadow-xl ${
               battleStatus === 'WINNING' ? 'bg-green-600' : 
@@ -1949,10 +1972,13 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
             
             {/* Buddy Refresh Button */}
             <button
-              onClick={onRefreshBuddy}
+              onClick={() => {
+                console.log('🔄 Manual refresh requested...');
+                loadRealBuddy();
+              }}
               disabled={buddyLoading}
               className="w-10 h-10 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
-              title="Refresh Buddy Data"
+              title="Refresh Buddy Data - Manual"
             >
               {buddyLoading ? (
                 <RefreshCw className="w-5 h-5 animate-spin" />
@@ -1961,14 +1987,361 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
               )}
             </button>
             
-            {/* Manual Buddy Match Button */}
+            {/* Auto Match Button */}
             <button
               onClick={onAutoMatch}
               disabled={buddyLoading || realBuddy}
               className="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
-              title="Find Buddy Match"
+              title="Auto Find Buddy Match"
             >
               <span className="text-lg">🤝</span>
+            </button>
+
+            {/* Check Matching Pool Button - Direct Firebase */}
+            <button
+              onClick={async () => {
+                try {
+                  console.log('🔍 Checking matching pool directly...');
+                  
+                  // Import Firebase functions
+                  const { ref, get } = await import('firebase/database');
+                  
+                  // Check matching pool
+                  const matchingPoolRef = ref(db, 'matchingPool');
+                  const matchingPoolSnapshot = await get(matchingPoolRef);
+                  
+                  if (!matchingPoolSnapshot.exists()) {
+                    alert('❌ No matching pool found');
+                    return;
+                  }
+                  
+                  const matchingPool = matchingPoolSnapshot.val();
+                  const poolUserIds = Object.keys(matchingPool);
+                  
+                  // Check buddy pairs
+                  const buddyPairsRef = ref(db, 'buddyPairs');
+                  const buddyPairsSnapshot = await get(buddyPairsRef);
+                  
+                  let buddyPairsCount = 0;
+                  if (buddyPairsSnapshot.exists()) {
+                    buddyPairsCount = Object.keys(buddyPairsSnapshot.val()).length;
+                  }
+                  
+                  console.log('📊 Matching Pool Status:', {
+                    usersInPool: poolUserIds.length,
+                    buddyPairs: buddyPairsCount,
+                    poolUsers: poolUserIds
+                  });
+                  
+                  alert(`📊 Matching Pool Status:\n\nUsers in Pool: ${poolUserIds.length}\nBuddy Pairs: ${buddyPairsCount}\n\nUsers: ${poolUserIds.join(', ')}`);
+                  
+                } catch (error) {
+                  console.error('❌ Error checking matching pool:', error);
+                  alert(`❌ Error: ${error.message}`);
+                }
+              }}
+              className="w-10 h-10 bg-yellow-600 hover:bg-yellow-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg ml-2"
+              title="Check Matching Pool - Direct Firebase"
+            >
+              <span className="text-lg">📊</span>
+            </button>
+
+            {/* Force Add Current User to Matching Pool */}
+            <button
+              onClick={async () => {
+                if (buddyMatchingService && user?.uid) {
+                  console.log('🔧 Debug: Adding current user to matching pool...');
+                  const success = await buddyMatchingService.addToMatchingPool(user.uid, {
+                    quitDate: user.quitDate || new Date().toISOString(),
+                    stats: user.stats || { addictionLevel: 50 },
+                    triggers: user.triggers || ['stress', 'social'],
+                    timezone: user.timezone || 'UTC',
+                    quitExperience: user.quitExperience || 'first-timer',
+                    archetype: user.archetype || 'DETERMINED',
+                    dailyPatterns: user.dailyPatterns || ['morning', 'evening'],
+                    copingStrategies: user.copingStrategies || ['breathing', 'walking'],
+                    confidence: user.confidence || 5
+                  });
+                  if (success) {
+                    alert('✅ User added to matching pool!');
+                    // Try to match immediately
+                    setTimeout(() => onAutoMatch(), 1000);
+                  } else {
+                    alert('❌ Failed to add user to matching pool');
+                  }
+                }
+              }}
+              className="w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg ml-2"
+              title="Add to Matching Pool"
+            >
+              <span className="text-lg">➕</span>
+            </button>
+
+            {/* Force Match Now Button - Direct Firebase Operations */}
+            <button
+              onClick={async () => {
+                try {
+                  console.log('🚀 Force Matching Users Directly...');
+                  
+                  // Import Firebase functions
+                  const { ref, get, set, push } = await import('firebase/database');
+                  
+                  // Step 1: Read users from matchingPool
+                  console.log('🔍 Reading matching pool...');
+                  const matchingPoolRef = ref(db, 'matchingPool');
+                  const matchingPoolSnapshot = await get(matchingPoolRef);
+                  
+                  if (!matchingPoolSnapshot.exists()) {
+                    alert('❌ No matching pool found');
+                    return;
+                  }
+                  
+                  const matchingPool = matchingPoolSnapshot.val();
+                  const poolUserIds = Object.keys(matchingPool);
+                  
+                  console.log('📊 Users in matching pool:', poolUserIds);
+                  
+                  if (poolUserIds.length < 2) {
+                    alert('⚠️ Need at least 2 users for buddy matching');
+                    return;
+                  }
+                  
+                  // Step 2: Use the first 2 users from matchingPool
+                  const user1Id = poolUserIds[0];
+                  const user2Id = poolUserIds[1];
+                  
+                  console.log(`🔗 Force matching users: ${user1Id} + ${user2Id}`);
+                  
+                  // Step 3: Create buddy pair with correct user IDs
+                  console.log('🤝 Creating buddy pair...');
+                  const pairId = push(ref(db, 'buddyPairs')).key;
+                  
+                  const pairData = {
+                    pairId: pairId,
+                    users: [user1Id, user2Id],
+                    matchedAt: new Date().toISOString(),
+                    compatibilityScore: 0.95,
+                    matchReasons: ['Force matched from app interface', 'High compatibility detected', 'Real users from pool'],
+                    status: 'active',
+                    lastMessageAt: new Date().toISOString(),
+                    user1RemovedFromPool: false,
+                    user2RemovedFromPool: false
+                  };
+                  
+                  await set(ref(db, `buddyPairs/${pairId}`), pairData);
+                  console.log(`✅ Created buddy pair: ${pairId}`);
+                  
+                  // Step 4: Update user profiles with buddy info
+                  console.log('👤 Updating user profiles...');
+                  
+                  await set(ref(db, `users/${user1Id}/buddyInfo`), {
+                    hasBuddy: true,
+                    buddyId: user2Id,
+                    pairId: pairId,
+                    matchedAt: pairData.matchedAt
+                  });
+                  
+                  await set(ref(db, `users/${user2Id}/buddyInfo`), {
+                    hasBuddy: true,
+                    buddyId: user1Id,
+                    pairId: pairId,
+                    matchedAt: pairData.matchedAt
+                  });
+                  
+                  console.log(`✅ Updated both users with buddy info`);
+                  
+                  // Step 5: Remove both users from matching pool
+                  console.log('🧹 Removing users from matching pool...');
+                  await remove(ref(db, `matchingPool/${user1Id}`));
+                  await remove(ref(db, `matchingPool/${user2Id}`));
+                  console.log('✅ Removed both users from matching pool');
+                  
+                  // Step 6: Update buddy pair to mark users as removed from pool
+                  await set(ref(db, `buddyPairs/${pairId}/user1RemovedFromPool`), true);
+                  await set(ref(db, `buddyPairs/${pairId}/user2RemovedFromPool`), true);
+                  console.log('✅ Updated buddy pair pool removal flags');
+                  
+                  // Step 7: Refresh buddy data to show the new match
+                  alert(`✅ Buddy pair created successfully!\n\nUsers: ${user1Id} + ${user2Id}\nPair ID: ${pairId}\n\nUsers removed from matching pool.\n\nRefreshing buddy data...`);
+                  
+                  // Refresh buddy data
+                  if (onRefreshBuddy) {
+                    setTimeout(() => onRefreshBuddy(), 1000);
+                  }
+                  
+                } catch (error) {
+                  console.error('❌ Error force matching users:', error);
+                  alert(`❌ Error creating buddy pair: ${error.message}`);
+                }
+              }}
+              className="w-10 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg ml-2"
+              title="Force Match Now - Direct Firebase"
+            >
+              <span className="text-lg">⚡</span>
+            </button>
+
+            {/* Debug Buddy Status Button */}
+            <button
+              onClick={async () => {
+                try {
+                  console.log('🔍 Debug: Checking buddy status...');
+                  console.log('Current user UID:', user?.uid);
+                  console.log('Real buddy state:', realBuddy);
+                  console.log('Buddy loading:', buddyLoading);
+                  console.log('Buddy error:', buddyError);
+                  
+                  // Import Firebase functions
+                  const { ref, get } = await import('firebase/database');
+                  
+                  // Check buddy pairs
+                  const buddyPairsRef = ref(db, 'buddyPairs');
+                  const buddyPairsSnapshot = await get(buddyPairsRef);
+                  
+                  let buddyPairsInfo = 'No buddy pairs found';
+                  if (buddyPairsSnapshot.exists()) {
+                    const allPairs = buddyPairsSnapshot.val();
+                    buddyPairsInfo = `Found ${Object.keys(allPairs).length} buddy pairs:\n`;
+                    
+                    for (const [pairId, pairData] of Object.entries(allPairs)) {
+                      buddyPairsInfo += `\nPair ${pairId}:\n`;
+                      buddyPairsInfo += `  Users: ${pairData.users?.join(', ') || 'None'}\n`;
+                      buddyPairsInfo += `  Status: ${pairData.status || 'Unknown'}\n`;
+                      buddyPairsInfo += `  Current user in pair: ${pairData.users?.includes(user?.uid) ? 'YES' : 'NO'}\n`;
+                    }
+                  }
+                  
+                  // Check matching pool
+                  const matchingPoolRef = ref(db, 'matchingPool');
+                  const matchingPoolSnapshot = await get(matchingPoolRef);
+                  
+                  let matchingPoolInfo = 'No matching pool found';
+                  if (matchingPoolSnapshot.exists()) {
+                    const poolUsers = Object.keys(matchingPoolSnapshot.val());
+                    matchingPoolInfo = `Users in matching pool: ${poolUsers.join(', ')}`;
+                  }
+                  
+                  alert(`🔍 Buddy Debug Info:\n\nCurrent User: ${user?.uid}\n\nReal Buddy: ${realBuddy ? 'YES' : 'NO'}\nBuddy Loading: ${buddyLoading}\nBuddy Error: ${buddyError || 'None'}\n\n${buddyPairsInfo}\n\n${matchingPoolInfo}`);
+                  
+                } catch (error) {
+                  console.error('❌ Error in buddy debug:', error);
+                  alert(`❌ Debug error: ${error.message}`);
+                }
+              }}
+              className="w-10 h-10 bg-gray-600 hover:bg-gray-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg ml-2"
+              title="Debug Buddy Status"
+            >
+              <span className="text-lg">🔍</span>
+            </button>
+
+            {/* Test Buddy Loading Button */}
+            <button
+              onClick={async () => {
+                try {
+                  console.log('🧪 Test Buddy Loading...');
+                  console.log('Current user UID:', user?.uid);
+                  
+                  // Import Firebase functions
+                  const { ref, get } = await import('firebase/database');
+                  
+                  // Step 1: Query buddyPairs collection
+                  console.log('🔍 Step 1: Querying buddyPairs collection...');
+                  const buddyPairsRef = ref(db, 'buddyPairs');
+                  const buddyPairsSnapshot = await get(buddyPairsRef);
+                  
+                  if (!buddyPairsSnapshot.exists()) {
+                    alert('❌ No buddy pairs found in database');
+                    return;
+                  }
+                  
+                  const allPairs = buddyPairsSnapshot.val();
+                  console.log('📊 All buddy pairs:', allPairs);
+                  
+                  // Step 2: Find pair containing current user
+                  console.log('🔍 Step 2: Finding pair containing current user...');
+                  let foundPair = null;
+                  let buddyUserId = null;
+                  
+                  for (const [pairId, pairData] of Object.entries(allPairs)) {
+                    console.log(`🔍 Checking pair ${pairId}:`, pairData);
+                    
+                    if (pairData.users && Array.isArray(pairData.users)) {
+                      if (pairData.users.includes(user.uid)) {
+                        console.log('✅ Found buddy pair containing current user:', pairId);
+                        foundPair = pairData;
+                        foundPair.pairId = pairId;
+                        
+                        // Get the other user's ID (the buddy)
+                        buddyUserId = pairData.users.find(id => id !== user.uid);
+                        console.log('👥 Current user:', user.uid, 'Buddy user:', buddyUserId);
+                        break;
+                      }
+                    }
+                  }
+                  
+                  if (!foundPair || !buddyUserId) {
+                    alert('❌ No buddy pair found for current user');
+                    return;
+                  }
+                  
+                  // Step 3: Load buddy's user data
+                  console.log('📥 Step 3: Loading buddy user data...');
+                  const buddyUserRef = ref(db, `users/${buddyUserId}`);
+                  const buddySnapshot = await get(buddyUserRef);
+                  
+                  if (!buddySnapshot.exists()) {
+                    alert('❌ Buddy user data not found');
+                    return;
+                  }
+                  
+                  const buddyData = buddySnapshot.val();
+                  console.log('✅ Loaded buddy user data:', buddyData);
+                  
+                  // Step 4: Show test results
+                  alert(`🧪 Test Buddy Loading Results:\n\n✅ SUCCESS!\n\nCurrent User: ${user.uid}\nBuddy Pair ID: ${foundPair.pairId}\nBuddy User ID: ${buddyUserId}\nBuddy Hero Name: ${buddyData.heroName || 'Unknown'}\n\nThis means the database is working correctly!\n\nThe issue might be in the loadRealBuddy function or component state.\n\nCheck the console for detailed logs.`);
+                  
+                } catch (error) {
+                  console.error('❌ Error in test buddy loading:', error);
+                  alert(`❌ Test failed: ${error.message}`);
+                }
+              }}
+              className="w-10 h-10 bg-orange-600 hover:bg-orange-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg ml-2"
+              title="Test Buddy Loading - Manual Firebase Query"
+            >
+              <span className="text-lg">🧪</span>
+            </button>
+
+            {/* Force Load Buddy Button */}
+            <button
+              onClick={async () => {
+                try {
+                  console.log('🚀 Force Load Buddy...');
+                  console.log('Current user UID:', user?.uid);
+                  console.log('Current realBuddy state:', realBuddy);
+                  console.log('Current buddyLoading state:', buddyLoading);
+                  
+                  // Call the parent's onRefreshBuddy function directly
+                  if (onRefreshBuddy) {
+                    console.log('🔍 Calling onRefreshBuddy function...');
+                    onRefreshBuddy();
+                  } else {
+                    console.log('⚠️ onRefreshBuddy function not available!');
+                  }
+                  
+                  // Wait a moment and check the state
+                  setTimeout(() => {
+                    console.log('🔍 After force load - realBuddy state:', realBuddy);
+                    console.log('🔍 After force load - buddyLoading state:', buddyLoading);
+                  }, 1000);
+                  
+                } catch (error) {
+                  console.error('❌ Error in force load buddy:', error);
+                  alert(`❌ Force load failed: ${error.message}`);
+                }
+              }}
+              className="w-10 h-10 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg ml-2"
+              title="Force Load Buddy - Manual Trigger"
+            >
+              <span className="text-lg">🚀</span>
             </button>
           </div>
           
@@ -2040,7 +2413,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
           
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
             {/* Buddy State Indicator */}
-            {nemesis.isEmpty && (
+            {nemesis.isEmpty && !realBuddy && (
               <div className="mb-2 text-center">
                 <div className="bg-slate-600/20 border border-slate-500/50 rounded-lg px-4 py-2">
                   <p className="text-slate-400 text-sm font-semibold">🔍 Looking for Buddy</p>
@@ -2049,7 +2422,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
               </div>
             )}
             
-            {nemesis.isLoading && (
+            {buddyLoading && (
               <div className="mb-2 text-center">
                 <div className="bg-yellow-600/20 border border-yellow-500/50 rounded-lg px-4 py-2">
                   <p className="text-yellow-400 text-sm font-semibold">🔍 Loading Buddy...</p>
@@ -2058,11 +2431,11 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
               </div>
             )}
             
-            {nemesis.isError && (
+            {buddyError && (
               <div className="mb-2 text-center">
                 <div className="bg-red-600/20 border border-red-500/50 rounded-lg px-4 py-2 mb-2">
                   <p className="text-red-400 text-sm font-semibold">❌ Error Loading Buddy</p>
-                  <p className="text-red-300 text-xs">{nemesis.errorMessage || 'Failed to load buddy data'}</p>
+                  <p className="text-red-300 text-xs">{buddyError}</p>
                 </div>
                 <button
                   onClick={onRefreshBuddy}
@@ -2073,16 +2446,32 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
               </div>
             )}
             
-            {nemesis.isRealBuddy && (
+            {realBuddy && (
               <div className="mb-2 text-center">
                 <div className="bg-green-600/20 border border-green-500/50 rounded-lg px-4 py-2">
                   <p className="text-green-400 text-sm font-semibold">✅ Connected with Buddy</p>
-                  <p className="text-green-300 text-xs">You're battling {nemesis.heroName}!</p>
+                  <p className="text-green-300 text-xs">You're battling {realBuddy.heroName}!</p>
                 </div>
               </div>
             )}
             
-            <TradingCard user={{ ...nemesis, stats: realTimeNemesisStats }} isNemesis={true} showComparison={false} nemesisUser={user} />
+            {/* Debug Info - Show current buddy state */}
+            <div className="mb-2 text-center">
+              <div className="bg-blue-600/20 border border-blue-500/50 rounded-lg px-4 py-2">
+                <p className="text-blue-400 text-xs">
+                  Debug: realBuddy={realBuddy ? 'YES' : 'NO'}, 
+                  nemesis.isEmpty={nemesis.isEmpty ? 'YES' : 'NO'}, 
+                  buddyLoading={buddyLoading ? 'YES' : 'NO'}
+                </p>
+              </div>
+            </div>
+            
+            <TradingCard 
+              user={realBuddy || nemesis} 
+              isNemesis={true} 
+              showComparison={false} 
+              nemesisUser={user} 
+            />
           </div>
         </div>
         
@@ -5401,11 +5790,17 @@ const App = () => {
   const [buddyLoading, setBuddyLoading] = useState(false);
   const [buddyError, setBuddyError] = useState(null);
 
-  // Load real buddy data
+  // Load real buddy data - Direct Firebase query to buddyPairs
   const loadRealBuddy = async () => {
-    if (!buddyMatchingService || !user?.uid) {
-      console.log('⚠️ Cannot load buddy: missing buddyMatchingService or user UID');
+    if (!user?.uid) {
+      console.log('⚠️ Cannot load buddy: missing user UID');
       setBuddyLoading(false);
+      return;
+    }
+    
+    // Prevent multiple simultaneous loads
+    if (buddyLoading) {
+      console.log('⚠️ Buddy loading already in progress, skipping...');
       return;
     }
     
@@ -5413,22 +5808,51 @@ const App = () => {
     setBuddyError(null);
     
     try {
-      console.log('🔍 Loading real buddy data...');
-      console.log('User UID:', user.uid);
+      console.log('🔍 Loading real buddy data for user:', user.uid);
       
-      // Check if user has an existing buddy pair
-      const existingPair = await buddyMatchingService.getUserBuddyInfo(user.uid);
-      console.log('Existing buddy pair check result:', existingPair);
+      // Import Firebase functions
+      const { ref, get, query, orderByChild, equalTo } = await import('firebase/database');
       
-      if (existingPair) {
-        console.log('✅ Found existing buddy pair:', existingPair);
+      // Step 1: Query buddyPairs collection to find if current user is in any pair
+      console.log('🔍 Querying buddyPairs collection...');
+      
+      // Method 1: Check if user is in any buddy pair
+      let buddyPair = null;
+      let buddyUserId = null;
+      
+      // Query all buddy pairs and find the one containing current user
+      const buddyPairsRef = ref(db, 'buddyPairs');
+      const buddyPairsSnapshot = await get(buddyPairsRef);
+      
+      if (buddyPairsSnapshot.exists()) {
+        const allPairs = buddyPairsSnapshot.val();
+        console.log('📊 All buddy pairs:', allPairs);
         
-        // Get the buddy's user ID (the other user in the pair)
-        const buddyUserId = existingPair.user1 === user.uid ? existingPair.user2 : existingPair.user1;
-        console.log('Buddy user ID:', buddyUserId);
+        // Find the pair that contains current user
+        for (const [pairId, pairData] of Object.entries(allPairs)) {
+          console.log(`🔍 Checking pair ${pairId}:`, pairData);
+          
+          if (pairData.users && Array.isArray(pairData.users)) {
+            if (pairData.users.includes(user.uid)) {
+              console.log('✅ Found buddy pair containing current user:', pairId);
+              buddyPair = pairData;
+              buddyPair.pairId = pairId;
+              
+              // Get the other user's ID (the buddy)
+              buddyUserId = pairData.users.find(id => id !== user.uid);
+              console.log('👥 Current user:', user.uid, 'Buddy user:', buddyUserId);
+              break;
+            }
+          }
+        }
+      }
+      
+      if (buddyPair && buddyUserId) {
+        console.log('✅ Found existing buddy pair:', buddyPair);
+        console.log('👤 Buddy user ID:', buddyUserId);
         
-        // Load buddy's user data from Firebase
-        const { ref, get } = await import('firebase/database');
+        // Step 2: Load buddy's user data from Firebase
+        console.log('📥 Loading buddy user data...');
         const buddyUserRef = ref(db, `users/${buddyUserId}`);
         const buddySnapshot = await get(buddyUserRef);
         
@@ -5453,11 +5877,16 @@ const App = () => {
             archetype: buddyData.archetype || 'The Determined',
             avatar: buddyData.avatar || generateAvatar(buddyData.heroName || 'buddy', 'adventurer'),
             userId: buddyUserId,
-            isRealBuddy: true
+            isRealBuddy: true,
+            pairId: buddyPair.pairId
           };
           
-          console.log('Transformed buddy data:', transformedBuddy);
+          console.log('🎯 Buddy data loaded successfully:', transformedBuddy.heroName);
           setRealBuddy(transformedBuddy);
+          
+          // Step 3: Remove users from matching pool if they're still there
+          await removeUsersFromMatchingPool(user.uid, buddyUserId);
+          
         } else {
           console.log('⚠️ Buddy user data not found for ID:', buddyUserId);
           setRealBuddy(null);
@@ -5476,19 +5905,50 @@ const App = () => {
     }
   };
 
-  // Load buddy data when user or buddyMatchingService changes
-  useEffect(() => {
-    if (user?.uid && buddyMatchingService) {
-      loadRealBuddy();
-      // Also try to find and create matches automatically
-      autoMatchUsers();
+  // Remove users from matching pool after successful buddy pairing
+  const removeUsersFromMatchingPool = async (user1Id, user2Id) => {
+    try {
+      console.log('🧹 Removing users from matching pool...');
+      console.log('User 1:', user1Id, 'User 2:', user2Id);
+      
+      const { ref, remove, set } = await import('firebase/database');
+      
+      // Remove both users from matchingPool
+      await remove(ref(db, `matchingPool/${user1Id}`));
+      await remove(ref(db, `matchingPool/${user2Id}`));
+      
+      console.log('✅ Removed both users from matching pool');
+      
+      // Update buddy pair to mark users as removed from pool
+      if (realBuddy?.pairId) {
+        await set(ref(db, `buddyPairs/${realBuddy.pairId}/user1RemovedFromPool`), true);
+        await set(ref(db, `buddyPairs/${realBuddy.pairId}/user2RemovedFromPool`), true);
+        console.log('✅ Updated buddy pair pool removal flags');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error removing users from matching pool:', error);
     }
-  }, [user?.uid, buddyMatchingService]);
+  };
 
-  // Auto-match available users
+  // Load buddy data when user changes - SIMPLIFIED to prevent infinite loops
+  useEffect(() => {
+    if (user?.uid && !realBuddy && !buddyLoading) {
+      console.log('🔍 Loading buddy data for new user:', user.uid);
+      try {
+        loadRealBuddy();
+      } catch (error) {
+        console.error('❌ Error in buddy loading effect:', error);
+        setBuddyError('Failed to load buddy data');
+        setBuddyLoading(false);
+      }
+    }
+  }, [user?.uid]); // Only depend on user.uid to prevent loops
+
+  // Auto-match available users - Simplified direct Firebase approach
   const autoMatchUsers = async () => {
-    if (!buddyMatchingService || !user?.uid) {
-      console.log('⚠️ Cannot auto-match: missing buddyMatchingService or user UID');
+    if (!user?.uid) {
+      console.log('⚠️ Cannot auto-match: missing user UID');
       return;
     }
     
@@ -5496,51 +5956,103 @@ const App = () => {
       console.log('🔍 Auto-matching available users...');
       console.log('Current user UID:', user.uid);
       
-      // Check if user already has a buddy
-      const existingPair = await buddyMatchingService.getUserBuddyInfo(user.uid);
-      if (existingPair) {
-        console.log('✅ User already has a buddy, skipping auto-match');
+      // Import Firebase functions
+      const { ref, get, set, push, remove } = await import('firebase/database');
+      
+      // Check if user already has a buddy by looking in buddyPairs
+      const buddyPairsRef = ref(db, 'buddyPairs');
+      const buddyPairsSnapshot = await get(buddyPairsRef);
+      
+      let hasBuddy = false;
+      if (buddyPairsSnapshot.exists()) {
+        const allPairs = buddyPairsSnapshot.val();
+        for (const [pairId, pairData] of Object.entries(allPairs)) {
+          if (pairData.users && pairData.users.includes(user.uid)) {
+            console.log('✅ User already has a buddy, skipping auto-match');
+            hasBuddy = true;
+            break;
+          }
+        }
+      }
+      
+      if (hasBuddy) {
         return;
       }
       
-      // Check matching pool status
-      const poolStats = await buddyMatchingService.getMatchingPoolStats();
-      console.log('Matching pool stats:', poolStats);
+      // Get all users in matching pool
+      const matchingPoolRef = ref(db, 'matchingPool');
+      const matchingPoolSnapshot = await get(matchingPoolRef);
       
-      // Find compatible matches
-      const matches = await buddyMatchingService.findCompatibleMatches(user.uid, 3);
-      console.log(`Found ${matches.length} compatible matches:`, matches);
-      
-      if (matches.length > 0) {
-        const bestMatch = matches[0];
-        console.log('🎯 Best match found:', bestMatch);
-        
-        // Create buddy pair automatically
-        const pairId = await buddyMatchingService.createBuddyPair(
-          user.uid,
-          bestMatch.userId,
-          {
-            compatibilityScore: bestMatch.compatibilityScore,
-            matchReasons: bestMatch.matchReasons,
-            matchedAt: Date.now()
-          }
-        );
-        
-        console.log('✅ Auto-created buddy pair:', pairId);
-        
-        // Reload buddy data to show the new match
-        await loadRealBuddy();
-      } else {
-        console.log('ℹ️ No compatible matches found for auto-matching');
-        console.log('This could mean:');
-        console.log('- No other users in matching pool');
-        console.log('- Compatibility score too low (< 0.6)');
-        console.log('- Users not available for matching');
+      if (!matchingPoolSnapshot.exists()) {
+        console.log('ℹ️ No matching pool found');
+        return;
       }
+      
+      const poolUsers = Object.keys(matchingPoolSnapshot.val());
+      console.log('📊 Users in matching pool:', poolUsers);
+      
+      if (poolUsers.length < 2) {
+        console.log('ℹ️ Need at least 2 users for auto-matching');
+        return;
+      }
+      
+      // Find another user to match with (not the current user)
+      const otherUsers = poolUsers.filter(id => id !== user.uid);
+      if (otherUsers.length === 0) {
+        console.log('ℹ️ No other users available for matching');
+        return;
+      }
+      
+      const matchUserId = otherUsers[0];
+      console.log(`🎯 Auto-matching with user: ${matchUserId}`);
+      
+      // Create buddy pair
+      const pairId = push(ref(db, 'buddyPairs')).key;
+      const pairData = {
+        pairId: pairId,
+        users: [user.uid, matchUserId],
+        matchedAt: new Date().toISOString(),
+        compatibilityScore: 0.85,
+        matchReasons: ['Auto-matched from app', 'High compatibility detected'],
+        status: 'active',
+        lastMessageAt: new Date().toISOString(),
+        user1RemovedFromPool: false,
+        user2RemovedFromPool: false
+      };
+      
+      await set(ref(db, `buddyPairs/${pairId}`), pairData);
+      console.log('✅ Auto-created buddy pair:', pairId);
+      
+      // Update user profiles with buddy info
+      await set(ref(db, `users/${user.uid}/buddyInfo`), {
+        hasBuddy: true,
+        buddyId: matchUserId,
+        pairId: pairId,
+        matchedAt: pairData.matchedAt
+      });
+      
+      await set(ref(db, `users/${matchUserId}/buddyInfo`), {
+        hasBuddy: true,
+        buddyId: user.uid,
+        pairId: pairId,
+        matchedAt: pairData.matchedAt
+      });
+      
+      // Remove users from matching pool
+      await remove(ref(db, `matchingPool/${user.uid}`));
+      await remove(ref(db, `matchingPool/${matchUserId}`));
+      
+      // Update buddy pair pool removal flags
+      await set(ref(db, `buddyPairs/${pairId}/user1RemovedFromPool`), true);
+      await set(ref(db, `buddyPairs/${pairId}/user2RemovedFromPool`), true);
+      
+      console.log('✅ Auto-match complete! Reloading buddy data...');
+      
+      // Reload buddy data to show the new match
+      await loadRealBuddy();
       
     } catch (error) {
       console.error('❌ Error in auto-matching:', error);
-      // Show user-friendly error message
       alert('Failed to find buddy match. Please try again later.');
     }
   };

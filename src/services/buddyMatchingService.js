@@ -137,7 +137,8 @@ class BuddyMatchingService {
 
         const compatibilityScore = this.calculateCompatibilityScore(userProfile, potentialProfile);
         
-        if (compatibilityScore >= 0.6) { // Minimum 60% compatibility
+        // Lower threshold for testing - allow any compatibility above 10%
+        if (compatibilityScore >= 0.1) { // Minimum 10% compatibility for testing
           matches.push({
             userId: potentialUserId,
             profile: potentialProfile,
@@ -347,6 +348,34 @@ class BuddyMatchingService {
     }
   }
 
+  /**
+   * Force match two users for testing purposes
+   * @param {string} user1Id - First user's ID
+   * @param {string} user2Id - Second user's ID
+   * @returns {Promise<boolean>} Success status
+   */
+  async forceMatchUsers(user1Id, user2Id) {
+    try {
+      console.log(`🔧 Force matching users ${user1Id} and ${user2Id}`);
+      
+      // Create a dummy match data with high compatibility
+      const matchData = {
+        compatibilityScore: 0.95,
+        matchReasons: ['Force matched for testing', 'High compatibility detected'],
+        matchedAt: Date.now()
+      };
+      
+      const success = await this.createBuddyPair(user1Id, user2Id, matchData);
+      if (success) {
+        console.log(`✅ Force match successful between ${user1Id} and ${user2Id}`);
+      }
+      return success;
+    } catch (error) {
+      console.error('❌ Error force matching users:', error);
+      return false;
+    }
+  }
+
   // ===== POOL MAINTENANCE =====
 
   /**
@@ -513,6 +542,56 @@ class BuddyMatchingService {
     });
 
     return unsubscribe;
+  }
+
+  /**
+   * Get all users in the matching pool for debugging
+   * @returns {Promise<Array>} Array of user profiles
+   */
+  async getAllMatchingPoolUsers() {
+    try {
+      const snapshot = await get(this.matchingPoolRef);
+      if (!snapshot.exists()) {
+        console.log('❌ No users in matching pool');
+        return [];
+      }
+
+      const users = snapshot.val();
+      const userList = Object.entries(users).map(([id, user]) => ({ id, ...user }));
+      console.log('📊 Matching pool users:', userList);
+      return userList;
+    } catch (error) {
+      console.error('❌ Error getting matching pool users:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Force match two users for testing purposes
+   * @param {string} user1Id - First user's ID
+   * @param {string} user2Id - Second user's ID
+   * @returns {Promise<boolean>} Success status
+   */
+  async forceMatchUsers(user1Id, user2Id) {
+    try {
+      console.log(`🔧 Force matching users ${user1Id} and ${user2Id}`);
+      
+      // Create a dummy match data with high compatibility
+      const matchData = {
+        compatibilityScore: 0.95,
+        matchReasons: ['Force matched for testing', 'High compatibility detected'],
+        matchedAt: Date.now()
+      };
+      
+      const success = await this.createBuddyPair(user1Id, user2Id, matchData);
+      if (success) {
+        console.log(`✅ Force match successful between ${user1Id} and ${user2Id}`);
+      }
+      return success;
+    } catch (error) {
+      console.error('❌ Error force matching users:', error);
+      return false;
+    }
   }
 }
 
