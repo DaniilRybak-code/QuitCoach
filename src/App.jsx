@@ -1,9 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 // Initialize Firebase once app mounts; safe to tree-shake unused exports
-import { db, auth } from './services/firebase';
+import { db, auth, firestore } from './services/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import StatManager from './services/statManager.js';
 import BuddyMatchingService from './services/buddyMatchingService.js';
+import FirestoreBuddyService from './services/firestoreBuddyService.js';
+
+// Debug: Check if FirestoreBuddyService is imported correctly
+console.log('🧪 FirestoreBuddyService import check:', !!FirestoreBuddyService);
+console.log('🧪 FirestoreBuddyService type:', typeof FirestoreBuddyService);
+console.log('🧪 FirestoreBuddyService constructor:', FirestoreBuddyService?.name);
 
 import AuthScreen from './components/AuthScreen';
 import OfflineIndicator from './components/OfflineIndicator';
@@ -1696,48 +1702,104 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   const [realTimeUserStats, setRealTimeUserStats] = useState({ ...user?.stats });
   const [realTimeNemesisStats, setRealTimeNemesisStats] = useState({ ...nemesis?.stats });
 
-  // Initialize StatManager and load real-time stats
+  console.log('🚀 BEFORE useEffect - About to define Firestore initialization useEffect');
+
+  // Initialize Firestore service independently (doesn't require user authentication)
+  useEffect(() => {
+    console.log('🚀 FIRESTORE INITIALIZATION useEffect TRIGGERED');
+    console.log('🚀 Component mounted, initializing Firestore service...');
+    
+    const initializeFirestoreService = async () => {
+      console.log('🔄 About to call initializeFirestoreBuddyService...');
+      try {
+        await initializeFirestoreBuddyService();
+        console.log('✅ initializeFirestoreBuddyService completed successfully');
+      } catch (error) {
+        console.error('❌ Error calling initializeFirestoreBuddyService:', error);
+        console.error('❌ Error details:', error.message);
+        console.error('❌ Error stack:', error.stack);
+      }
+    };
+
+    initializeFirestoreService();
+  }, []); // Run once on mount
+
+  // Initialize StatManager and load real-time stats (requires user authentication)
   useEffect(() => {
     if (!user?.uid) return;
 
-    // Initialize StatManager
-    const initializeStatManager = async () => {
-      try {
-        const manager = new StatManager(db, user.uid);
-        await manager.initialize();
-        setStatManager(manager);
-      } catch (error) {
-        console.error('Error initializing StatManager:', error);
-      }
+    const initializeUserServices = async () => {
+      // Initialize StatManager
+      const initializeStatManager = async () => {
+        try {
+          const manager = new StatManager(db, user.uid);
+          await manager.initialize();
+          setStatManager(manager);
+        } catch (error) {
+          console.error('Error initializing StatManager:', error);
+        }
+      };
+
+      // Initialize BuddyMatchingService
+      const initializeBuddyMatchingService = async () => {
+        try {
+          const service = new BuddyMatchingService(db);
+          setBuddyMatchingService(service);
+          console.log('✅ BuddyMatchingService initialized successfully');
+        } catch (error) {
+          console.error('Error initializing BuddyMatchingService:', error);
+        }
+      };
+
+      await initializeStatManager();
+      await initializeBuddyMatchingService();
+
+      const loadStats = async () => {
+        if (user) {
+          const userStats = await calculateRealTimeStats(user);
+          setRealTimeUserStats(userStats);
+        }
+        if (nemesis) {
+          const nemesisStats = await calculateRealTimeStats(nemesis);
+          setRealTimeNemesisStats(nemesisStats);
+        }
+      };
+      
+      await loadStats();
     };
 
-    // Initialize BuddyMatchingService
-    const initializeBuddyMatchingService = async () => {
-      try {
-        const service = new BuddyMatchingService(db);
-        setBuddyMatchingService(service);
-        console.log('✅ BuddyMatchingService initialized successfully');
-      } catch (error) {
-        console.error('Error initializing BuddyMatchingService:', error);
-      }
-    };
-
-    initializeStatManager();
-    initializeBuddyMatchingService();
-
-    const loadStats = async () => {
-      if (user) {
-        const userStats = await calculateRealTimeStats(user);
-        setRealTimeUserStats(userStats);
-      }
-      if (nemesis) {
-        const nemesisStats = await calculateRealTimeStats(nemesis);
-        setRealTimeNemesisStats(nemesisStats);
-      }
-    };
-    
-    loadStats();
+    initializeUserServices();
   }, [user, nemesis]);
+  
+  // Handle online/offline state changes - MOVED TO CORRECT LOCATION AFTER STATE DECLARATIONS
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('🌐 Internet connection restored');
+      if (authUser?.uid && dataLoadingState.isComplete) {
+        // Auto-refresh data when connection is restored
+        console.log('🔄 Auto-refreshing data after connection restore...');
+        loadAllUserData(authUser.uid);
+      }
+    };
+
+    const handleOffline = () => {
+      console.log('📡 Internet connection lost');
+      // Update data loading state to show offline status
+      setDataLoadingState(prev => ({
+        ...prev,
+        currentStep: 'Offline mode - data will sync when connection is restored',
+        error: 'No internet connection'
+      }));
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [authUser?.uid, dataLoadingState.isComplete]);
   
   // Enhanced battle algorithm: (Mental Strength × 1.5) + (Motivation × 1.0) + (Trigger Defense × 1.2) - (Addiction × 1.0)
   const calculateBattleScore = (player) => {
@@ -1933,6 +1995,53 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
               title="Reset ALL user data for testing - clears entire database"
             >
               🔄 Reset ALL User Data
+            </button>
+          )}
+          
+          {/* Debug Firestore Button */}
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={async () => {
+                console.log('🧪 Testing Firestore service from main app...');
+                console.log('🧪 firestoreBuddyService state:', !!firestoreBuddyService);
+                console.log('🧪 firestoreBuddyService ref:', !!firestoreBuddyServiceRef.current);
+                
+                if (firestoreBuddyService || firestoreBuddyServiceRef.current) {
+                  const service = firestoreBuddyService || firestoreBuddyServiceRef.current;
+                  console.log('✅ FirestoreBuddyService is available');
+                  const status = service.getServiceStatus();
+                  console.log('📊 Service status:', status);
+                  
+                  // Test connectivity
+                  const connectivity = await service.testConnectivity();
+                  console.log('🔗 Connectivity test result:', connectivity);
+                  
+                  // Test adding a user to matching pool
+                  const testUserData = {
+                    userId: 'test-user-' + Date.now(),
+                    heroName: 'TestHero',
+                    archetype: 'HEALTH_WARRIOR',
+                    quitStartDate: new Date().toISOString(),
+                    addictionLevel: 50,
+                    triggers: ['test'],
+                    timezone: 'UTC',
+                    quitExperience: 'first',
+                    availableForMatching: true,
+                    lastActive: new Date()
+                  };
+                  
+                  const success = await service.addToMatchingPool('test-user-' + Date.now(), testUserData);
+                  console.log('🧪 Test user added to matching pool:', success);
+                } else {
+                  console.log('❌ FirestoreBuddyService is NOT available');
+                  console.log('🔄 Attempting to reinitialize...');
+                  await initializeFirestoreBuddyService();
+                }
+              }}
+              className="px-6 py-3 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg transition-colors flex items-center gap-2 ml-2"
+              title="Test Firestore service and add test user to matching pool"
+            >
+              🧪 Test Firestore
             </button>
           )}
         </div>
@@ -4247,14 +4356,27 @@ const BuddyChatView = ({ user, nemesis, buddyMatchingService }) => {
 };
 // Main App Component
 const App = () => {
-  const [activeTab, setActiveTab] = useState('arena');
-  const [currentView, setCurrentView] = useState('auth');
-  const [selectedMood, setSelectedMood] = useState(null);
-  const [user, setUser] = useState(null);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-  const [authUser, setAuthUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  console.log('🚀 APP COMPONENT MOUNTING - Component function called');
+  
+  try {
+    console.log('🚀 STEP 1: About to declare state variables');
+    
+    const [activeTab, setActiveTab] = useState('arena');
+    const [currentView, setCurrentView] = useState('auth');
+    const [selectedMood, setSelectedMood] = useState(null);
+    const [user, setUser] = useState(null);
+    const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+    const [authUser, setAuthUser] = useState(null);
+    const [authLoading, setAuthLoading] = useState(true);
+    
+    console.log('🚀 STEP 2: State variables declared successfully');
+  } catch (error) {
+    console.error('❌ ERROR declaring state variables:', error);
+    throw error;
+  }
 
+  console.log('🚀 STEP 3: About to declare data loading system state');
+  
   // ===== COMPREHENSIVE DATA LOADING SYSTEM =====
   
   // Centralized data loading state
@@ -4266,11 +4388,68 @@ const App = () => {
     isComplete: false
   });
 
+  console.log('🚀 STEP 4: Data loading state declared');
+
   // Store unsubscribe functions for cleanup
   const [unsubscribeFunctions, setUnsubscribeFunctions] = useState([]);
 
+  console.log('🚀 STEP 5: Unsubscribe functions state declared');
+
   // Buddy matching service
   const [buddyMatchingService, setBuddyMatchingService] = useState(null);
+  
+  console.log('🚀 STEP 6: Buddy matching service state declared');
+  
+  // Firestore buddy matching service
+  const [firestoreBuddyService, setFirestoreBuddyService] = useState(null);
+  const firestoreBuddyServiceRef = useRef(null);
+  
+  console.log('🚀 STEP 7: Firestore buddy service state declared');
+
+  // Initialize FirestoreBuddyService
+  const initializeFirestoreBuddyService = async () => {
+    console.log('🚀 ENTERING initializeFirestoreBuddyService function');
+    console.log('🚀 Function scope check - firestore:', !!firestore);
+    console.log('🚀 Function scope check - setFirestoreBuddyService:', !!setFirestoreBuddyService);
+    console.log('🚀 Function scope check - firestoreBuddyServiceRef:', !!firestoreBuddyServiceRef);
+    
+    try {
+      console.log('🔄 Initializing FirestoreBuddyService...');
+      console.log('🔄 Firestore instance check:', !!firestore);
+      console.log('🔄 Firestore type:', typeof firestore);
+      
+      if (!firestore) {
+        console.error('❌ Firestore instance is not available');
+        return;
+      }
+      
+      console.log('🔄 Creating FirestoreBuddyService instance...');
+      const firestoreService = new FirestoreBuddyService(firestore);
+      console.log('🔄 FirestoreBuddyService instance created:', !!firestoreService);
+      
+      // Test connectivity before setting state
+      console.log('🔄 Testing Firestore connectivity...');
+      const connectivityTest = await firestoreService.testConnectivity();
+      console.log('🔄 Connectivity test result:', connectivityTest);
+      
+      if (connectivityTest) {
+        console.log('✅ Firestore connectivity test passed');
+        
+        // Set state and ref for immediate access
+        console.log('🔄 Setting FirestoreBuddyService state...');
+        setFirestoreBuddyService(firestoreService);
+        console.log('🔄 Setting FirestoreBuddyService ref...');
+        firestoreBuddyServiceRef.current = firestoreService;
+        console.log('✅ FirestoreBuddyService initialized successfully');
+      } else {
+        console.warn('⚠️ Firestore connectivity test failed - service not initialized');
+      }
+    } catch (error) {
+      console.error('❌ Error initializing FirestoreBuddyService:', error);
+      console.error('❌ Error details:', error.message);
+      console.error('❌ Error stack:', error.stack);
+    }
+  };
 
   // Helper function to get default stats
   const getDefaultStats = () => ({
@@ -4544,35 +4723,7 @@ const App = () => {
     };
   }, [unsubscribeFunctions]);
 
-  // Handle online/offline state changes
-  useEffect(() => {
-    const handleOnline = () => {
-      console.log('🌐 Internet connection restored');
-      if (authUser?.uid && dataLoadingState.isComplete) {
-        // Auto-refresh data when connection is restored
-        console.log('🔄 Auto-refreshing data after connection restore...');
-        loadAllUserData(authUser.uid);
-      }
-    };
-
-    const handleOffline = () => {
-      console.log('📡 Internet connection lost');
-      // Update data loading state to show offline status
-      setDataLoadingState(prev => ({
-        ...prev,
-        currentStep: 'Offline mode - data will sync when connection is restored',
-        error: 'No internet connection'
-      }));
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [authUser?.uid, dataLoadingState.isComplete]);
+  // Handle online/offline state changes - MOVED TO CORRECT LOCATION AFTER STATE DECLARATIONS
 
   // ===== OFFLINE SUPPORT INTEGRATION =====
   
@@ -4975,6 +5126,115 @@ const App = () => {
     setBuddyError(null);
     
     try {
+      console.log('🔄 Starting loadRealBuddy function...');
+      console.log('🔄 FirestoreBuddyService available:', !!firestoreBuddyService);
+      console.log('🔄 FirestoreBuddyService type:', typeof firestoreBuddyService);
+      
+      // Use ref for immediate access, fallback to state
+      const service = firestoreBuddyServiceRef.current || firestoreBuddyService;
+      
+      if (!service) {
+        console.log('⚠️ FirestoreBuddyService not available, falling back to Realtime Database');
+        await loadRealBuddyRealtimeDB();
+        return;
+      }
+      
+      console.log('✅ Using Firestore for buddy loading');
+      console.log('🔄 Firestore: Loading real buddy data...');
+      
+      // Query Firestore buddyPairs to find if current user is in any pair
+      const { collection, query, where, getDocs } = await import('firebase/firestore');
+      
+      const buddyPairsRef = collection(firestore, 'buddyPairs');
+      const userPairsQuery = query(buddyPairsRef, where('user1Id', '==', user.uid));
+      const userPairsSnapshot = await getDocs(userPairsQuery);
+      
+      let buddyPair = null;
+      let buddyUserId = null;
+      
+      // Check if user is user1 in any pair
+      if (!userPairsSnapshot.empty) {
+        const pairDoc = userPairsSnapshot.docs[0];
+        buddyPair = { id: pairDoc.id, ...pairDoc.data() };
+        buddyUserId = buddyPair.user2Id;
+      } else {
+        // Check if user is user2 in any pair
+        const user2PairsQuery = query(buddyPairsRef, where('user2Id', '==', user.uid));
+        const user2PairsSnapshot = await getDocs(user2PairsQuery);
+        
+        if (!user2PairsSnapshot.empty) {
+          const pairDoc = user2PairsSnapshot.docs[0];
+          buddyPair = { id: pairDoc.id, ...pairDoc.data() };
+          buddyUserId = buddyPair.user1Id;
+        }
+      }
+      
+      if (buddyPair && buddyUserId) {
+        console.log('✅ Firestore: Found buddy pair:', buddyPair.id);
+        
+        // Validate buddy user exists in Realtime Database (user profiles)
+        const { ref, get } = await import('firebase/database');
+        const buddyUserRef = ref(db, `users/${buddyUserId}`);
+        const buddySnapshot = await get(buddyUserRef);
+        
+        if (!buddySnapshot.exists()) {
+          // Clean up orphaned pair in Firestore
+          console.log('⚠️ Firestore: Cleaning up orphaned buddy pair:', buddyPair.id);
+          const { deleteDoc, doc } = await import('firebase/firestore');
+          await deleteDoc(doc(firestore, 'buddyPairs', buddyPair.id));
+          setRealBuddy(null);
+          return;
+        }
+        
+        const buddyData = buddySnapshot.val();
+        
+        // Transform buddy data
+        const transformedBuddy = {
+          heroName: buddyData.heroName || 'Buddy',
+          stats: {
+            streakDays: buddyData.stats?.streakDays || 0,
+            addictionLevel: buddyData.stats?.addictionLevel || 50,
+            willpower: buddyData.stats?.mentalStrength || 50,
+            motivation: buddyData.stats?.mentalStrength || 50,
+            cravingResistance: buddyData.stats?.mentalStrength || 50,
+            triggerDefense: buddyData.stats?.triggerDefense || 30,
+            moneySaved: buddyData.stats?.moneySaved || 0,
+            experiencePoints: buddyData.stats?.experiencePoints || 0
+          },
+          achievements: buddyData.achievements || [],
+          archetype: buddyData.archetype || 'The Determined',
+          avatar: buddyData.avatar || generateAvatar(buddyData.heroName || 'buddy', 'adventurer'),
+          userId: buddyUserId,
+          isRealBuddy: true,
+          pairId: buddyPair.id
+        };
+        
+        setRealBuddy(transformedBuddy);
+        console.log('✅ Firestore: Buddy data loaded successfully');
+        
+        // Clean up matching pool (Firestore)
+        await removeUsersFromMatchingPool(user.uid, buddyUserId);
+        
+      } else {
+        console.log('ℹ️ Firestore: No buddy pair found for user');
+        setRealBuddy(null);
+      }
+      
+    } catch (error) {
+      console.error('❌ Firestore: Error loading buddy:', error);
+      // Fallback to Realtime Database
+      console.log('🔄 Falling back to Realtime Database buddy loading...');
+      await loadRealBuddyRealtimeDB();
+    } finally {
+      setBuddyLoading(false);
+    }
+  };
+  
+  // Fallback Realtime Database buddy loading function
+  const loadRealBuddyRealtimeDB = async () => {
+    try {
+      console.log('🔄 Realtime Database: Loading buddy data...');
+      
       const { ref, get } = await import('firebase/database');
       
       // Query buddyPairs to find if current user is in any pair
@@ -5045,31 +5305,56 @@ const App = () => {
       }
       
     } catch (error) {
-      console.error('Error loading buddy:', error);
+      console.error('Error loading buddy from Realtime Database:', error);
       setBuddyError('Failed to load buddy data');
       setRealBuddy(null);
-    } finally {
-      setBuddyLoading(false);
     }
   };
 
   // Remove users from matching pool after successful buddy pairing
   const removeUsersFromMatchingPool = async (user1Id, user2Id) => {
     try {
-      const { ref, remove, set } = await import('firebase/database');
+      // Use ref for immediate access, fallback to state
+      const service = firestoreBuddyServiceRef.current || firestoreBuddyService;
       
-      // Remove both users from matchingPool
-      await remove(ref(db, `matchingPool/${user1Id}`));
-      await remove(ref(db, `matchingPool/${user2Id}`));
-      
-      // Update buddy pair to mark users as removed from pool
-      if (realBuddy?.pairId) {
-        await set(ref(db, `buddyPairs/${realBuddy.pairId}/user1RemovedFromPool`), true);
-        await set(ref(db, `buddyPairs/${realBuddy.pairId}/user2RemovedFromPool`), true);
+      if (service && realBuddy?.pairId) {
+        // Use Firestore for matching pool removal
+        console.log('🔄 Firestore: Removing users from matching pool');
+        
+        // Remove both users from Firestore matching pool
+        await service.removeFromMatchingPool(user1Id);
+        await service.removeFromMatchingPool(user2Id);
+        
+        // Update buddy pair in Firestore to mark users as removed from pool
+        const { doc, updateDoc } = await import('firebase/firestore');
+        const pairRef = doc(firestore, 'buddyPairs', realBuddy.pairId);
+        await updateDoc(pairRef, {
+          user1RemovedFromPool: true,
+          user2RemovedFromPool: true
+        });
+        
+        console.log('✅ Firestore: Users removed from matching pool and pair updated');
+      } else {
+        // Fallback to Realtime Database
+        console.log('🔄 Realtime Database: Removing users from matching pool');
+        
+        const { ref, remove, set } = await import('firebase/database');
+        
+        // Remove both users from matchingPool
+        await remove(ref(db, `matchingPool/${user1Id}`));
+        await remove(ref(db, `matchingPool/${user2Id}`));
+        
+        // Update buddy pair to mark users as removed from pool
+        if (realBuddy?.pairId) {
+          await set(ref(db, `buddyPairs/${realBuddy.pairId}/user1RemovedFromPool`), true);
+          await set(ref(db, `buddyPairs/${realBuddy.pairId}/user2RemovedFromPool`), true);
+        }
+        
+        console.log('✅ Realtime Database: Users removed from matching pool and pair updated');
       }
       
     } catch (error) {
-      console.error('Error removing users from matching pool:', error);
+      console.error('❌ Error removing users from matching pool:', error);
     }
   };
 
@@ -5113,16 +5398,164 @@ const App = () => {
 
 
 
+
+
   // Load buddy data when user changes - Simplified to prevent crashes
   useEffect(() => {
     if (user?.uid && !realBuddy && !buddyLoading) {
       loadRealBuddy();
     }
   }, [user?.uid, realBuddy, buddyLoading]);
-
+  
+  // Debug: Monitor FirestoreBuddyService state changes
+  useEffect(() => {
+    if (firestoreBuddyService) {
+      console.log('🎉 FirestoreBuddyService state updated - service is now available!');
+      console.log('📊 Service details:', firestoreBuddyService.getServiceStatus());
+      
+      // Test connectivity when service becomes available
+      firestoreBuddyService.testConnectivity().then(result => {
+        console.log('🔗 Initial connectivity test result:', result);
+      }).catch(error => {
+        console.error('❌ Initial connectivity test failed:', error);
+      });
+    } else {
+      console.log('ℹ️ FirestoreBuddyService state is null/undefined');
+    }
+  }, [firestoreBuddyService]);
+  
   // Auto-match available users - Simple sequential pairing
   const autoMatchUsers = async () => {
     try {
+      // Use ref for immediate access, fallback to state
+      const service = firestoreBuddyServiceRef.current || firestoreBuddyService;
+      
+      if (!service) {
+        console.log('⚠️ FirestoreBuddyService not available, falling back to Realtime Database');
+        await autoMatchUsersRealtimeDB();
+        return;
+      }
+      
+      console.log('✅ Using Firestore for auto-matching');
+      console.log('🔄 Firestore: Starting automatic user matching...');
+      
+      // Get all users in Firestore matching pool
+              const poolUsers = await service.getAllMatchingPoolUsers();
+      
+      if (poolUsers.length < 2) {
+        console.log('ℹ️ Firestore: Not enough users in matching pool for pairing');
+        return;
+      }
+      
+      console.log(`🔄 Firestore: Found ${poolUsers.length} users in matching pool`);
+      
+      // Validate that all users in matching pool still exist in users collection
+      const validPoolUsers = [];
+      for (const poolUser of poolUsers) {
+        try {
+          const { ref, get } = await import('firebase/database');
+          const userRef = ref(db, `users/${poolUser.userId}`);
+          const userSnapshot = await get(userRef);
+          if (userSnapshot.exists()) {
+            validPoolUsers.push(poolUser);
+          } else {
+            // Remove invalid user from Firestore matching pool
+            console.log(`⚠️ Firestore: Removing invalid user from matching pool: ${poolUser.userId}`);
+            await service.removeFromMatchingPool(poolUser.userId);
+          }
+        } catch (validationError) {
+          console.error('❌ Firestore: Error validating user:', validationError);
+        }
+      }
+      
+      if (validPoolUsers.length < 2) {
+        console.log('ℹ️ Firestore: Not enough valid users for pairing after validation');
+        return;
+      }
+      
+      // Simple sequential pairing: pair users in order (1-2, 3-4, 5-6, etc.)
+      let pairsCreated = 0;
+      for (let i = 0; i < validPoolUsers.length - 1; i += 2) {
+        const user1 = validPoolUsers[i];
+        const user2 = validPoolUsers[i + 1];
+        
+        try {
+          console.log(`🔄 Firestore: Creating buddy pair between ${user1.userId} and ${user2.userId}`);
+          
+          // Create buddy pair in Firestore
+          const pairData = {
+            matchedAt: new Date().toISOString(),
+            compatibilityScore: 0.85,
+            matchReasons: ['Sequential auto-match', 'First-come, first-served pairing'],
+            status: 'active',
+            lastMessageAt: new Date().toISOString(),
+            user1RemovedFromPool: false,
+            user2RemovedFromPool: false
+          };
+          
+          const pairId = await service.createBuddyPair(user1.userId, user2.userId, pairData);
+          
+          if (pairId) {
+            // Update user profiles with buddy info in Realtime Database
+            const { ref, set } = await import('firebase/database');
+            await set(ref(db, `users/${user1.userId}/buddyInfo`), {
+              hasBuddy: true,
+              buddyId: user2.userId,
+              pairId: pairId,
+              matchedAt: pairData.matchedAt
+            });
+            
+            await set(ref(db, `users/${user2.userId}/buddyInfo`), {
+              hasBuddy: true,
+              buddyId: user1.userId,
+              pairId: pairId,
+              matchedAt: pairData.matchedAt
+            });
+            
+            // Remove both users from Firestore matching pool
+                      await service.removeFromMatchingPool(user1.userId);
+          await service.removeFromMatchingPool(user2.userId);
+            
+            pairsCreated++;
+            console.log(`✅ Firestore: Created buddy pair ${pairId} between ${user1.userId} and ${user2.userId}`);
+          } else {
+            console.error(`❌ Firestore: Failed to create buddy pair between ${user1.userId} and ${user2.userId}`);
+          }
+          
+        } catch (pairError) {
+          console.error(`❌ Firestore: Failed to create buddy pair between ${user1.userId} and ${user2.userId}:`, pairError);
+        }
+      }
+      
+      // If current user was matched, reload their buddy data
+      if (user?.uid) {
+        const currentUserMatched = validPoolUsers.some(poolUser => poolUser.userId === user.uid);
+        if (currentUserMatched) {
+          try {
+            await loadRealBuddy();
+          } catch (reloadError) {
+            console.error('Error reloading buddy data:', reloadError);
+          }
+        }
+      }
+      
+      if (pairsCreated > 0) {
+        console.log(`🎉 Firestore: Auto-matching completed: ${pairsCreated} pairs created`);
+      }
+      
+    } catch (error) {
+      console.error('❌ Firestore: Auto-matching failed:', error);
+      // Fallback to Realtime Database
+      console.log('🔄 Falling back to Realtime Database auto-matching...');
+      await autoMatchUsersRealtimeDB();
+    }
+  };
+  
+  // Fallback Realtime Database auto-matching function
+  const autoMatchUsersRealtimeDB = async () => {
+    try {
+      console.log('🔄 Realtime Database: Starting fallback auto-matching...');
+      
       // Import Firebase functions
       const { ref, get, set, push, remove } = await import('firebase/database');
       
@@ -5131,6 +5564,7 @@ const App = () => {
       const matchingPoolSnapshot = await get(matchingPoolRef);
       
       if (!matchingPoolSnapshot.exists()) {
+        console.log('ℹ️ Realtime Database: No users in matching pool');
         return;
       }
       
@@ -5149,7 +5583,10 @@ const App = () => {
         }
       });
       
+      console.log(`🔄 Realtime Database: Found ${poolUsers.length} users in matching pool`);
+      
       if (poolUsers.length < 2) {
+        console.log('ℹ️ Realtime Database: Not enough users for pairing (need 2, have', poolUsers.length, ')');
         return;
       }
       
@@ -5163,29 +5600,28 @@ const App = () => {
             validPoolUsers.push(poolUserId);
           } else {
             // Remove invalid user from matching pool
-            // Remove all entries that may reference this uid
-            Object.keys(raw).forEach(async (entryKey) => {
-              const entry = raw[entryKey];
-              const entryUid = entry?.uid || entry?.userId || entryKey;
-              if (entryUid === poolUserId) {
-                await remove(ref(db, `matchingPool/${entryKey}`));
-              }
-            });
+            console.log(`⚠️ Realtime Database: Removing invalid user from matching pool: ${poolUserId}`);
+            await remove(ref(db, `matchingPool/${poolUserId}`));
           }
         } catch (validationError) {
-          console.error('Error validating user:', validationError);
+          console.error('❌ Realtime Database: Error validating user:', validationError);
         }
       }
       
       if (validPoolUsers.length < 2) {
+        console.log('ℹ️ Realtime Database: Not enough valid users for pairing after validation');
         return;
       }
+      
+      console.log(`🔄 Realtime Database: Valid users for pairing: ${validPoolUsers.join(', ')}`);
       
       // Simple sequential pairing: pair users in order (1-2, 3-4, 5-6, etc.)
       let pairsCreated = 0;
       for (let i = 0; i < validPoolUsers.length - 1; i += 2) {
         const user1Id = validPoolUsers[i];
         const user2Id = validPoolUsers[i + 1];
+        
+        console.log(`🔄 Realtime Database: Pairing users ${user1Id} and ${user2Id}`);
         
         try {
           // Create buddy pair
@@ -5252,8 +5688,12 @@ const App = () => {
         }
       }
       
+      if (pairsCreated > 0) {
+        console.log(`🎉 Realtime Database: Auto-matching completed: ${pairsCreated} pairs created`);
+      }
+      
     } catch (error) {
-      console.error('Error in auto-matching:', error);
+      console.error('Error in Realtime Database auto-matching:', error);
     }
   };
 
@@ -5382,25 +5822,52 @@ const App = () => {
       setUser(completeUserData);
       setHasCompletedOnboarding(true);
       
-      // Add user to buddy matching pool directly using Firebase
+      // Add user to buddy matching pool using Firestore
       try {
-        console.log('Adding user to buddy matching pool...');
-        const { ref, set } = await import('firebase/database');
+        // Use ref for immediate access, fallback to state
+        const service = firestoreBuddyServiceRef.current || firestoreBuddyService;
         
-        const matchingPoolData = {
-          quitStartDate: completeUserData.quitDate || new Date().toISOString(),
-          addictionLevel: completeUserData.stats.addictionLevel || 50,
-          triggers: completeUserData.triggers || [],
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          quitExperience: completeUserData.quitAttempts || 'first',
-          availableForMatching: true,
-          lastActive: Date.now(),
-          userId: authUser.uid,
-          heroName: completeUserData.heroName,
-          archetype: completeUserData.archetype
-        };
-        
-        await set(ref(db, `matchingPool/${authUser.uid}`), matchingPoolData);
+        if (!service) {
+          console.log('⚠️ FirestoreBuddyService not available, falling back to Realtime Database');
+          // Fallback to Realtime Database
+          const { ref, set } = await import('firebase/database');
+          const matchingPoolData = {
+            quitStartDate: completeUserData.quitDate || new Date().toISOString(),
+            addictionLevel: completeUserData.stats.addictionLevel || 50,
+            triggers: completeUserData.triggers || [],
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            quitExperience: completeUserData.quitAttempts || 'first',
+            availableForMatching: true,
+            lastActive: Date.now(),
+            userId: authUser.uid,
+            heroName: completeUserData.heroName,
+            archetype: completeUserData.archetype
+          };
+          await set(ref(db, `matchingPool/${authUser.uid}`), matchingPoolData);
+          console.log('✅ User added to Realtime Database matching pool (fallback)');
+        } else {
+          // Use Firestore for matching pool
+          console.log('✅ Using Firestore for matching pool');
+          const matchingPoolData = {
+            quitStartDate: completeUserData.quitDate || new Date().toISOString(),
+            addictionLevel: completeUserData.stats.addictionLevel || 50,
+            triggers: completeUserData.triggers || [],
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            quitExperience: completeUserData.quitAttempts || 'first',
+            availableForMatching: true,
+            lastActive: new Date(),
+            userId: authUser.uid,
+            heroName: completeUserData.heroName,
+            archetype: completeUserData.archetype
+          };
+          
+          const success = await service.addToMatchingPool(authUser.uid, matchingPoolData);
+          if (success) {
+            console.log('✅ User successfully added to Firestore matching pool');
+          } else {
+            throw new Error('Failed to add user to Firestore matching pool');
+          }
+        }
         
         // Trigger automatic matching after adding user to pool
         try {

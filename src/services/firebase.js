@@ -1,6 +1,7 @@
 /* Firebase initialization for QuitCard Arena */
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
+import { getFirestore } from 'firebase/firestore';
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getAnalytics, isSupported as analyticsSupported } from 'firebase/analytics';
 
@@ -20,7 +21,10 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 // Core services
 const db = getDatabase(app, firebaseConfig.databaseURL);
+const firestore = getFirestore(app);
 const auth = getAuth(app);
+
+console.log('✅ Firebase services initialized:', { db: !!db, firestore: !!firestore, auth: !!auth });
 
 // Configure persistent authentication (30 days)
 setPersistence(auth, browserLocalPersistence)
@@ -43,4 +47,4 @@ let analytics = null;
   }
 })();
 
-export { app, auth, db, analytics };
+export { app, auth, db, firestore, analytics };
