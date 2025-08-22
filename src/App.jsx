@@ -1702,27 +1702,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   const [realTimeUserStats, setRealTimeUserStats] = useState({ ...user?.stats });
   const [realTimeNemesisStats, setRealTimeNemesisStats] = useState({ ...nemesis?.stats });
 
-  console.log('🚀 BEFORE useEffect - About to define Firestore initialization useEffect');
-
-  // Initialize Firestore service independently (doesn't require user authentication)
-  useEffect(() => {
-    console.log('🚀 FIRESTORE INITIALIZATION useEffect TRIGGERED');
-    console.log('🚀 Component mounted, initializing Firestore service...');
-    
-    const initializeFirestoreService = async () => {
-      console.log('🔄 About to call initializeFirestoreBuddyService...');
-      try {
-        await initializeFirestoreBuddyService();
-        console.log('✅ initializeFirestoreBuddyService completed successfully');
-      } catch (error) {
-        console.error('❌ Error calling initializeFirestoreBuddyService:', error);
-        console.error('❌ Error details:', error.message);
-        console.error('❌ Error stack:', error.stack);
-      }
-    };
-
-    initializeFirestoreService();
-  }, []); // Run once on mount
+  // Note: Firestore initialization is handled by the parent App component
 
   // Initialize StatManager and load real-time stats (requires user authentication)
   useEffect(() => {
@@ -1775,21 +1755,12 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   useEffect(() => {
     const handleOnline = () => {
       console.log('🌐 Internet connection restored');
-      if (authUser?.uid && dataLoadingState.isComplete) {
-        // Auto-refresh data when connection is restored
-        console.log('🔄 Auto-refreshing data after connection restore...');
-        loadAllUserData(authUser.uid);
-      }
+      // Note: Online/offline handling is managed by the parent App component
     };
 
     const handleOffline = () => {
       console.log('📡 Internet connection lost');
-      // Update data loading state to show offline status
-      setDataLoadingState(prev => ({
-        ...prev,
-        currentStep: 'Offline mode - data will sync when connection is restored',
-        error: 'No internet connection'
-      }));
+      // Note: Online/offline handling is managed by the parent App component
     };
 
     window.addEventListener('online', handleOnline);
@@ -1799,7 +1770,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [authUser?.uid, dataLoadingState.isComplete]);
+  }, []);
   
   // Enhanced battle algorithm: (Mental Strength × 1.5) + (Motivation × 1.0) + (Trigger Defense × 1.2) - (Addiction × 1.0)
   const calculateBattleScore = (player) => {
@@ -4358,22 +4329,17 @@ const BuddyChatView = ({ user, nemesis, buddyMatchingService }) => {
 const App = () => {
   console.log('🚀 APP COMPONENT MOUNTING - Component function called');
   
-  try {
-    console.log('🚀 STEP 1: About to declare state variables');
-    
-    const [activeTab, setActiveTab] = useState('arena');
-    const [currentView, setCurrentView] = useState('auth');
-    const [selectedMood, setSelectedMood] = useState(null);
-    const [user, setUser] = useState(null);
-    const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-    const [authUser, setAuthUser] = useState(null);
-    const [authLoading, setAuthLoading] = useState(true);
-    
-    console.log('🚀 STEP 2: State variables declared successfully');
-  } catch (error) {
-    console.error('❌ ERROR declaring state variables:', error);
-    throw error;
-  }
+  console.log('🚀 STEP 1: About to declare state variables');
+  
+  const [activeTab, setActiveTab] = useState('arena');
+  const [currentView, setCurrentView] = useState('auth');
+  const [selectedMood, setSelectedMood] = useState(null);
+  const [user, setUser] = useState(null);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  
+  console.log('🚀 STEP 2: State variables declared successfully');
 
   console.log('🚀 STEP 3: About to declare data loading system state');
   
