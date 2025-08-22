@@ -1448,80 +1448,11 @@ const BottomNavigation = ({ activeTab, onTabChange, dataLoadingState, onRefreshD
     { id: 'settings', label: 'Explore', icon: Settings }
   ];
   
-  // Debug: Log the tabs to confirm they're updated
-  console.log('🔍 BottomNavigation: Tabs updated:', tabs.map(t => t.label));
+
 
   return (
     <>
-      {/* Session Status Indicator */}
-      <div className="fixed bottom-20 left-0 right-0 bg-slate-700/90 backdrop-blur-sm border-t border-slate-600 px-4 py-2 z-30">
-        <div className="flex justify-center items-center gap-2 text-sm">
-          <span className="text-green-400">🔐</span>
-          <span className="text-white">Session Active</span>
-          <span className="text-gray-400">•</span>
-          <span className="text-gray-300">30 days persistence</span>
-          
-          {/* Data Sync Status */}
-          {dataLoadingState && (
-            <>
-              <span className="text-gray-400">•</span>
-              {dataLoadingState.isComplete ? (
-                <span className="text-green-400 flex items-center gap-1">
-                  <span className="text-xs">✓</span>
-                  <span>Synced</span>
-                </span>
-              ) : dataLoadingState.error ? (
-                <span className="text-red-400 flex items-center gap-1">
-                  <span className="text-xs">⚠</span>
-                  <span>Sync Error</span>
-                </span>
-              ) : (
-                <span className="text-yellow-400 flex items-center gap-1">
-                  <span className="text-xs">⟳</span>
-                  <span>Syncing...</span>
-                </span>
-              )}
-              
-              {/* Refresh Button */}
-              {dataLoadingState.isComplete && (
-                <button
-                  onClick={onRefreshData}
-                  className="ml-2 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
-                  title="Refresh data from server"
-                >
-                  🔄
-                </button>
-              )}
-            </>
-          )}
 
-          {/* Offline Status */}
-          {offlineManager && (
-            <>
-              <span className="text-gray-400">•</span>
-              {offlineManager.isOnline ? (
-                <span className="text-green-400 flex items-center gap-1">
-                  <span className="text-xs">🌐</span>
-                  <span>Online</span>
-                </span>
-              ) : (
-                <span className="text-yellow-400 flex items-center gap-1">
-                  <span className="text-xs">📡</span>
-                  <span>Offline</span>
-                </span>
-              )}
-              
-              {/* Offline Actions Count */}
-              {offlineManager.syncQueue.length > 0 && (
-                <span className="text-blue-400 flex items-center gap-1">
-                  <span className="text-xs">📝</span>
-                  <span>{offlineManager.syncQueue.length} pending</span>
-                </span>
-              )}
-            </>
-          )}
-        </div>
-      </div>
       
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 px-4 py-2 z-40">
@@ -1583,12 +1514,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   const [showBattleInfo, setShowBattleInfo] = useState(false);
   const [statManager, setStatManager] = useState(null);
   
-  // Debug logging for Arena component
-  useEffect(() => {
-    if (realBuddy) {
-      console.log('✅ Arena: Real buddy loaded:', realBuddy.heroName);
-    }
-  }, [realBuddy]);
+
 
 
   
@@ -1993,104 +1919,11 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8 pb-20">
       <div className="max-w-7xl mx-auto px-4">
         {/* Back to Login Button */}
-        <div className="flex justify-start mb-6 gap-3">
-          <button
-            onClick={onBackToLogin}
-            className="px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition-colors flex items-center gap-2"
-          >
-            ← Back to Login
-          </button>
-          
-          {/* Development Testing: Reset Account Button */}
-          {process.env.NODE_ENV === 'development' && (
-            <button
-              onClick={onResetForTesting}
-              className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors flex items-center gap-2"
-              title="Reset ALL user data for testing - clears entire database"
-            >
-              🔄 Reset ALL User Data
-            </button>
-          )}
-          
-          {/* Debug Firestore Button */}
-          {process.env.NODE_ENV === 'development' && (
-            <button
-              onClick={async () => {
-                console.log('🧪 Testing Firestore service from main app...');
-                console.log('🧪 firestoreBuddyService state:', !!firestoreBuddyService);
-                console.log('🧪 firestoreBuddyService ref:', !!firestoreBuddyServiceRef.current);
-                
-                if (firestoreBuddyService || firestoreBuddyServiceRef.current) {
-                  const service = firestoreBuddyService || firestoreBuddyServiceRef.current;
-                  console.log('✅ FirestoreBuddyService is available');
-                  const status = service.getServiceStatus();
-                  console.log('📊 Service status:', status);
-                  
-                  // Test connectivity
-                  const connectivity = await service.testConnectivity();
-                  console.log('🔗 Connectivity test result:', connectivity);
-                  
-                  // Test adding a user to matching pool
-                  const testUserData = {
-                    userId: 'test-user-' + Date.now(),
-                    heroName: 'TestHero',
-                    archetype: 'HEALTH_WARRIOR',
-                    quitStartDate: new Date().toISOString(),
-                    addictionLevel: 50,
-                    triggers: ['test'],
-                    timezone: 'UTC',
-                    quitExperience: 'first',
-                    availableForMatching: true,
-                    lastActive: new Date()
-                  };
-                  
-                  const success = await service.addToMatchingPool('test-user-' + Date.now(), testUserData);
-                  console.log('🧪 Test user added to matching pool:', success);
-                } else {
-                  console.log('❌ FirestoreBuddyService is NOT available');
-                  console.log('🔄 Attempting to reinitialize...');
-                  await initializeFirestoreBuddyService();
-                }
-              }}
-              className="px-6 py-3 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg transition-colors flex items-center gap-2 ml-2"
-              title="Test Firestore service and add test user to matching pool"
-            >
-              🧪 Test Firestore
-            </button>
-          )}
-        </div>
-        
-        {/* Enhanced Battle Status with Info Button */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-4">
-            <div className={`inline-flex items-center px-6 py-3 rounded-full font-bold text-lg shadow-xl ${
-              battleStatus === 'WINNING' ? 'bg-green-600' : 
-              battleStatus === 'TIED' ? 'bg-yellow-600' : 'bg-red-600'
-            } text-white`}>
-              {battleStatus === 'WINNING' ? (
-                <Trophy className="w-5 h-5 mr-2" />
-              ) : battleStatus === 'TIED' ? (
-                <Shield className="w-5 h-5 mr-2" />
-              ) : (
-                <span className="mr-2">📉</span>
-              )}
-              You are {battleStatus}
-            </div>
-            
-            {/* Info Button */}
-            <button
-              onClick={() => setShowBattleInfo(true)}
-              className="w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
-              title="Battle Algorithm Info"
-            >
-              <span className="text-lg font-bold">i</span>
-            </button>
-            
 
-          </div>
-        </div>
         
-        {/* Status Badges - Positioned above cards */}
+
+        
+        {/* Status Badges with Info Button - Positioned above cards */}
         <div className="flex justify-center gap-12 mb-6">
           <div className="w-80 text-center">
             <div className={`inline-flex items-center px-4 py-2 rounded-full font-bold text-sm shadow-lg ${
@@ -2101,7 +1934,16 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
             </div>
           </div>
           
-          <div className="w-24"></div> {/* Spacer for VS */}
+          <div className="w-24 flex flex-col items-center gap-2">
+            {/* Info Button integrated with status badges */}
+            <button
+              onClick={() => setShowBattleInfo(true)}
+              className="w-8 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+              title="Battle Algorithm Info"
+            >
+              <span className="text-sm font-bold">i</span>
+            </button>
+          </div>
           
           <div className="w-80 text-center">
             <div className={`inline-flex items-center px-4 py-2 rounded-full font-bold text-sm shadow-lg ${
@@ -4141,7 +3983,7 @@ const DiaryModal = ({ isOpen, onClose, selectedDate, onDateSelect, dailyData }) 
 
 
 
-const SettingsView = ({ onResetApp }) => (
+const SettingsView = ({ onResetApp, onBackToLogin, onResetForTesting, firestoreBuddyService, firestoreBuddyServiceRef, initializeFirestoreBuddyService }) => (
   <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pb-20">
     <div className="max-w-md mx-auto px-4 pt-16">
       <div className="text-center mb-8">
@@ -4151,6 +3993,19 @@ const SettingsView = ({ onResetApp }) => (
       </div>
       
       <div className="space-y-4">
+        {/* Session Management */}
+        <div className="bg-slate-800/50 rounded-xl p-4">
+          <h3 className="text-white font-semibold mb-2">Session</h3>
+          <p className="text-gray-400 text-sm mb-4">Manage your current session</p>
+          <button
+            onClick={onBackToLogin}
+            className="w-full bg-slate-600 hover:bg-slate-500 text-white py-3 rounded-lg transition-colors mb-3"
+          >
+            ← Back to Login
+          </button>
+        </div>
+
+        {/* App Data */}
         <div className="bg-slate-800/50 rounded-xl p-4">
           <h3 className="text-white font-semibold mb-2">App Data</h3>
           <p className="text-gray-400 text-sm mb-4">Reset your progress and start over</p>
@@ -4161,6 +4016,68 @@ const SettingsView = ({ onResetApp }) => (
             Reset App & Start Over
           </button>
         </div>
+
+        {/* Developer Tools - Only show in development */}
+        {process.env.NODE_ENV === 'development' && (
+          <>
+            <div className="bg-slate-800/50 rounded-xl p-4">
+              <h3 className="text-yellow-300 font-semibold mb-2">🧪 Development Tools</h3>
+              <p className="text-gray-400 text-sm mb-4">Advanced testing and debugging functions</p>
+              
+              <button
+                onClick={onResetForTesting}
+                className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-lg transition-colors mb-3"
+                title="Reset ALL user data for testing - clears entire database"
+              >
+                🔄 Reset ALL User Data
+              </button>
+              
+              <button
+                onClick={async () => {
+                  console.log('🧪 Testing Firestore service from Settings...');
+                  console.log('🧪 firestoreBuddyService state:', !!firestoreBuddyService);
+                  console.log('🧪 firestoreBuddyService ref:', !!firestoreBuddyServiceRef?.current);
+                  
+                  if (firestoreBuddyService || firestoreBuddyServiceRef?.current) {
+                    const service = firestoreBuddyService || firestoreBuddyServiceRef.current;
+                    console.log('✅ FirestoreBuddyService is available');
+                    const status = service.getServiceStatus();
+                    console.log('📊 Service status:', status);
+                    
+                    // Test connectivity
+                    const connectivity = await service.testConnectivity();
+                    console.log('🔗 Connectivity test result:', connectivity);
+                    
+                    // Test adding a user to matching pool
+                    const testUserData = {
+                      userId: 'test-user-' + Date.now(),
+                      heroName: 'TestHero',
+                      archetype: 'HEALTH_WARRIOR',
+                      quitStartDate: new Date().toISOString(),
+                      addictionLevel: 50,
+                      triggers: ['test'],
+                      timezone: 'UTC',
+                      quitExperience: 'first',
+                      availableForMatching: true,
+                      lastActive: new Date()
+                    };
+                    
+                    const success = await service.addToMatchingPool('test-user-' + Date.now(), testUserData);
+                    console.log('🧪 Test user added to matching pool:', success);
+                  } else {
+                    console.log('❌ FirestoreBuddyService is NOT available');
+                    console.log('🔄 Attempting to reinitialize...');
+                    await initializeFirestoreBuddyService();
+                  }
+                }}
+                className="w-full bg-yellow-600 hover:bg-yellow-500 text-white py-3 rounded-lg transition-colors"
+                title="Test Firestore service and add test user to matching pool"
+              >
+                🧪 Test Firestore
+              </button>
+            </div>
+          </>
+        )}
         
         <div className="bg-slate-800/50 rounded-xl p-4">
           <h3 className="text-white font-semibold mb-2">About</h3>
@@ -5903,129 +5820,7 @@ const App = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
       {/* Offline Indicator */}
       <OfflineIndicator />
-      
-      {/* Debug Info */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="fixed top-4 right-4 bg-black/80 text-white p-2 rounded text-xs z-50">
-            <div>View: {currentView}</div>
-            <div>Onboarding: {hasCompletedOnboarding ? 'Yes' : 'No'}</div>
-            <div>User: {user ? 'Yes' : 'No'}</div>
-            <div>Active Tab: {activeTab}</div>
-            <div>Auth User: {authUser ? 'Yes' : 'No'}</div>
-            <div>Auth Loading: {authLoading ? 'Yes' : 'No'}</div>
-            <div className="border-t border-gray-600 mt-2 pt-2">
-              <div className="text-green-300 font-semibold">🔐 Session Status</div>
-              <div className="text-xs text-gray-300">
-                {authUser ? `Logged in: ${authUser.email}` : 'Not authenticated'}
-              </div>
-              <div className="text-xs text-gray-300">
-                {authUser ? 'Session: Persistent (30 days)' : 'Session: None'}
-              </div>
-              {authUser && (
-                <button 
-                  onClick={handleBackToLogin}
-                  className="mt-1 px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 w-full"
-                >
-                  Logout
-                </button>
-              )}
-            </div>
-            <div className="border-t border-gray-600 mt-2 pt-2">
-              <div className="text-yellow-300 font-semibold">🧪 Testing Mode</div>
-              <div className="text-xs text-gray-300">Use "Reset ALL User Data" in Arena/Craving tabs</div>
-            </div>
-            <div className="border-t border-gray-600 mt-2 pt-2">
-              <div className="text-red-300 font-semibold">⚠️ Known Issues</div>
-              <div className="text-xs text-gray-300">Content script errors are from browser extensions</div>
-              <div className="text-xs text-gray-300">Background frame errors are from browser tabs</div>
-              <div className="text-xs text-gray-300">None affect app functionality</div>
-            </div>
             
-            <div className="border-t border-gray-600 mt-2 pt-2">
-              <div className="text-blue-300 font-semibold">🔄 Cross-Device Testing</div>
-              <div className="text-xs text-gray-300">Data sync status: {dataLoadingState.isComplete ? '✅ Complete' : dataLoadingState.error ? '❌ Error' : '⏳ Loading'}</div>
-              <button 
-                onClick={refreshUserData}
-                className="mt-1 px-2 px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 w-full"
-                disabled={!authUser?.uid}
-              >
-                Force Data Refresh
-              </button>
-              <div className="text-xs text-gray-400 mt-1">
-                Test: Login on Device A, update data, then login on Device B
-              </div>
-            </div>
-
-            <div className="border-t border-gray-600 mt-2 pt-2">
-              <div className="text-purple-300 font-semibold">📱 Offline Testing</div>
-              <div className="text-xs text-gray-300">
-                Status: {offlineManager ? (offlineManager.isOnline ? '🌐 Online' : '📡 Offline') : '❓ Unknown'}
-              </div>
-              <div className="text-xs text-gray-300">
-                Pending: {offlineManager ? offlineManager.syncQueue.length : 0} actions
-              </div>
-              <button 
-                onClick={() => offlineManager?.checkForPendingSync()}
-                className="mt-1 px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 w-full"
-                disabled={!offlineManager?.isOnline}
-              >
-                Check Pending Sync
-              </button>
-              <button 
-                onClick={() => offlineManager?.clearOfflineData()}
-                className="mt-1 px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 w-full"
-                disabled={!offlineManager}
-              >
-                Clear Offline Data
-              </button>
-              <div className="text-xs text-gray-400 mt-1">
-                Test: Disconnect internet, use app, reconnect to see sync
-              </div>
-            </div>
-            <button 
-              onClick={() => {
-                console.log('=== DEBUG STATE ===');
-                console.log('Current View:', currentView);
-                console.log('Onboarding Completed:', hasCompletedOnboarding);
-                console.log('User Data:', user);
-                console.log('Auth User:', authUser);
-                console.log('Auth Loading:', authLoading);
-                console.log('==================');
-              }}
-              className="mt-1 px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
-            >
-              Debug
-            </button>
-            <button 
-              onClick={async () => {
-                if (authUser) {
-                  try {
-                    const { ref, set } = await import('firebase/database');
-                    const userRef = ref(db, `users/${authUser.uid}`);
-                    await set(userRef, null);
-                    console.log('User data cleared from Firebase');
-                    window.location.reload();
-                  } catch (error) {
-                    console.error('Error clearing user data:', error);
-                  }
-                }
-              }}
-              className="mt-1 px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
-            >
-              Reset Current User
-            </button>
-            <button 
-              onClick={() => {
-                setCurrentView('onboarding');
-                setHasCompletedOnboarding(false);
-                console.log('Forced to onboarding view');
-              }}
-              className="mt-1 px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
-            >
-              Force Onboarding
-            </button>
-          </div>
-        )}
 
       {/* Onboarding Flow */}
       {currentView === 'onboarding' && (
@@ -6041,12 +5836,11 @@ const App = () => {
   
           {currentView === 'arena' && (
             <div>
-
               {(() => {
                 try {
                   const currentOpponent = getCurrentOpponent();
-                                          return (
-                          <ArenaView 
+                  return (
+                    <ArenaView 
                             user={user}
                             nemesis={currentOpponent}
                             onBackToLogin={handleBackToLogin}
@@ -6077,7 +5871,6 @@ const App = () => {
           
           {currentView === 'craving-support' && (
             <div>
-              {console.log('Rendering CravingSupportView with user:', user)}
               <CravingSupportView 
                 user={user}
                 nemesis={getCurrentOpponent()}
@@ -6089,7 +5882,6 @@ const App = () => {
           
           {currentView === 'profile' && (
             <div>
-              {console.log('Rendering ProfileView with user:', user)}
               <ProfileView 
                 user={user}
                 onNavigate={handleNavigate}
@@ -6105,10 +5897,18 @@ const App = () => {
           )}
           
           
-          {currentView === 'settings' && <SettingsView onResetApp={handleResetApp} />}
+          {currentView === 'settings' && (
+            <SettingsView 
+              onResetApp={handleResetApp}
+              onBackToLogin={handleBackToLogin}
+              onResetForTesting={handleResetForTesting}
+              firestoreBuddyService={firestoreBuddyService}
+              firestoreBuddyServiceRef={firestoreBuddyServiceRef}
+              initializeFirestoreBuddyService={initializeFirestoreBuddyService}
+            />
+          )}
 
           {/* Bottom Navigation */}
-          {console.log('🔍 Main App: Rendering BottomNavigation with activeTab:', activeTab)}
           <BottomNavigation 
             activeTab={activeTab} 
             onTabChange={handleTabChange}
