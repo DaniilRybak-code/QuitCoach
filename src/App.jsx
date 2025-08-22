@@ -13,7 +13,7 @@ console.log('🧪 FirestoreBuddyService constructor:', FirestoreBuddyService?.na
 
 import AuthScreen from './components/AuthScreen';
 import OfflineIndicator from './components/OfflineIndicator';
-import { Users, Zap, Trophy, Target, Heart, DollarSign, Calendar, Star, Shield, Sword, Home, User, MessageCircle, Settings, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
+import { Users, Zap, Trophy, Target, Heart, DollarSign, Calendar, Star, Shield, Sword, Home, User, Settings, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
 
 // Avatar generation utility with fallback
 const generateAvatar = (seed, style = 'adventurer') => {
@@ -1445,9 +1445,11 @@ const BottomNavigation = ({ activeTab, onTabChange, dataLoadingState, onRefreshD
     { id: 'arena', label: 'Arena', icon: Home },
     { id: 'craving-support', label: 'Craving Support', icon: Shield },
     { id: 'profile', label: 'Profile', icon: User },
-    { id: 'buddy-chat', label: 'Chat with Buddy', icon: MessageCircle },
     { id: 'settings', label: 'Explore', icon: Settings }
   ];
+  
+  // Debug: Log the tabs to confirm they're updated
+  console.log('🔍 BottomNavigation: Tabs updated:', tabs.map(t => t.label));
 
   return (
     <>
@@ -4169,203 +4171,15 @@ const SettingsView = ({ onResetApp }) => (
     </div>
   </div>
 );
-// Buddy Chat View Component
-const BuddyChatView = ({ user, nemesis, buddyMatchingService }) => {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'buddy',
-      text: 'Hey! How\'s your quit journey going?',
-      timestamp: new Date(Date.now() - 60000).toLocaleTimeString()
-    },
-    {
-      id: 2,
-      sender: 'user',
-      text: 'Going strong! Day 3 now.',
-      timestamp: new Date(Date.now() - 30000).toLocaleTimeString()
-    }
-  ]);
-  const [newMessage, setNewMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [testResults, setTestResults] = useState(null);
-  const [isTesting, setIsTesting] = useState(false);
-  
-  // Real buddy matching state
-  const [matchedBuddy, setMatchedBuddy] = useState(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState(null);
-  const [buddyPair, setBuddyPair] = useState(null);
 
-  // Load existing buddy pair on mount
-  useEffect(() => {
-    const loadExistingBuddyPair = async () => {
-      if (!buddyMatchingService || !user?.uid) return;
-      
-      try {
-        console.log('🔍 Checking for existing buddy pair...');
-        const existingPair = await buddyMatchingService.getUserBuddyInfo(user.uid);
-        
-        if (existingPair) {
-          console.log('✅ Found existing buddy pair:', existingPair);
-          setBuddyPair(existingPair);
-          
-          // Get buddy details
-          const buddyDetails = await buddyMatchingService.getBuddyPairInfo(existingPair.id);
-          if (buddyDetails) {
-            setMatchedBuddy(buddyDetails);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading existing buddy pair:', error);
-      }
-    };
 
-    loadExistingBuddyPair();
-  }, [buddyMatchingService, user?.uid]);
 
-  const handleSendMessage = () => {
-    if (newMessage.trim().length === 0) return;
-    
-    // Limit message to 20 characters
-    const truncatedMessage = newMessage.trim().slice(0, 20);
-    
-    const userMessage = {
-      id: Date.now(),
-      sender: 'user',
-      text: truncatedMessage,
-      timestamp: new Date().toLocaleTimeString()
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    setNewMessage('');
-    
-    // Simulate buddy typing and response
-    setIsTyping(true);
-    setTimeout(() => {
-      const buddyResponses = [
-        'Keep it up! 💪',
-        'You\'re doing great!',
-        'Stay strong today!',
-        'One day at a time!',
-        'I believe in you!',
-        'You\'ve got this!',
-        'Every day counts!',
-        'Stay focused! 🎯'
-      ];
-      
-      const randomResponse = buddyResponses[Math.floor(Math.random() * buddyResponses.length)];
-      
-      const buddyMessage = {
-        id: Date.now() + 1,
-        sender: 'buddy',
-        text: randomResponse,
-        timestamp: new Date().toLocaleTimeString()
-      };
-      
-      setMessages(prev => [...prev, buddyMessage]);
-      setIsTyping(false);
-    }, 1500);
-  };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleSendMessage();
-    }
-  };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8 pb-20">
-      <div className="max-w-2xl mx-auto px-4">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-white mb-2">💬 Chat with Buddy</h1>
-          <p className="text-gray-300">Stay connected with your quit buddy for support</p>
-        </div>
 
-        {/* Chat Container */}
-        <div className="bg-slate-800 rounded-2xl p-6 shadow-2xl border border-slate-700">
-          {/* Messages */}
-          <div className="space-y-4 mb-6 max-h-96 overflow-y-auto">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-xs px-4 py-2 rounded-2xl ${
-                    message.sender === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-700 text-gray-200'
-                  }`}
-                >
-                  <div className="text-sm">{message.text}</div>
-                  <div className="text-xs opacity-70 mt-1">{message.timestamp}</div>
-                </div>
-              </div>
-            ))}
-            
-            {/* Typing Indicator */}
-            {isTyping && (
-              <div className="flex justify-start">
-                <div className="bg-slate-700 text-gray-200 px-4 py-2 rounded-2xl">
-                  <div className="flex items-center space-x-1">
-                    <span className="text-sm">Buddy is typing</span>
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
 
-          {/* Message Input */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your message (max 20 chars)..."
-              maxLength={20}
-              className="flex-1 bg-slate-700 text-white px-4 py-3 rounded-xl border border-slate-600 focus:border-blue-500 focus:outline-none"
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={newMessage.trim().length === 0}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white px-6 py-3 rounded-xl transition-colors disabled:cursor-not-allowed"
-            >
-              Send
-            </button>
-          </div>
-          
-          {/* Character Counter */}
-          <div className="text-right mt-2">
-            <span className={`text-xs ${newMessage.length >= 18 ? 'text-yellow-400' : 'text-gray-400'}`}>
-              {newMessage.length}/20
-            </span>
-          </div>
-        </div>
 
-        {/* Legacy Buddy Info (fallback) */}
-        <div className="mt-6 bg-slate-800 rounded-2xl p-6 shadow-2xl border border-slate-700">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              {nemesis.heroName.charAt(0)}
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white">{nemesis.heroName}</h3>
-              <p className="text-gray-300">Your Quit Buddy</p>
-              <p className="text-sm text-gray-400">Always here to support you</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+
 // Main App Component
 const App = () => {
   const [activeTab, setActiveTab] = useState('arena');
@@ -5664,24 +5478,7 @@ const App = () => {
     }
   };
 
-  // Handle navigation events from Arena
-  useEffect(() => {
-    const handleNavigateToTab = (event) => {
-      const tabName = event.detail;
-      console.log('Navigating to tab:', tabName);
-      
-      if (tabName === 'buddy-chat') {
-        setCurrentView('buddy-chat');
-        setActiveTab('buddy-chat');
-      }
-    };
 
-    window.addEventListener('navigateToTab', handleNavigateToTab);
-    
-    return () => {
-      window.removeEventListener('navigateToTab', handleNavigateToTab);
-    };
-  }, []);
 
   // Empty nemesis data (used when no real buddy is available)
   const emptyNemesis = {
@@ -6307,10 +6104,11 @@ const App = () => {
             />
           )}
           
-          {currentView === 'buddy-chat' && <BuddyChatView user={user} nemesis={getCurrentOpponent()} buddyMatchingService={buddyMatchingService} />}
+          
           {currentView === 'settings' && <SettingsView onResetApp={handleResetApp} />}
 
           {/* Bottom Navigation */}
+          {console.log('🔍 Main App: Rendering BottomNavigation with activeTab:', activeTab)}
           <BottomNavigation 
             activeTab={activeTab} 
             onTabChange={handleTabChange}
