@@ -952,13 +952,25 @@ const ACHIEVEMENTS = {
   LEGEND: { name: 'Legend', icon: Star, description: '90 days clean' }
 };
 
-const SPECIAL_FEATURES = [
-  'Stress Vaper', 'Night Owl', 'Weekend Warrior', 'Social Smoker',
-  'Coffee Companion', 'Work Breaker', 'Gaming Buddy', 'Party Animal',
-  'Stress Reliever', 'Boredom Fighter', 'Emotional Support', 'Habit Former',
-  'Peer Pressure', 'Celebration Trigger', 'Anxiety Soother', 'Focus Enhancer',
-  'Reward Seeker', 'Routine Builder', 'Social Lubricant', 'Mood Stabilizer'
-];
+// Special Features categorized by onboarding response types
+const SPECIAL_FEATURES = {
+  // Trigger identification responses (yellowish tint)
+  triggers: [
+    'Stress Vaper', 'Social Smoker', 'Coffee Companion', 'Work Breaker',
+    'Gaming Buddy', 'Party Animal', 'Peer Pressure', 'Celebration Trigger',
+    'Anxiety Soother', 'Focus Enhancer', 'Boredom Fighter', 'Emotional Support'
+  ],
+  // Daily routine responses (orangish tint)
+  dailyPatterns: [
+    'Night Owl', 'Morning Struggler', 'Weekend Warrior', 'Routine Builder',
+    'Habit Former', 'Work Breaker', 'Coffee Companion', 'Party Animal'
+  ],
+  // Coping experience responses (bluish tint)
+  copingStrategies: [
+    'First Timer', 'Veteran Quitter', 'Cold Turkey', 'Gradual Reduction',
+    'Stress Reliever', 'Mood Stabilizer', 'Reward Seeker', 'Social Lubricant'
+  ]
+};
 
 const calculateRarity = (streakDays) => {
   if (streakDays >= 90) return 'LEGENDARY';
@@ -1104,6 +1116,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [currentStatType, setCurrentStatType] = useState(null);
   const [userSpecialFeatures, setUserSpecialFeatures] = useState([]);
+  const [userSpecialFeatureCategories, setUserSpecialFeatureCategories] = useState({});
 
   // Load special features when user data changes - ALWAYS call this hook
   useEffect(() => {
@@ -1111,14 +1124,32 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
     const loadSpecialFeatures = async () => {
       try {
         if (user && user.uid) {
-          const features = await getPersonalizedFeatures(user);
-          if (!isCancelled) setUserSpecialFeatures(features);
+          const featuresData = await getPersonalizedFeatures(user);
+          if (!isCancelled) {
+            // Handle both old format (array) and new format (object with features and categories)
+            if (Array.isArray(featuresData)) {
+              setUserSpecialFeatures(featuresData);
+              setUserSpecialFeatureCategories({});
+            } else if (featuresData && featuresData.features) {
+              setUserSpecialFeatures(featuresData.features);
+              setUserSpecialFeatureCategories(featuresData.categories || {});
+            } else {
+              setUserSpecialFeatures([]);
+              setUserSpecialFeatureCategories({});
+            }
+          }
         } else {
           // Fallback to empty list when user missing
-          if (!isCancelled) setUserSpecialFeatures([]);
+          if (!isCancelled) {
+            setUserSpecialFeatures([]);
+            setUserSpecialFeatureCategories({});
+          }
         }
       } catch (_) {
-        if (!isCancelled) setUserSpecialFeatures([]);
+        if (!isCancelled) {
+          setUserSpecialFeatures([]);
+          setUserSpecialFeatureCategories({});
+        }
       }
     };
     loadSpecialFeatures();
@@ -1135,15 +1166,10 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
           <div className="w-24 h-24 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-4xl text-slate-400">🔍</span>
           </div>
-          <h3 className="text-slate-300 text-lg font-semibold mb-2">Looking for Buddy</h3>
+          <h3 className="text-slate-300 text-lg font-semibold mb-2">Looking for a buddy</h3>
           <p className="text-slate-400 text-sm leading-relaxed">
-            We are searching for a suitable quit buddy for you. This may take a few minutes.
+            We'll find you a match soon
           </p>
-          <div className="mt-4 p-3 bg-slate-700/50 rounded-lg">
-            <p className="text-slate-300 text-xs">
-              💡 Tip: Complete your profile to help us find better matches
-            </p>
-          </div>
         </div>
       </div>
     );
@@ -1202,90 +1228,130 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
     }
     
     if (storedFeatures) {
-      return storedFeatures;
+      // Handle both old format (array) and new format (object with features and categories)
+      if (Array.isArray(storedFeatures)) {
+        return storedFeatures; // Return old format for backward compatibility
+      } else if (storedFeatures && storedFeatures.features) {
+        return storedFeatures; // Return new format with categories
+      }
     }
     
-    // Generate new features based on onboarding responses
+    // Generate new features based on onboarding responses with categorization
     const features = [];
+    const featureCategories = {};
     
-    // Map trigger identification answers to features
+    // Map trigger identification answers to features (yellowish tint)
     if (user.triggers && user.triggers.length > 0) {
       user.triggers.forEach(trigger => {
+        let feature = '';
         switch(trigger) {
           case 'Stress/anxiety':
-            features.push('Stress Vaper');
+            feature = 'Stress Vaper';
             break;
           case 'Social situations':
-            features.push('Social Vaper');
+            feature = 'Social Vaper';
             break;
           case 'Boredom':
-            features.push('Boredom Vaper');
+            feature = 'Boredom Fighter';
             break;
           case 'After meals':
-            features.push('Habit Vaper');
+            feature = 'Habit Former';
             break;
           case 'Drinking alcohol':
-            features.push('Party Vaper');
+            feature = 'Party Animal';
             break;
           case 'Work breaks':
-            features.push('Break Vaper');
+            feature = 'Work Breaker';
             break;
           case 'Driving':
-            features.push('Driving Vaper');
+            feature = 'Driving Vaper';
             break;
+          default:
+            feature = 'Trigger Aware';
+        }
+        if (feature && !features.includes(feature)) {
+          features.push(feature);
+          featureCategories[feature] = 'triggers';
         }
       });
     }
     
-    // Map daily routine answers to features
+    // Map daily routine answers to features (orangish tint)
     if (user.dailyPatterns && user.dailyPatterns.length > 0) {
       user.dailyPatterns.forEach(pattern => {
+        let feature = '';
         switch(pattern) {
           case 'Morning routine':
-            features.push('Morning Struggler');
+            feature = 'Morning Struggler';
             break;
           case 'Evening wind-down':
-            features.push('Late Night Lurker');
+            feature = 'Night Owl';
             break;
           case 'Throughout the day':
-            features.push('All-Day Addict');
+            feature = 'All-Day Warrior';
             break;
+          default:
+            feature = 'Routine Builder';
+        }
+        if (feature && !features.includes(feature)) {
+          features.push(feature);
+          featureCategories[feature] = 'dailyPatterns';
         }
       });
     }
     
-    // Map coping experience answers to features
+    // Map coping experience answers to features (bluish tint)
     if (user.copingStrategies && user.copingStrategies.length > 0) {
       if (user.copingStrategies.includes('Nothing - this is new to me')) {
         features.push('First Timer');
+        featureCategories['First Timer'] = 'copingStrategies';
       } else if (user.copingStrategies.length > 2) {
         features.push('Veteran Quitter');
+        featureCategories['Veteran Quitter'] = 'copingStrategies';
+      } else {
+        features.push('Cold Turkey');
+        featureCategories['Cold Turkey'] = 'copingStrategies';
       }
     }
     
     // If we don't have enough personalized features, add some generic ones
     while (features.length < 4) {
-      const genericFeatures = ['Nicotine Fighter', 'Health Seeker', 'Freedom Chaser', 'Willpower Warrior'];
+      const genericFeatures = [
+        { name: 'Nicotine Fighter', category: 'copingStrategies' },
+        { name: 'Health Seeker', category: 'copingStrategies' },
+        { name: 'Freedom Chaser', category: 'copingStrategies' },
+        { name: 'Willpower Warrior', category: 'copingStrategies' }
+      ];
       const randomFeature = genericFeatures[Math.floor(Math.random() * genericFeatures.length)];
-      if (!features.includes(randomFeature)) {
-        features.push(randomFeature);
+      if (!features.includes(randomFeature.name)) {
+        features.push(randomFeature.name);
+        featureCategories[randomFeature.name] = randomFeature.category;
       }
     }
     
     const finalFeatures = features.slice(0, 4);
+    const finalFeatureCategories = {};
+    finalFeatures.forEach(feature => {
+      finalFeatureCategories[feature] = featureCategories[feature] || 'copingStrategies';
+    });
     
-    // Store features in Firebase if user is authenticated
+    // Store features with categories in Firebase if user is authenticated
+    const featuresWithCategories = {
+      features: finalFeatures,
+      categories: finalFeatureCategories
+    };
+    
     if (user.uid) {
       try {
         const { ref, set } = await import('firebase/database');
         const userRef = ref(db, `users/${user.uid}/specialFeatures`);
-        await set(userRef, finalFeatures);
-        console.log('Special features saved to Firebase successfully');
+        await set(userRef, featuresWithCategories);
+        console.log('Special features with categories saved to Firebase successfully');
       } catch (error) {
         console.error('Error saving special features to Firebase:', error);
         // Fallback to localStorage
         const storedFeaturesKey = `specialFeatures_${user.heroName || user.id || 'default'}`;
-        localStorage.setItem(storedFeaturesKey, JSON.stringify(finalFeatures));
+        localStorage.setItem(storedFeaturesKey, JSON.stringify(featuresWithCategories));
       }
     } else {
       // Fallback to localStorage if no user ID
@@ -1379,15 +1445,30 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
         <div className="mb-4">
           <h4 className="text-white text-xs font-semibold mb-2 text-center">Special Features</h4>
           <div className="flex flex-wrap gap-1 justify-center">
-            {userSpecialFeatures.map((feature, index) => (
-              <div 
-                key={index} 
-                className="px-2 py-1 bg-blue-600/80 text-white text-xs rounded-full font-medium"
-                title={feature}
-              >
-                {feature}
-              </div>
-            ))}
+            {userSpecialFeatures.map((feature, index) => {
+              const category = userSpecialFeatureCategories[feature] || 'copingStrategies';
+              const getFeatureColor = (cat) => {
+                switch(cat) {
+                  case 'triggers':
+                    return 'bg-yellow-500/80'; // Yellowish tint for triggers
+                  case 'dailyPatterns':
+                    return 'bg-orange-500/80'; // Orangish tint for daily patterns
+                  case 'copingStrategies':
+                  default:
+                    return 'bg-blue-600/80'; // Bluish tint for coping strategies
+                }
+              };
+              
+              return (
+                <div 
+                  key={index} 
+                  className={`px-2 py-1 ${getFeatureColor(category)} text-white text-xs rounded-full font-medium`}
+                  title={`${feature} (${category})`}
+                >
+                  {feature}
+                </div>
+              );
+            })}
           </div>
         </div>
         
@@ -1923,40 +2004,36 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         
 
         
-        {/* Status Badges with Info Button - Positioned above cards */}
-        <div className="flex justify-center gap-12 mb-6">
-          <div className="w-80 text-center">
-            <div className={`inline-flex items-center px-4 py-2 rounded-full font-bold text-sm shadow-lg ${
+        {/* Centralized Battle Status with Info Button */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center gap-4">
+            <div className={`inline-flex items-center px-6 py-3 rounded-full font-bold text-lg shadow-xl ${
               battleStatus === 'WINNING' ? 'bg-green-600' : 
               battleStatus === 'TIED' ? 'bg-yellow-600' : 'bg-red-600'
             } text-white`}>
-              {battleStatus === 'WINNING' ? 'WINNING' : battleStatus === 'TIED' ? 'TIED' : 'LOSING'}
+              {battleStatus === 'WINNING' ? (
+                <Trophy className="w-5 h-5 mr-2" />
+              ) : battleStatus === 'TIED' ? (
+                <Shield className="w-5 h-5 mr-2" />
+              ) : (
+                <span className="mr-2">📉</span>
+              )}
+              You are {battleStatus}
             </div>
-          </div>
-          
-          <div className="w-24 flex flex-col items-center gap-2">
-            {/* Info Button integrated with status badges */}
+            
+            {/* Info Button */}
             <button
               onClick={() => setShowBattleInfo(true)}
-              className="w-8 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+              className="w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
               title="Battle Algorithm Info"
             >
-              <span className="text-sm font-bold">i</span>
+              <span className="text-lg font-bold">i</span>
             </button>
-          </div>
-          
-          <div className="w-80 text-center">
-            <div className={`inline-flex items-center px-4 py-2 rounded-full font-bold text-sm shadow-lg ${
-              battleStatus === 'WINNING' ? 'bg-red-600' : 
-              battleStatus === 'TIED' ? 'bg-yellow-600' : 'bg-green-600'
-            } text-white`}>
-              {battleStatus === 'WINNING' ? 'LOSING' : battleStatus === 'TIED' ? 'TIED' : 'WINNING'}
-            </div>
           </div>
         </div>
         
         {/* Enhanced Battle Cards */}
-        <div className="flex flex-row items-center justify-center gap-12 mb-8 w-full max-w-7xl mx-auto">
+        <div className="flex flex-row items-start justify-center gap-12 mb-8 w-full max-w-7xl mx-auto">
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
             <TradingCard user={{ ...user, stats: realTimeUserStats }} showComparison={false} nemesisUser={nemesis} />
           </div>
@@ -1971,46 +2048,6 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
           </div>
           
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
-            {/* Buddy State Indicator */}
-            {nemesis.isEmpty && !realBuddy && (
-              <div className="mb-2 text-center">
-                <div className="bg-slate-600/20 border border-slate-500/50 rounded-lg px-4 py-2">
-                  <p className="text-slate-400 text-sm font-semibold">🔍 Looking for Buddy</p>
-                  <p className="text-slate-300 text-xs">We are searching for a suitable match</p>
-                </div>
-              </div>
-            )}
-            
-            {buddyLoading && (
-              <div className="mb-2 text-center">
-                <div className="bg-yellow-600/20 border border-yellow-500/50 rounded-lg px-4 py-2">
-                  <p className="text-yellow-400 text-sm font-semibold">🔍 Loading Buddy...</p>
-                  <p className="text-yellow-300 text-xs">Please wait while we find your match</p>
-                </div>
-              </div>
-            )}
-            
-            {buddyError && (
-              <div className="mb-2 text-center">
-                <div className="bg-red-600/20 border border-red-500/50 rounded-lg px-4 py-2 mb-2">
-                  <p className="text-red-400 text-sm font-semibold">❌ Error Loading Buddy</p>
-                  <p className="text-red-300 text-xs">{buddyError}</p>
-                </div>
-
-              </div>
-            )}
-            
-            {realBuddy && (
-              <div className="mb-2 text-center">
-                <div className="bg-green-600/20 border border-green-500/50 rounded-lg px-4 py-2">
-                  <p className="text-green-400 text-sm font-semibold">✅ Connected with Buddy</p>
-                  <p className="text-green-300 text-xs">You're battling {realBuddy.heroName}!</p>
-                </div>
-              </div>
-            )}
-            
-            {/* Production: no debug banner */}
-            
             <TradingCard 
               user={realBuddy || nemesis} 
               isNemesis={true} 
@@ -5400,16 +5437,7 @@ const App = () => {
   // Empty nemesis data (used when no real buddy is available)
   const emptyNemesis = {
     heroName: '',
-    stats: {
-      streakDays: 0,
-      addictionLevel: 0,
-      willpower: 0,
-      motivation: 0,
-      cravingResistance: 0,
-      triggerDefense: 0,
-      moneySaved: 0,
-      experiencePoints: 0
-    },
+    stats: null, // No stats needed for empty state
     achievements: [],
     archetype: '',
     avatar: null,
@@ -5478,6 +5506,7 @@ const App = () => {
       }
       
       // Add Firebase user data to the user profile
+      const now = new Date();
       const completeUserData = {
         ...userData,
         uid: authUser.uid,
@@ -5485,7 +5514,17 @@ const App = () => {
         displayName: authUser.displayName || userData.heroName,
         photoURL: authUser.photoURL,
         onboardingCompleted: true,
-        updatedAt: Date.now()
+        createdAt: now.toISOString(), // Set registration timestamp
+        updatedAt: now.getTime(),
+        // Initialize activity tracking
+        lastActivity: now.toISOString(),
+        // Set initial daily activity for today
+        daily: {
+          [now.toDateString()]: {
+            logged: true,
+            onboarding: true
+          }
+        }
       };
       
       console.log('Saving user data to Firebase:', completeUserData);
@@ -5573,6 +5612,7 @@ const App = () => {
       console.error('Error in handleOnboardingComplete:', error);
       
       // Create fallback user data
+      const now = new Date();
       const fallbackUser = {
         heroName: userData?.heroName || 'Hero',
         archetype: userData?.archetype || 'The Determined',
@@ -5587,7 +5627,9 @@ const App = () => {
           experiencePoints: 0
         },
         achievements: [],
-        quitDate: new Date(),
+        quitDate: now,
+        createdAt: now.toISOString(), // Set registration timestamp
+        lastActivity: now.toISOString(), // Set initial activity timestamp
         uid: authUser?.uid,
         email: authUser?.email,
         onboardingCompleted: true

@@ -228,7 +228,13 @@ class StatManager {
   async trackLoggingActivity() {
     try {
       const today = new Date().toDateString();
+      const now = new Date();
+      
+      // Update daily logging activity
       await set(ref(this.db, `users/${this.userUID}/profile/daily/${today}/logged`), true);
+      
+      // Update last activity timestamp
+      await set(ref(this.db, `users/${this.userUID}/profile/lastActivity`), now.toISOString());
       
       // Check weekly logging frequency
       const weeklyLogging = await this.checkWeeklyLoggingFrequency();
@@ -236,8 +242,8 @@ class StatManager {
         await this.updateStat('motivation', 2, 'Regular logging (3+ days this week)');
       }
       
-      // Check for inactivity penalty
-      await this.checkInactivityPenalty();
+      // Note: Inactivity penalty is now only checked during daily updates, not on every activity
+      // This prevents immediate penalties for new users
       
       return true;
     } catch (error) {
@@ -396,7 +402,43 @@ class StatManager {
 
   async checkInactivityPenalty() {
     try {
+      // Get user profile to check registration date and last activity
+      const userSnapshot = await get(this.userRef);
+      if (!userSnapshot.exists()) return;
+      
+      const userData = userSnapshot.val();
+      const now = new Date();
+      
+      // Check if user has been registered for at least 7 days
+      const registrationDate = userData.createdAt ? new Date(userData.createdAt) : 
+                              userData.quitStartDate ? new Date(userData.quitStartDate) : 
+                              now;
+      const daysSinceRegistration = Math.floor((now - registrationDate) / (1000 * 60 * 60 * 24));
+      
+      // Apply 7-day grace period for new users
+      if (daysSinceRegistration < 7) {
+        console.log(`User registered ${daysSinceRegistration} days ago - grace period active, no inactivity penalty`);
+        return;
+      }
+      
+      // First check if we have a lastActivity timestamp (more accurate)
+      const lastActivitySnapshot = await get(ref(this.db, `users/${this.userUID}/profile/lastActivity`));
+      if (lastActivitySnapshot.exists()) {
+        const lastActivityDate = new Date(lastActivitySnapshot.val());
+        const daysSinceLastActivity = Math.floor((now - lastActivityDate) / (1000 * 60 * 60 * 24));
+        
+        // Only apply penalty if user has been inactive for 7+ days AND registered for 7+ days
+        if (daysSinceLastActivity >= 7 && daysSinceRegistration >= 7) {
+          await this.updateStat('motivation', -3, 'Long period inactive (7+ days)');
+          console.log(`Inactivity penalty applied: ${daysSinceLastActivity} days since last activity`);
+          return;
+        }
+      }
+      
+      // Fallback: Check for last activity in the last 10 days (for users without lastActivity timestamp)
       let lastActivity = null;
+      let lastActivityDate = null;
+      
       for (let i = 0; i < 10; i++) {
         const checkDate = new Date();
         checkDate.setDate(checkDate.getDate() - i);
@@ -405,12 +447,25 @@ class StatManager {
         
         if (loggedSnapshot.exists() && loggedSnapshot.val()) {
           lastActivity = i;
+          lastActivityDate = checkDate;
           break;
         }
       }
-
+      
+      // Only apply penalty if user has been registered long enough AND has been inactive for 7+ days
       if (lastActivity === null || lastActivity >= 7) {
-        await this.updateStat('motivation', -3, 'Long period inactive (7+ days)');
+        // Additional safety check: ensure we're not penalizing users who just registered
+        if (lastActivityDate) {
+          const daysSinceLastActivity = Math.floor((now - lastActivityDate) / (1000 * 60 * 60 * 24));
+          if (daysSinceLastActivity >= 7 && daysSinceRegistration >= 7) {
+            await this.updateStat('motivation', -3, 'Long period inactive (7+ days)');
+            console.log(`Inactivity penalty applied: ${daysSinceLastActivity} days since last activity`);
+          }
+        } else if (daysSinceRegistration >= 7) {
+          // Only apply penalty if user has been registered for 7+ days and has no activity at all
+          await this.updateStat('motivation', -3, 'Long period inactive (7+ days)');
+          console.log(`Inactivity penalty applied: ${daysSinceRegistration} days since registration with no activity`);
+        }
       }
     } catch (error) {
       console.error('Error checking inactivity penalty:', error);
@@ -492,6 +547,23 @@ class StatManager {
 
   async runDailyUpdates() {
     try {
+      // Check if user has been registered for at least 1 day before running updates
+      const userSnapshot = await get(this.userRef);
+      if (!userSnapshot.exists()) return;
+      
+      const userData = userSnapshot.val();
+      const now = new Date();
+      const registrationDate = userData.createdAt ? new Date(userData.createdAt) : 
+                              userData.quitStartDate ? new Date(userData.quitStartDate) : 
+                              now;
+      const daysSinceRegistration = Math.floor((now - registrationDate) / (1000 * 60 * 60 * 24));
+      
+      // Only run daily updates if user has been registered for at least 1 day
+      if (daysSinceRegistration < 1) {
+        console.log(`User registered ${daysSinceRegistration} days ago - skipping daily updates for new user`);
+        return;
+      }
+      
       await Promise.all([
         this.updateAddictionFromCleanTime(),
         this.checkMilestoneBonuses(),
@@ -507,6 +579,9 @@ class StatManager {
 
   async initialize() {
     try {
+      // Ensure user has proper activity tracking initialized
+      await this.ensureActivityTrackingInitialized();
+      
       // Set up daily update interval (runs every 24 hours)
       setInterval(() => {
         this.runDailyUpdates();
@@ -518,6 +593,40 @@ class StatManager {
       console.log('StatManager initialized successfully');
     } catch (error) {
       console.error('Error initializing StatManager:', error);
+    }
+  }
+
+  async ensureActivityTrackingInitialized() {
+    try {
+      // Check if user has lastActivity timestamp
+      const lastActivitySnapshot = await get(ref(this.db, `users/${this.userUID}/profile/lastActivity`));
+      const createdAtSnapshot = await get(ref(this.db, `users/${this.userUID}/createdAt`));
+      
+      if (!lastActivitySnapshot.exists()) {
+        // Set initial activity timestamp if missing
+        const now = new Date();
+        await set(ref(this.db, `users/${this.userUID}/profile/lastActivity`), now.toISOString());
+        console.log('Initialized lastActivity timestamp for new user');
+      }
+      
+      if (!createdAtSnapshot.exists()) {
+        // Set creation timestamp if missing (fallback)
+        const now = new Date();
+        await set(ref(this.db, `users/${this.userUID}/createdAt`), now.toISOString());
+        console.log('Initialized createdAt timestamp for new user');
+      }
+      
+      // Ensure today's daily activity is marked
+      const today = new Date().toDateString();
+      const todayActivitySnapshot = await get(ref(this.db, `users/${this.userUID}/profile/daily/${today}/logged`));
+      
+      if (!todayActivitySnapshot.exists()) {
+        await set(ref(this.db, `users/${this.userUID}/profile/daily/${today}/logged`), true);
+        console.log('Initialized today\'s activity tracking for new user');
+      }
+      
+    } catch (error) {
+      console.error('Error ensuring activity tracking initialization:', error);
     }
   }
 }
