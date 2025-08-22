@@ -1548,6 +1548,42 @@ const BottomNavigation = ({ activeTab, onTabChange, dataLoadingState, onRefreshD
 };
 // Arena View with Enhanced Battle Algorithm and Recommendations
 const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoading, buddyError, realBuddy }) => {
+  // Add safety check for required props
+  console.log('🔍 ArenaView: Props received:', { 
+    hasUser: !!user, 
+    hasNemesis: !!nemesis, 
+    userUid: user?.uid, 
+    nemesisUid: nemesis?.uid 
+  });
+  
+  if (!user) {
+    console.warn('ArenaView: user prop is undefined');
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8 pb-20">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center text-white">
+            <h1 className="text-2xl font-bold mb-4">Loading User Data...</h1>
+            <p>Please wait while we load your profile information.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!nemesis) {
+    console.warn('ArenaView: nemesis prop is undefined');
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8 pb-20">
+        <div className="max-w-7xl mx-auto px-4">
+        <div className="text-center text-white">
+            <h1 className="text-2xl font-bold mb-4">Loading Nemesis Data...</h1>
+            <p>Please wait while we load your nemesis information.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const [showBattleInfo, setShowBattleInfo] = useState(false);
   const [statManager, setStatManager] = useState(null);
   
@@ -1699,8 +1735,18 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   };
   
   // Get real-time stats for both user and nemesis
-  const [realTimeUserStats, setRealTimeUserStats] = useState({ ...user?.stats });
-  const [realTimeNemesisStats, setRealTimeNemesisStats] = useState({ ...nemesis?.stats });
+  const [realTimeUserStats, setRealTimeUserStats] = useState(() => {
+    const defaultStats = { mentalStrength: 50, motivation: 50, triggerDefense: 30, addictionLevel: 50 };
+    const userStats = user?.stats ? { ...defaultStats, ...user.stats } : defaultStats;
+    console.log('🔍 ArenaView: Initializing realTimeUserStats:', userStats);
+    return userStats;
+  });
+  const [realTimeNemesisStats, setRealTimeNemesisStats] = useState(() => {
+    const defaultStats = { mentalStrength: 50, motivation: 50, triggerDefense: 30, addictionLevel: 50 };
+    const nemesisStats = nemesis?.stats ? { ...defaultStats, ...nemesis.stats } : defaultStats;
+    console.log('🔍 ArenaView: Initializing realTimeNemesisStats:', nemesisStats);
+    return nemesisStats;
+  });
 
   // Note: Firestore initialization is handled by the parent App component
 
@@ -1774,6 +1820,11 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   
   // Enhanced battle algorithm: (Mental Strength × 1.5) + (Motivation × 1.0) + (Trigger Defense × 1.2) - (Addiction × 1.0)
   const calculateBattleScore = (player) => {
+    if (!player || !player.stats) {
+      console.warn('Player or player stats not available for battle score calculation');
+      return 0;
+    }
+    
     const mentalStrength = player.stats.mentalStrength || 50;
     const motivation = player.stats.motivation || 50;
     const triggerDefense = player.stats.triggerDefense || 30;
@@ -1785,26 +1836,36 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   const playerScore = calculateBattleScore({ ...user, stats: realTimeUserStats });
   const nemesisScore = calculateBattleScore({ ...nemesis, stats: realTimeNemesisStats });
   
-  const battleStatus = playerScore > nemesisScore ? 'WINNING' : 
-                     playerScore === nemesisScore ? 'TIED' : 'LOSING';
+  // Ensure scores are valid numbers before comparison
+  const validPlayerScore = typeof playerScore === 'number' && !isNaN(playerScore) ? playerScore : 0;
+  const validNemesisScore = typeof nemesisScore === 'number' && !isNaN(nemesisScore) ? nemesisScore : 0;
+  
+  const battleStatus = validPlayerScore > validNemesisScore ? 'WINNING' : 
+                     validPlayerScore === validNemesisScore ? 'TIED' : 'LOSING';
   
   // Calculate intelligent recommendations based on stat efficiency and gaps
   const calculateRecommendations = () => {
     if (battleStatus === 'WINNING') return null;
     
-    const scoreDifference = nemesisScore - playerScore + 1; // +1 to ensure we actually win
+    // Ensure stats are available before proceeding
+    if (!realTimeUserStats || !realTimeNemesisStats) {
+      console.warn('Stats not available for recommendations calculation');
+      return [];
+    }
+    
+    const scoreDifference = validNemesisScore - validPlayerScore + 1; // +1 to ensure we actually win
     const recommendations = [];
     
-    // Get current player and nemesis stats
-    const currentMentalStrength = realTimeUserStats.mentalStrength || 50;
-    const currentMotivation = realTimeUserStats.motivation || 50;
-    const currentTriggerDefense = realTimeUserStats.triggerDefense || 30;
-    const currentAddiction = realTimeUserStats.addictionLevel || 50;
+    // Get current player and nemesis stats with safe fallbacks
+    const currentMentalStrength = realTimeUserStats?.mentalStrength || 50;
+    const currentMotivation = realTimeUserStats?.motivation || 50;
+    const currentTriggerDefense = realTimeUserStats?.triggerDefense || 30;
+    const currentAddiction = realTimeUserStats?.addictionLevel || 50;
     
-    const nemesisMentalStrength = realTimeNemesisStats.mentalStrength || 50;
-    const nemesisMotivation = realTimeNemesisStats.motivation || 50;
-    const nemesisTriggerDefense = realTimeNemesisStats.triggerDefense || 30;
-    const nemesisAddiction = realTimeNemesisStats.addictionLevel || 50;
+    const nemesisMentalStrength = realTimeNemesisStats?.mentalStrength || 50;
+    const nemesisMotivation = realTimeNemesisStats?.motivation || 50;
+    const nemesisTriggerDefense = realTimeNemesisStats?.triggerDefense || 30;
+    const nemesisAddiction = realTimeNemesisStats?.addictionLevel || 50;
     
     // Calculate stat gaps vs nemesis
     const mentalStrengthGap = nemesisMentalStrength - currentMentalStrength;
@@ -1944,7 +2005,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
     
     return null;
   };
-  const recommendations = calculateRecommendations();
+  const recommendations = calculateRecommendations() || [];
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8 pb-20">
@@ -5018,6 +5079,14 @@ const App = () => {
     
     initializeAuth();
     
+    // Initialize Firestore service
+    console.log('🚀 Main useEffect: Initializing Firestore service...');
+    initializeFirestoreBuddyService().then(() => {
+      console.log('✅ Main useEffect: Firestore service initialization completed');
+    }).catch(error => {
+      console.error('❌ Main useEffect: Firestore service initialization failed:', error);
+    });
+    
     return () => {
       isMounted = false;
       if (authUnsubscribe) {
@@ -5395,6 +5464,12 @@ const App = () => {
     try {
       // Use ref for immediate access, fallback to state
       const service = firestoreBuddyServiceRef.current || firestoreBuddyService;
+      
+      console.log('🔍 AutoMatch: Service selection:', {
+        hasFirestoreService: !!service,
+        firestoreServiceRef: !!firestoreBuddyServiceRef.current,
+        firestoreServiceState: !!firestoreBuddyService
+      });
       
       if (!service) {
         console.log('⚠️ FirestoreBuddyService not available, falling back to Realtime Database');
@@ -5792,6 +5867,12 @@ const App = () => {
       try {
         // Use ref for immediate access, fallback to state
         const service = firestoreBuddyServiceRef.current || firestoreBuddyService;
+        
+        console.log('🔍 Onboarding: Service selection:', {
+          hasFirestoreService: !!service,
+          firestoreServiceRef: !!firestoreBuddyServiceRef.current,
+          firestoreServiceState: !!firestoreBuddyService
+        });
         
         if (!service) {
           console.log('⚠️ FirestoreBuddyService not available, falling back to Realtime Database');
