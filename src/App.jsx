@@ -1549,12 +1549,6 @@ const BottomNavigation = ({ activeTab, onTabChange, dataLoadingState, onRefreshD
 // Arena View with Enhanced Battle Algorithm and Recommendations
 const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoading, buddyError, realBuddy }) => {
   // Add safety check for required props
-  console.log('🔍 ArenaView: Props received:', { 
-    hasUser: !!user, 
-    hasNemesis: !!nemesis, 
-    userUid: user?.uid, 
-    nemesisUid: nemesis?.uid 
-  });
   
   if (!user) {
     console.warn('ArenaView: user prop is undefined');
@@ -1587,10 +1581,10 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   const [showBattleInfo, setShowBattleInfo] = useState(false);
   const [statManager, setStatManager] = useState(null);
   
-  // Minimal debug logging for Arena component
+  // Debug logging for Arena component
   useEffect(() => {
     if (realBuddy) {
-      console.log('🔍 Arena: Real buddy loaded:', realBuddy.heroName);
+      console.log('✅ Arena: Real buddy loaded:', realBuddy.heroName);
     }
   }, [realBuddy]);
 
@@ -1738,13 +1732,11 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   const [realTimeUserStats, setRealTimeUserStats] = useState(() => {
     const defaultStats = { mentalStrength: 50, motivation: 50, triggerDefense: 30, addictionLevel: 50 };
     const userStats = user?.stats ? { ...defaultStats, ...user.stats } : defaultStats;
-    console.log('🔍 ArenaView: Initializing realTimeUserStats:', userStats);
     return userStats;
   });
   const [realTimeNemesisStats, setRealTimeNemesisStats] = useState(() => {
     const defaultStats = { mentalStrength: 50, motivation: 50, triggerDefense: 30, addictionLevel: 50 };
     const nemesisStats = nemesis?.stats ? { ...defaultStats, ...nemesis.stats } : defaultStats;
-    console.log('🔍 ArenaView: Initializing realTimeNemesisStats:', nemesisStats);
     return nemesisStats;
   });
 
@@ -1766,19 +1758,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         }
       };
 
-      // Initialize BuddyMatchingService
-      const initializeBuddyMatchingService = async () => {
-        try {
-          const service = new BuddyMatchingService(db);
-          setBuddyMatchingService(service);
-          console.log('✅ BuddyMatchingService initialized successfully');
-        } catch (error) {
-          console.error('Error initializing BuddyMatchingService:', error);
-        }
-      };
-
       await initializeStatManager();
-      await initializeBuddyMatchingService();
 
       const loadStats = async () => {
         if (user) {
@@ -4388,10 +4368,6 @@ const BuddyChatView = ({ user, nemesis, buddyMatchingService }) => {
 };
 // Main App Component
 const App = () => {
-  console.log('🚀 APP COMPONENT MOUNTING - Component function called');
-  
-  console.log('🚀 STEP 1: About to declare state variables');
-  
   const [activeTab, setActiveTab] = useState('arena');
   const [currentView, setCurrentView] = useState('auth');
   const [selectedMood, setSelectedMood] = useState(null);
@@ -4399,11 +4375,7 @@ const App = () => {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  
-  console.log('🚀 STEP 2: State variables declared successfully');
 
-  console.log('🚀 STEP 3: About to declare data loading system state');
-  
   // ===== COMPREHENSIVE DATA LOADING SYSTEM =====
   
   // Centralized data loading state
@@ -4415,57 +4387,32 @@ const App = () => {
     isComplete: false
   });
 
-  console.log('🚀 STEP 4: Data loading state declared');
-
   // Store unsubscribe functions for cleanup
   const [unsubscribeFunctions, setUnsubscribeFunctions] = useState([]);
-
-  console.log('🚀 STEP 5: Unsubscribe functions state declared');
 
   // Buddy matching service
   const [buddyMatchingService, setBuddyMatchingService] = useState(null);
   
-  console.log('🚀 STEP 6: Buddy matching service state declared');
-  
   // Firestore buddy matching service
   const [firestoreBuddyService, setFirestoreBuddyService] = useState(null);
   const firestoreBuddyServiceRef = useRef(null);
-  
-  console.log('🚀 STEP 7: Firestore buddy service state declared');
 
   // Initialize FirestoreBuddyService
   const initializeFirestoreBuddyService = async () => {
-    console.log('🚀 ENTERING initializeFirestoreBuddyService function');
-    console.log('🚀 Function scope check - firestore:', !!firestore);
-    console.log('🚀 Function scope check - setFirestoreBuddyService:', !!setFirestoreBuddyService);
-    console.log('🚀 Function scope check - firestoreBuddyServiceRef:', !!firestoreBuddyServiceRef);
-    
     try {
-      console.log('🔄 Initializing FirestoreBuddyService...');
-      console.log('🔄 Firestore instance check:', !!firestore);
-      console.log('🔄 Firestore type:', typeof firestore);
-      
       if (!firestore) {
         console.error('❌ Firestore instance is not available');
         return;
       }
       
-      console.log('🔄 Creating FirestoreBuddyService instance...');
       const firestoreService = new FirestoreBuddyService(firestore);
-      console.log('🔄 FirestoreBuddyService instance created:', !!firestoreService);
       
       // Test connectivity before setting state
-      console.log('🔄 Testing Firestore connectivity...');
       const connectivityTest = await firestoreService.testConnectivity();
-      console.log('🔄 Connectivity test result:', connectivityTest);
       
       if (connectivityTest) {
-        console.log('✅ Firestore connectivity test passed');
-        
         // Set state and ref for immediate access
-        console.log('🔄 Setting FirestoreBuddyService state...');
         setFirestoreBuddyService(firestoreService);
-        console.log('🔄 Setting FirestoreBuddyService ref...');
         firestoreBuddyServiceRef.current = firestoreService;
         console.log('✅ FirestoreBuddyService initialized successfully');
       } else {
@@ -4473,8 +4420,6 @@ const App = () => {
       }
     } catch (error) {
       console.error('❌ Error initializing FirestoreBuddyService:', error);
-      console.error('❌ Error details:', error.message);
-      console.error('❌ Error stack:', error.stack);
     }
   };
 
@@ -5080,12 +5025,7 @@ const App = () => {
     initializeAuth();
     
     // Initialize Firestore service
-    console.log('🚀 Main useEffect: Initializing Firestore service...');
-    initializeFirestoreBuddyService().then(() => {
-      console.log('✅ Main useEffect: Firestore service initialization completed');
-    }).catch(error => {
-      console.error('❌ Main useEffect: Firestore service initialization failed:', error);
-    });
+    initializeFirestoreBuddyService();
     
     return () => {
       isMounted = false;
@@ -5442,20 +5382,10 @@ const App = () => {
     }
   }, [user?.uid, realBuddy, buddyLoading]);
   
-  // Debug: Monitor FirestoreBuddyService state changes
+  // Monitor FirestoreBuddyService state changes
   useEffect(() => {
     if (firestoreBuddyService) {
-      console.log('🎉 FirestoreBuddyService state updated - service is now available!');
-      console.log('📊 Service details:', firestoreBuddyService.getServiceStatus());
-      
-      // Test connectivity when service becomes available
-      firestoreBuddyService.testConnectivity().then(result => {
-        console.log('🔗 Initial connectivity test result:', result);
-      }).catch(error => {
-        console.error('❌ Initial connectivity test failed:', error);
-      });
-    } else {
-      console.log('ℹ️ FirestoreBuddyService state is null/undefined');
+      console.log('✅ FirestoreBuddyService is now available');
     }
   }, [firestoreBuddyService]);
   
@@ -5465,11 +5395,7 @@ const App = () => {
       // Use ref for immediate access, fallback to state
       const service = firestoreBuddyServiceRef.current || firestoreBuddyService;
       
-      console.log('🔍 AutoMatch: Service selection:', {
-        hasFirestoreService: !!service,
-        firestoreServiceRef: !!firestoreBuddyServiceRef.current,
-        firestoreServiceState: !!firestoreBuddyService
-      });
+
       
       if (!service) {
         console.log('⚠️ FirestoreBuddyService not available, falling back to Realtime Database');
@@ -5793,7 +5719,7 @@ const App = () => {
           experiencePoints: 0
         },
         achievements: [],
-        archetype: 'LOADING',
+        archetype: 'DETERMINED', // Use a valid archetype instead of 'LOADING'
         avatar: generateAvatar('loading', 'adventurer'),
         isLoading: true
       };
@@ -5813,7 +5739,7 @@ const App = () => {
           experiencePoints: 0
         },
         achievements: [],
-        archetype: 'ERROR',
+        archetype: 'DETERMINED', // Use a valid archetype instead of 'ERROR'
         avatar: generateAvatar('error', 'adventurer'),
         isError: true,
         errorMessage: buddyError
@@ -5868,11 +5794,7 @@ const App = () => {
         // Use ref for immediate access, fallback to state
         const service = firestoreBuddyServiceRef.current || firestoreBuddyService;
         
-        console.log('🔍 Onboarding: Service selection:', {
-          hasFirestoreService: !!service,
-          firestoreServiceRef: !!firestoreBuddyServiceRef.current,
-          firestoreServiceState: !!firestoreBuddyService
-        });
+
         
         if (!service) {
           console.log('⚠️ FirestoreBuddyService not available, falling back to Realtime Database');
@@ -6311,7 +6233,7 @@ const App = () => {
       {/* Onboarding Flow */}
       {currentView === 'onboarding' && (
         <div>
-          {console.log('Rendering OnboardingFlow')}
+  
           <OnboardingFlow onComplete={handleOnboardingComplete} authUser={authUser} />
         </div>
       )}
@@ -6319,10 +6241,10 @@ const App = () => {
       {/* Main App Content - Only show after onboarding */}
       {hasCompletedOnboarding && user ? (
         <>
-          {console.log('Main app rendering with user:', user, 'view:', currentView)}
+  
           {currentView === 'arena' && (
             <div>
-              {console.log('Rendering ArenaView with user:', user)}
+
               {(() => {
                 try {
                   const currentOpponent = getCurrentOpponent();
