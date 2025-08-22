@@ -1591,6 +1591,17 @@ const BottomNavigation = ({ activeTab, onTabChange, dataLoadingState, onRefreshD
 };
 // Arena View with Enhanced Battle Algorithm and Recommendations
 const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoading, buddyError, realBuddy }) => {
+  // Define empty nemesis for when no buddy is available
+  const emptyNemesis = {
+    heroName: 'Looking for a buddy',
+    stats: null, // No stats needed for empty state
+    achievements: [],
+    archetype: '',
+    avatar: null,
+    isEmpty: true,
+    message: 'We are looking for a suitable buddy for you'
+  };
+  
   // Add safety check for required props
   
   if (!user) {
@@ -2078,7 +2089,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
           
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
             <TradingCard 
-              user={realBuddy || nemesis} 
+              user={realBuddy || emptyNemesis} 
               isNemesis={true} 
               showComparison={false} 
               nemesisUser={user} 
