@@ -1123,29 +1123,58 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
     let isCancelled = false;
     const loadSpecialFeatures = async () => {
       try {
+        console.log('🔄 TradingCard: Loading Special Features for user:', user?.heroName, 'uid:', user?.uid);
+        console.log('🔄 TradingCard: User has specialFeatures:', !!user?.specialFeatures);
+        console.log('🔄 TradingCard: User has triggers:', user?.triggers);
+        console.log('🔄 TradingCard: User has dailyPatterns:', user?.dailyPatterns);
+        console.log('🔄 TradingCard: User has copingStrategies:', user?.copingStrategies);
+        
         if (user && user.uid) {
-          const featuresData = await getPersonalizedFeatures(user);
-          if (!isCancelled) {
-            // Handle both old format (array) and new format (object with features and categories)
-            if (Array.isArray(featuresData)) {
-              setUserSpecialFeatures(featuresData);
-              setUserSpecialFeatureCategories({});
-            } else if (featuresData && featuresData.features) {
-              setUserSpecialFeatures(featuresData.features);
-              setUserSpecialFeatureCategories(featuresData.categories || {});
-            } else {
-              setUserSpecialFeatures([]);
-              setUserSpecialFeatureCategories({});
+          // Check if user already has Special Features loaded
+          if (user.specialFeatures) {
+            console.log('✅ TradingCard: Using pre-loaded Special Features');
+            if (!isCancelled) {
+              // Handle both old format (array) and new format (object with features and categories)
+              if (Array.isArray(user.specialFeatures)) {
+                setUserSpecialFeatures(user.specialFeatures);
+                setUserSpecialFeatureCategories({});
+              } else if (user.specialFeatures && user.specialFeatures.features) {
+                setUserSpecialFeatures(user.specialFeatures.features);
+                setUserSpecialFeatureCategories(user.specialFeatures.categories || {});
+              } else {
+                setUserSpecialFeatures([]);
+                setUserSpecialFeatureCategories({});
+              }
+            }
+          } else {
+            console.log('🔄 TradingCard: Generating new Special Features');
+            // Generate Special Features if not already available
+            const featuresData = await getPersonalizedFeatures(user);
+            console.log('✅ TradingCard: Generated features:', featuresData);
+            if (!isCancelled) {
+              // Handle both old format (array) and new format (object with features and categories)
+              if (Array.isArray(featuresData)) {
+                setUserSpecialFeatures(featuresData);
+                setUserSpecialFeatureCategories({});
+              } else if (featuresData && featuresData.features) {
+                setUserSpecialFeatures(featuresData.features);
+                setUserSpecialFeatureCategories(featuresData.categories || {});
+              } else {
+                setUserSpecialFeatures([]);
+                setUserSpecialFeatureCategories({});
+              }
             }
           }
         } else {
+          console.log('⚠️ TradingCard: No user or uid, setting empty features');
           // Fallback to empty list when user missing
           if (!isCancelled) {
             setUserSpecialFeatures([]);
             setUserSpecialFeatureCategories({});
           }
         }
-      } catch (_) {
+      } catch (error) {
+        console.error('❌ TradingCard: Error loading Special Features:', error);
         if (!isCancelled) {
           setUserSpecialFeatures([]);
           setUserSpecialFeatureCategories({});
@@ -1156,7 +1185,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
     return () => {
       isCancelled = true;
     };
-  }, [user?.uid]);
+  }, [user?.uid, user?.specialFeatures, user?.triggers, user?.dailyPatterns, user?.copingStrategies]);
 
   // Handle empty nemesis (no buddy matched yet)
   if (user.isEmpty) {
@@ -4947,13 +4976,27 @@ const App = () => {
           achievements: buddyData.achievements || [],
           archetype: buddyData.archetype || 'The Determined',
           avatar: buddyData.avatar || generateAvatar(buddyData.heroName || 'buddy', 'adventurer'),
+          uid: buddyUserId, // Add uid property for Special Features loading
           userId: buddyUserId,
           isRealBuddy: true,
-          pairId: buddyPair.id
+          pairId: buddyPair.id,
+          // Include buddy's onboarding data for Special Features generation
+          triggers: buddyData.triggers || [],
+          dailyPatterns: buddyData.dailyPatterns || [],
+          copingStrategies: buddyData.copingStrategies || [],
+          // Include existing Special Features if available
+          specialFeatures: buddyData.specialFeatures || null
         };
         
         setRealBuddy(transformedBuddy);
         console.log('✅ Firestore: Buddy data loaded successfully');
+        console.log('🔍 Firestore: Buddy Special Features data:', {
+          hasSpecialFeatures: !!transformedBuddy.specialFeatures,
+          hasTriggers: !!transformedBuddy.triggers?.length,
+          hasDailyPatterns: !!transformedBuddy.dailyPatterns?.length,
+          hasCopingStrategies: !!transformedBuddy.copingStrategies?.length,
+          uid: transformedBuddy.uid
+        });
         
         // Clean up matching pool (Firestore)
         await removeUsersFromMatchingPool(user.uid, buddyUserId);
@@ -5033,12 +5076,26 @@ const App = () => {
           achievements: buddyData.achievements || [],
           archetype: buddyData.archetype || 'The Determined',
           avatar: buddyData.avatar || generateAvatar(buddyData.heroName || 'buddy', 'adventurer'),
+          uid: buddyUserId, // Add uid property for Special Features loading
           userId: buddyUserId,
           isRealBuddy: true,
-          pairId: buddyPair.pairId
+          pairId: buddyPair.pairId,
+          // Include buddy's onboarding data for Special Features generation
+          triggers: buddyData.triggers || [],
+          dailyPatterns: buddyData.dailyPatterns || [],
+          copingStrategies: buddyData.copingStrategies || [],
+          // Include existing Special Features if available
+          specialFeatures: buddyData.specialFeatures || null
         };
         
         setRealBuddy(transformedBuddy);
+        console.log('🔍 RealtimeDB: Buddy Special Features data:', {
+          hasSpecialFeatures: !!transformedBuddy.specialFeatures,
+          hasTriggers: !!transformedBuddy.triggers?.length,
+          hasDailyPatterns: !!transformedBuddy.dailyPatterns?.length,
+          hasCopingStrategies: !!transformedBuddy.copingStrategies?.length,
+          uid: transformedBuddy.uid
+        });
         
         // Clean up matching pool
         await removeUsersFromMatchingPool(user.uid, buddyUserId);
