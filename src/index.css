@@ -36,3 +36,56 @@ code {
   cursor: pointer;
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
 }
+
+/* Custom water animation keyframes */
+@keyframes waterWave {
+  0%, 100% {
+    transform: translateX(-100%) skewX(-15deg);
+  }
+  50% {
+    transform: translateX(100%) skewX(-15deg);
+  }
+}
+
+@keyframes waterRipple {
+  0% {
+    transform: scale(0.8) rotate(0deg);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(0.8) rotate(360deg);
+    opacity: 0.8;
+  }
+}
+
+@keyframes sparkleFloat {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-20px) rotate(180deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-40px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Water wave animation classes */
+.water-wave {
+  animation: waterWave 3s ease-in-out infinite;
+}
+
+.water-ripple {
+  animation: waterRipple 2s ease-in-out infinite;
+}
+
+.sparkle-float {
+  animation: sparkleFloat 1s ease-out forwards;
+}

@@ -2564,6 +2564,8 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
   const [popupData, setPopupData] = useState({ title: '', message: '', type: 'info' });
   const [cravingsResisted, setCravingsResisted] = useState(0);
   const [statManager, setStatManager] = useState(null);
+  const [showHydrationModal, setShowHydrationModal] = useState(false);
+  const [dailyWater, setDailyWater] = useState(0);
 
   // Initialize StatManager and load cravings resisted
   useEffect(() => {
@@ -2614,6 +2616,42 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
     };
 
     loadCravingsResisted();
+    
+    // Load daily water intake
+    const loadDailyWater = async () => {
+      try {
+        const { ref, get, onValue } = await import('firebase/database');
+        const today = new Date().toDateString();
+        const waterRef = ref(db, `users/${user.uid}/daily/${today}/water`);
+        
+        // Load initial value
+        const snapshot = await get(waterRef);
+        if (snapshot.exists()) {
+          setDailyWater(snapshot.val() || 0);
+        } else {
+          // Fallback to localStorage
+          const localWater = parseInt(localStorage.getItem(`water_${today}`) || 0);
+          setDailyWater(localWater);
+        }
+        
+        // Set up real-time listener
+        const unsubscribe = onValue(waterRef, (snapshot) => {
+          if (snapshot.exists()) {
+            setDailyWater(snapshot.val() || 0);
+          }
+        });
+        
+        return unsubscribe;
+      } catch (error) {
+        console.error('Error loading daily water from Firebase:', error);
+        // Fallback to localStorage
+        const today = new Date().toDateString();
+        const localWater = parseInt(localStorage.getItem(`water_${today}`) || 0);
+        setDailyWater(localWater);
+      }
+    };
+
+    loadDailyWater();
   }, [user?.uid]);
 
 
@@ -2676,6 +2714,36 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
     setShowCustomPopup(true);
   };
 
+  const handleWaterIntake = async () => {
+    try {
+      const newWaterCount = Math.min(dailyWater + 1, 6);
+      setDailyWater(newWaterCount);
+      const today = new Date().toDateString();
+      
+      // Use StatManager to handle hydration tracking and streaks
+      if (statManager) {
+        await statManager.handleHydrationUpdate(newWaterCount);
+      }
+      
+      // Save to Firebase
+      const { ref, set } = await import('firebase/database');
+      const waterRef = ref(db, `users/${user.uid}/daily/${today}/water`);
+      await set(waterRef, newWaterCount);
+      
+      // Fallback to localStorage if Firebase fails
+      localStorage.setItem(`water_${today}`, newWaterCount.toString());
+      
+      console.log('Water intake updated:', newWaterCount);
+    } catch (error) {
+      console.error('Error updating water intake:', error);
+      // Still update local state even if Firebase update fails
+      const newWaterCount = Math.min(dailyWater + 1, 6);
+      setDailyWater(newWaterCount);
+      const today = new Date().toDateString();
+      localStorage.setItem(`water_${today}`, newWaterCount.toString());
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8 pb-20">
       <div className="max-w-2xl mx-auto px-4">
@@ -2723,13 +2791,10 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
           <h2 className="text-xl font-bold text-white mb-4 text-center">⚡ Quick Actions</h2>
           <div className="grid grid-cols-2 gap-3">
             <button 
-              onClick={() => showQuickActionPopup(
-                '💧 Drink Water',
-                'Hydration helps reduce cravings!\n\nDrink a full glass of water slowly.\n\nThis will help you feel full and reduce the urge to vape.'
-              )}
+              onClick={() => setShowHydrationModal(true)}
               className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 text-white font-semibold py-4 px-4 rounded-xl transition-all duration-300 border border-blue-500/30 hover:scale-105"
             >
-              💧 Drink Water
+              💧 Hydration
             </button>
             <button 
               onClick={() => showQuickActionPopup(
@@ -2777,6 +2842,16 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
           message={popupData.message}
           type={popupData.type}
         />
+
+        {/* Hydration Modal */}
+        {showHydrationModal && (
+          <HydrationModal
+            isOpen={showHydrationModal}
+            onClose={() => setShowHydrationModal(false)}
+            onLogWater={handleWaterIntake}
+            currentWater={dailyWater}
+          />
+        )}
         
         {/* Progress Tracking - Simplified to focus on cravings only */}
         <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-600 mt-6">
@@ -2801,6 +2876,225 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
     </div>
   );
 };
+
+// Enhanced Hydration Modal Component for Craving Support
+const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater }) => {
+  const [showSparkles, setShowSparkles] = useState(false);
+  const [hydrationStreak, setHydrationStreak] = useState(0);
+  const [mentalStrengthProgress, setMentalStrengthProgress] = useState(0);
+
+  // Load hydration streak and mental strength progress
+  useEffect(() => {
+    if (isOpen) {
+      // Calculate hydration streak from recent days
+      const calculateStreak = () => {
+        let streak = 0;
+        let currentDate = new Date();
+        
+        for (let i = 0; i < 7; i++) { // Check last 7 days
+          const dateStr = currentDate.toDateString();
+          const waterCount = parseInt(localStorage.getItem(`water_${dateStr}`) || '0');
+          
+          if (waterCount > 0) {
+            streak++;
+            currentDate.setDate(currentDate.getDate() - 1);
+          } else {
+            break;
+          }
+        }
+        
+        return streak;
+      };
+      
+      const streak = calculateStreak();
+      setHydrationStreak(streak);
+      
+      // Mental strength progress (3 days for +1 Mental Strength)
+      setMentalStrengthProgress(Math.min(streak, 3));
+    }
+  }, [isOpen]);
+
+  const handleLogWater = () => {
+    setShowSparkles(true);
+    onLogWater();
+    
+    // Hide sparkles after animation
+    setTimeout(() => setShowSparkles(false), 1000);
+    
+    // Add button animation feedback
+    const button = document.querySelector('.log-water-btn');
+    if (button) {
+      button.classList.add('animate-pulse');
+      setTimeout(() => button.classList.remove('animate-pulse'), 500);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-slate-600/50 relative overflow-hidden">
+        {/* Enhanced water-themed background with subtle pattern */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-blue-600/5 pointer-events-none"></div>
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-4 left-4 w-2 h-2 bg-blue-400 rounded-full"></div>
+          <div className="absolute top-12 right-8 w-1 h-1 bg-blue-300 rounded-full"></div>
+          <div className="absolute bottom-16 left-12 w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+          <div className="absolute bottom-8 right-16 w-1 h-1 bg-blue-400 rounded-full"></div>
+        </div>
+        
+        <div className="relative z-10">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h3 className="text-3xl font-bold text-white mb-3">💧 Hydration</h3>
+            <p className="text-gray-300 text-lg">Track your daily water intake</p>
+          </div>
+          
+          {/* Hydration Streak Display */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center gap-3 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-2xl px-6 py-3">
+              <span className="text-2xl">🔥</span>
+              <div>
+                <p className="text-orange-200 text-sm font-medium">Hydration Streak</p>
+                <p className="text-2xl font-bold text-orange-300">{hydrationStreak} days</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Enhanced Water Bottle Visualization */}
+          <div className="flex items-center justify-center mb-8">
+            <div className="relative">
+              {/* Realistic Water Bottle Container */}
+              <div className="w-32 h-40 bg-gradient-to-b from-slate-500/30 to-slate-600/30 rounded-t-3xl border border-slate-400/50 relative overflow-hidden shadow-lg">
+                {/* Bottle Neck - Wider and more realistic */}
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-12 h-8 bg-gradient-to-b from-slate-500/30 to-slate-600/30 border border-slate-400/50 rounded-t-2xl"></div>
+                
+                {/* Bottle Cap */}
+                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-14 h-4 bg-slate-400 rounded-full border border-slate-500"></div>
+                
+                {/* Water Fill - Animated gradient from bottom up */}
+                <div 
+                  className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-400 via-blue-500 to-blue-600 transition-all duration-1000 ease-out"
+                  style={{
+                    height: `${(currentWater / 6) * 100}%`,
+                    background: `linear-gradient(to top, 
+                      rgba(96, 165, 250, 0.9) 0%, 
+                      rgba(59, 130, 246, 0.8) 50%, 
+                      rgba(37, 99, 235, 0.7) 100%)`
+                  }}
+                >
+                  {/* Enhanced animated water waves */}
+                  <div className="absolute inset-0 opacity-40">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent water-wave"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-300/40 to-transparent water-wave" style={{animationDelay: '1.5s'}}></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-200/20 to-transparent water-ripple" style={{animationDelay: '0.8s'}}></div>
+                  </div>
+                </div>
+                
+                {/* Subtle section indicators - very light lines */}
+                {[...Array(6)].map((_, index) => (
+                  <div
+                    key={index}
+                    className="absolute left-1 right-1 border-t border-slate-400/20"
+                    style={{
+                      top: `${(index * 100) / 6}%`,
+                    }}
+                  />
+                ))}
+              </div>
+              
+              {/* Enhanced sparkle effects when logging water */}
+              {showSparkles && (
+                <>
+                  <div className="absolute -top-2 -left-2 text-2xl sparkle-float text-blue-300">✨</div>
+                  <div className="absolute -top-4 right-0 text-xl sparkle-float text-blue-400" style={{animationDelay: '0.2s'}}>💎</div>
+                  <div className="absolute -bottom-2 left-1/2 text-lg sparkle-float text-blue-200" style={{animationDelay: '0.4s'}}>⭐</div>
+                  <div className="absolute -top-6 left-1/2 text-lg sparkle-float text-blue-100" style={{animationDelay: '0.6s'}}>🌟</div>
+                </>
+              )}
+            </div>
+          </div>
+          
+          {/* Enhanced Water Count Display */}
+          <div className="text-center mb-8">
+            <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30 rounded-2xl p-6">
+              <p className="text-gray-300 text-lg mb-3">Glasses today</p>
+              <p className="text-6xl font-black text-blue-400 mb-2">
+                {currentWater}/6
+              </p>
+              <p className="text-blue-200 text-sm font-medium">
+                {currentWater === 0 ? 'Start your hydration journey!' : 
+                 currentWater === 6 ? 'Perfect! You\'re fully hydrated!' :
+                 `${currentWater} of 6 glasses completed`}
+              </p>
+            </div>
+          </div>
+          
+          {/* Mental Strength Progress Indicator */}
+          <div className="text-center mb-8">
+            <div className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 border border-purple-500/30 rounded-2xl p-4">
+              <p className="text-purple-200 text-sm font-medium mb-2">Mental Strength Progress</p>
+              <div className="flex justify-center items-center gap-2 mb-2">
+                {[...Array(3)].map((_, index) => (
+                  <div
+                    key={index}
+                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                      index < mentalStrengthProgress 
+                        ? 'bg-purple-400 shadow-lg shadow-purple-400/50' 
+                        : 'bg-slate-600 border border-slate-500'
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-purple-200 text-sm">
+                {mentalStrengthProgress}/3 days for +1 Mental Strength
+              </p>
+            </div>
+          </div>
+          
+          {/* Enhanced Motivational Quote */}
+          <div className="text-center mb-8">
+            <div className="bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-500/30 rounded-2xl p-6 relative overflow-hidden shadow-lg shadow-blue-500/20">
+              {/* Enhanced glow animation */}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-400/15 via-transparent to-indigo-400/15 animate-pulse"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-300/5 via-transparent to-indigo-300/5 animate-pulse" style={{animationDelay: '1s'}}></div>
+              <div className="relative z-10">
+                <p className="text-blue-100 text-lg italic font-medium leading-relaxed drop-shadow-sm">
+                  "Cravings burn hotter in a dry system. Douse the flames from within."
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Enhanced Button Layout */}
+          <div className="flex flex-col gap-4">
+            {/* Log Water Button - Primary Action */}
+            <button
+              onClick={handleLogWater}
+              disabled={currentWater >= 6}
+              className={`log-water-btn w-full py-4 px-6 rounded-2xl font-bold text-lg transition-all duration-300 transform ${
+                currentWater >= 6
+                  ? 'bg-gradient-to-r from-slate-600 to-slate-700 text-slate-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white hover:scale-105 shadow-lg shadow-blue-500/25'
+              }`}
+            >
+              {currentWater >= 6 ? '🎉 Fully Hydrated!' : '💧 Log Water'}
+            </button>
+            
+            {/* Done Button - Secondary Action */}
+            <button
+              onClick={onClose}
+              className="bg-slate-600/50 hover:bg-slate-600 text-gray-300 hover:text-white font-medium py-3 px-6 rounded-xl transition-all duration-300"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Profile View - Firebase Migration with Real-time Sync
 const ProfileView = ({ user, onNavigate }) => {
   const [relapseDate, setRelapseDate] = useState(null);
