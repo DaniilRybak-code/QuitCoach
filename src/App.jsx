@@ -2255,35 +2255,28 @@ const CustomPopup = ({ isOpen, onClose, title, message, type = 'info' }) => {
 // Game Modal Component with Simple, Working Games
 const GameModal = ({ gameType, onClose }) => {
   const [score, setScore] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-
-
-
-
-
-  const togglePause = () => setIsPaused(!isPaused);
 
   // Snake Game with Movement-First Direction Processing
   const SnakeGame = () => {
     const canvasRef = useRef(null);
-    const [snake, setSnake] = useState([{x: 7, y: 7}]);
+    const [snake, setSnake] = useState([{x: 12, y: 12}]); // Center of 25x25 grid
     const [direction, setDirection] = useState({x: 1, y: 0});
     const [nextDirection, setNextDirection] = useState({x: 1, y: 0}); // Direction for next game tick
-    const [food, setFood] = useState({x: 10, y: 10});
+    const [food, setFood] = useState({x: 15, y: 15}); // Center area of 25x25 grid
     const [gameOver, setGameOver] = useState(false);
     const [snakeScore, setSnakeScore] = useState(0);
     const [level, setLevel] = useState(1);
     
-    // Level system: Speed and scoring progression
-    const BASE_SPEED = 160; // Level 1 base speed
+    // Level system: Speed and scoring progression (1.25x faster)
+    const BASE_SPEED = 128; // Level 1 base speed (160ms / 1.25 = 128ms)
     const LEVEL_SPEEDS = {
-      1: 160,                                    // Level 1: 160ms
-      2: Math.round(160 / 1.25),                // Level 2: 128ms (1.25x faster than L1)
-      3: Math.round(160 / 1.25 / 1.25)          // Level 3: 102ms (1.25x faster than L2)
+      1: 128,                                    // Level 1: 128ms (1.25x faster)
+      2: Math.round(128 / 1.25),                // Level 2: 102ms (1.25x faster than L1)
+      3: Math.round(128 / 1.25 / 1.25)          // Level 3: 82ms (1.25x faster than L2)
     };
     
     const LEVEL_POINTS = {
-      1: 2,  // Level 1: 2 points per food
+      1: 5,  // Level 1: 5 points per food (increased from 2)
       2: 5,  // Level 2: 5 points per food
       3: 10  // Level 3: 10 points per food
     };
@@ -2293,11 +2286,11 @@ const GameModal = ({ gameType, onClose }) => {
       const handleKeyPress = (e) => {
         if (gameOver) {
           e.preventDefault(); // Prevent any unwanted behavior
-          // Restart game
-          setSnake([{x: 7, y: 7}]);
+          // Restart game (25x25 grid)
+          setSnake([{x: 12, y: 12}]);
           setDirection({x: 1, y: 0});
           setNextDirection({x: 1, y: 0});
-          setFood({x: 10, y: 10});
+          setFood({x: 15, y: 15});
           setGameOver(false);
           setSnakeScore(0);
           setLevel(1);
@@ -2343,7 +2336,7 @@ const GameModal = ({ gameType, onClose }) => {
     // Game loop with movement-first processing to prevent 180-degree self-collision
     // The key fix: snake ALWAYS moves forward first, then direction changes are applied
     useEffect(() => {
-      if (isPaused || gameOver) return;
+      if (gameOver) return;
 
       const gameLoop = setInterval(() => {
         setSnake(prevSnake => {
@@ -2354,11 +2347,11 @@ const GameModal = ({ gameType, onClose }) => {
             y: prevSnake[0].y + direction.y
           };
           
-          // Wraparound mode - snake appears on opposite side
-          if (newHead.x < 0) newHead.x = 14;
-          if (newHead.x >= 15) newHead.x = 0;
-          if (newHead.y < 0) newHead.y = 14;
-          if (newHead.y >= 15) newHead.y = 0;
+          // Wraparound mode - snake appears on opposite side (25x25 grid)
+          if (newHead.x < 0) newHead.x = 24;
+          if (newHead.x >= 25) newHead.x = 0;
+          if (newHead.y < 0) newHead.y = 24;
+          if (newHead.y >= 25) newHead.y = 0;
           
           // Check self collision (excluding the tail since it will move)
           const bodyCollision = prevSnake.slice(0, -1).some(segment => 
@@ -2376,10 +2369,10 @@ const GameModal = ({ gameType, onClose }) => {
           let newSnake;
           if (ateFood) {
             setSnakeScore(s => s + LEVEL_POINTS[level]);
-            // Generate new food
+            // Generate new food (25x25 grid)
             setFood({
-              x: Math.floor(Math.random() * 15),
-              y: Math.floor(Math.random() * 15)
+              x: Math.floor(Math.random() * 25),
+              y: Math.floor(Math.random() * 25)
             });
             // Snake grows: add new head, keep all body
             newSnake = [newHead, ...prevSnake];
@@ -2403,7 +2396,7 @@ const GameModal = ({ gameType, onClose }) => {
       }, LEVEL_SPEEDS[level]); // Level-based speed
 
       return () => clearInterval(gameLoop);
-    }, [direction, nextDirection, food, isPaused, gameOver]);
+    }, [direction, nextDirection, food, gameOver]);
 
     // Render game
     useEffect(() => {
@@ -2411,12 +2404,12 @@ const GameModal = ({ gameType, onClose }) => {
       if (!canvas) return;
 
       const ctx = canvas.getContext('2d');
-      const cellSize = 20;
-      const gridSize = 15;
+      const cellSize = 15; // 375 / 25 = 15px per cell
+      const gridSize = 25; // 25x25 grid for 375x375 canvas
 
       // Clear canvas
       ctx.fillStyle = '#1f2937';
-      ctx.fillRect(0, 0, 300, 300);
+      ctx.fillRect(0, 0, 375, 375);
 
       // Draw grid
       ctx.strokeStyle = '#374151';
@@ -2424,12 +2417,12 @@ const GameModal = ({ gameType, onClose }) => {
       for (let i = 0; i <= gridSize; i++) {
         ctx.beginPath();
         ctx.moveTo(i * cellSize, 0);
-        ctx.lineTo(i * cellSize, 300);
+        ctx.lineTo(i * cellSize, 375);
         ctx.stroke();
         
         ctx.beginPath();
         ctx.moveTo(0, i * cellSize);
-        ctx.lineTo(300, i * cellSize);
+        ctx.lineTo(375, i * cellSize);
         ctx.stroke();
       }
 
@@ -2477,56 +2470,27 @@ const GameModal = ({ gameType, onClose }) => {
               </button>
             ))}
           </div>
-          
-          {/* Level Info */}
-          <div className="text-center text-yellow-400 text-xs mb-3">
-            <div>Speed: {LEVEL_SPEEDS[level]}ms | Points: {LEVEL_POINTS[level]} per food</div>
-            {level === 1 && 'Good for beginners'}
-            {level === 2 && 'For experienced players'}
-            {level === 3 && 'Ultimate challenge'}
-          </div>
         </div>
         
         <canvas
           ref={canvasRef}
-          width="300"
-          height="300"
+          width="375"
+          height="375"
           className="border-2 border-gray-300 mx-auto"
           style={{imageRendering: 'pixelated'}}
         />
         <div className="mt-4">
           <p className="text-lg font-bold text-gray-800">Score: {snakeScore} | Level: {level}</p>
           
-          {/* Direction Indicators */}
-          <div className="flex justify-center gap-4 mb-2 text-sm">
-            <div className="text-gray-600">
-              <span className="font-semibold">Current:</span> 
-              {direction.x === 1 && '→'} 
-              {direction.x === -1 && '←'} 
-              {direction.y === 1 && '↓'} 
-              {direction.y === -1 && '↑'}
-            </div>
-            {nextDirection.x !== direction.x || nextDirection.y !== direction.y ? (
-              <div className="text-blue-600">
-                <span className="font-semibold">Next:</span> 
-                {nextDirection.x === 1 && '→'} 
-                {nextDirection.x === -1 && '←'} 
-                {nextDirection.y === 1 && '↓'} 
-                {nextDirection.y === -1 && '↑'}
-              </div>
-            ) : null}
-          </div>
-          
-          <p className="text-sm text-gray-600">Use arrow keys to control the snake</p>
           {gameOver && (
             <div className="mt-2">
               <p className="text-red-600 font-bold mb-2">Game Over!</p>
               <button
                 onClick={() => {
-                  setSnake([{x: 7, y: 7}]);
+                  setSnake([{x: 12, y: 12}]); // 25x25 grid center
                   setDirection({x: 1, y: 0});
                   setNextDirection({x: 1, y: 0}); // Reset direction queue
-                  setFood({x: 10, y: 10});
+                  setFood({x: 15, y: 15}); // 25x25 grid center area
                   setGameOver(false);
                   setSnakeScore(0);
                   setLevel(1);
@@ -2542,52 +2506,12 @@ const GameModal = ({ gameType, onClose }) => {
     );
   };
 
-  // Simple Click Counter Game
-  const ClickCounterGame = () => {
-    const [clicks, setClicks] = useState(0);
-    const [clicksPerSecond, setClicksPerSecond] = useState(0);
-    const [startTime] = useState(Date.now());
-    
-    const handleClick = () => {
-      setClicks(prev => prev + 1);
-    };
-    
-    // Calculate clicks per second for motivation
-    useEffect(() => {
-      const elapsed = (Date.now() - startTime) / 1000;
-      if (elapsed > 0) {
-        setClicksPerSecond((clicks / elapsed).toFixed(1));
-      }
-    }, [clicks, startTime]);
-    
-    return (
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Click as Fast as You Can!</h2>
-                  <div className="text-lg text-gray-700 mb-2">Total Clicks: {clicks}</div>
-          <div className="text-lg text-gray-700 mb-2">Clicks/Second: {clicksPerSecond}</div>
-        <button 
-          onClick={handleClick}
-          className="w-48 h-48 text-2xl font-bold bg-orange-500 hover:bg-orange-600 border-none rounded-full text-white cursor-pointer transition-colors shadow-lg"
-        >
-          CLICK ME!
-        </button>
-                  <div className="mt-4 text-sm text-gray-600">
-            Challenge: Try to reach 500 clicks!
-          </div>
-      </div>
-    );
-  };
-
-
-
-
-
   const renderGame = () => {
     try {
-      switch(gameType) {
-        case 'snake': return <SnakeGame />;
-        case 'click-counter': return <ClickCounterGame />;
-        default: return <div>Game not found</div>;
+      if (gameType === 'snake') {
+        return <SnakeGame />;
+      } else {
+        return <div className="text-center text-red-600">Game not found</div>;
       }
     } catch (error) {
       console.error('Error rendering game:', error);
@@ -2611,17 +2535,9 @@ const GameModal = ({ gameType, onClose }) => {
       <div className="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800">
-            {gameType === 'snake' && '🐍 Snake Game'}
-
-            {gameType === 'puzzle' && '🧠 Memory Puzzle'}
+            🐍 Snake Game
           </h3>
                       <div className="flex items-center gap-4">
-              <button
-              onClick={togglePause}
-              className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm"
-            >
-              {isPaused ? 'Resume' : 'Pause'}
-            </button>
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 text-2xl"
@@ -2633,39 +2549,16 @@ const GameModal = ({ gameType, onClose }) => {
         
         <div className="bg-gray-100 rounded-lg p-4 min-h-[500px] flex items-center justify-center relative">
           {renderGame()}
-          
-          {/* Game Instructions Overlay */}
-          <div className="absolute top-2 left-2 bg-black/70 text-white p-2 rounded text-xs max-w-48">
-            <p className="font-bold mb-1">Controls:</p>
-            {gameType === 'snake' && (
-              <p>Arrow keys to move</p>
-            )}
-
-            {gameType === 'click-counter' && (
-              <p>Click the button rapidly!</p>
-            )}
-          </div>
-          
-          {/* Game Status Overlay */}
-          <div className="absolute top-2 right-2 bg-black/70 text-white p-2 rounded text-xs">
-            <p className="font-bold mb-1">Status:</p>
-            <p>{isPaused ? '⏸️ Paused' : '▶️ Playing'}</p>
-          </div>
         </div>
         
-        <div className="mt-4 text-center">
-          <p className="text-sm text-gray-500">
-            Games now run without time limits - play as long as you need!
-          </p>
-        </div>
+
       </div>
     </div>
   );
 };
-// Craving Support View - Emergency Support for Cravings
+// Craving Support View - Support for Managing Cravings
 const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting }) => {
   const [showGameModal, setShowGameModal] = useState(false);
-  const [showSOSConfirmation, setShowSOSConfirmation] = useState(false);
   const [selectedGame, setSelectedGame] = useState(null);
   const [showCustomPopup, setShowCustomPopup] = useState(false);
   const [popupData, setPopupData] = useState({ title: '', message: '', type: 'info' });
@@ -2723,37 +2616,10 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
     loadCravingsResisted();
   }, [user?.uid]);
 
-  const handleSOS = () => {
-    // In a real app, this would send a push notification to the nemesis
-    console.log('SOS sent to nemesis:', nemesis.heroName);
-    
-    // Store SOS timestamp for tracking
-    const sosData = {
-      timestamp: new Date().toISOString(),
-      nemesis: nemesis.heroName,
-      status: 'sent'
-    };
-    localStorage.setItem('lastSOS', JSON.stringify(sosData));
-    
-    setShowSOSConfirmation(true);
-    
-    // Auto-hide confirmation after 5 seconds
-    setTimeout(() => setShowSOSConfirmation(false), 5000);
-    
-    // Track SOS usage for Mental Strength bonus
-    if (statManager) {
-      statManager.trackAppUsageDuringCravings();
-    }
-    
-    // In a real app, this would trigger:
-    // 1. Push notification to nemesis
-    // 2. SMS/email alert
-    // 3. Emergency contact notification
-    // 4. Crisis hotline integration
-  };
 
-  const handleMiniGame = (gameType) => {
-    setSelectedGame(gameType);
+
+  const handleMiniGame = () => {
+    setSelectedGame('snake');
     setShowGameModal(true);
   };
 
@@ -2837,61 +2703,16 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
           </div>
         </div>
 
-
-
-        {/* SOS Button - Top Priority */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border-2 border-red-200">
-          <div className="text-center">
-            <div className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-              <span className="text-4xl">🆘</span>
-            </div>
-            <h2 className="text-2xl font-bold text-red-600 mb-4">Need Immediate Help?</h2>
-            <p className="text-gray-600 mb-6">
-              Press the SOS button to alert your nemesis and get instant support
-            </p>
-            <button
-              onClick={handleSOS}
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-6 px-8 rounded-xl text-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
-            >
-              🆘 SOS - Get Help Now
-            </button>
-            
-            {/* Last SOS Info */}
-            {(() => {
-              const lastSOS = localStorage.getItem('lastSOS');
-              if (lastSOS) {
-                const sosData = JSON.parse(lastSOS);
-                const timeAgo = Math.floor((Date.now() - new Date(sosData.timestamp)) / (1000 * 60));
-                return (
-                  <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-                    <p className="text-sm text-red-600">
-                      Last SOS sent {timeAgo} minutes ago to {sosData.nemesis}
-                    </p>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-          </div>
-        </div>
-
         {/* Mini-Games Section */}
         <div className="bg-slate-800/50 rounded-xl p-6 mb-6 border border-slate-600">
           <div className="text-center">
             <h2 className="text-xl font-bold text-white mb-4">🎮 Distract Yourself</h2>
-            <div className="grid grid-cols-1 gap-3">
+            <div className="flex justify-center">
               <button
-                onClick={() => handleMiniGame('snake')}
-                className="w-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 border border-orange-500/30"
+                onClick={handleMiniGame}
+                className="w-full max-w-xs bg-gradient-to-r from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 border border-orange-500/30"
               >
                 🐍 Play Snake
-              </button>
-              
-              <button
-                onClick={() => handleMiniGame('click-counter')}
-                className="w-full bg-gradient-to-r from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 border border-blue-500/30"
-              >
-                ⚡ Click Counter
               </button>
             </div>
           </div>
@@ -2939,27 +2760,6 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
             </button>
           </div>
         </div>
-
-        {/* SOS Confirmation Modal */}
-        {showSOSConfirmation && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center">
-              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">✅</span>
-              </div>
-              <h3 className="text-xl font-bold text-green-600 mb-2">Help is on the way!</h3>
-              <p className="text-gray-600 mb-4">
-                Your nemesis <strong>{nemesis.heroName}</strong> has been notified and will reach out soon.
-              </p>
-              <button
-                onClick={() => setShowSOSConfirmation(false)}
-                className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
-              >
-                Got it
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Game Modal */}
         {showGameModal && selectedGame && (
@@ -5796,7 +5596,6 @@ const App = () => {
       setCurrentView('auth');
       
       // Clear any local storage data
-      localStorage.removeItem('lastSOS');
       localStorage.removeItem('cravingWins');
       localStorage.removeItem('specialFeatures');
       
