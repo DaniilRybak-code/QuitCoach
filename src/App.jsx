@@ -5368,7 +5368,7 @@ const App = () => {
         return;
       }
       
-      // NEW CHAIN PAIRING LOGIC:
+      // CORRECTED CHAIN PAIRING LOGIC:
       // Sort users by joinedAt timestamp (oldest first)
       validPoolUsers.sort((a, b) => {
         const timeA = a.joinedAt ? new Date(a.joinedAt).getTime() : 0;
@@ -5380,77 +5380,81 @@ const App = () => {
         validPoolUsers.map(u => ({ userId: u.userId, joinedAt: u.joinedAt }))
       );
       
-      // Find the current waiting user (oldest in pool)
-      const currentWaitingUser = validPoolUsers[0];
-      // Find the newest user (last in sorted array)
-      const newestUser = validPoolUsers[validPoolUsers.length - 1];
-      
-      if (currentWaitingUser.userId !== newestUser.userId) {
-        try {
-          console.log(`🔄 Firestore: CHAIN PAIRING: ${newestUser.userId} (newest) pairs with ${currentWaitingUser.userId} (current waiting)`);
-          
-          // Create buddy pair in Firestore
-          const pairData = {
-            matchedAt: new Date().toISOString(),
-            compatibilityScore: 0.85,
-            matchReasons: ['Chain pairing algorithm', 'Newest user paired with current waiting user'],
-            status: 'active',
-            lastMessageAt: new Date().toISOString(),
-            user1RemovedFromPool: false,
-            user2RemovedFromPool: false
-          };
-          
-          const pairId = await service.createBuddyPair(newestUser.userId, currentWaitingUser.userId, pairData);
-          
-          if (pairId) {
-            // Update user profiles with buddy info in Realtime Database
-            const { ref, set } = await import('firebase/database');
+      // CHAIN PAIRING: Each new user pairs with the previous user in the pool
+      // We need at least 2 users to create a pair
+      if (validPoolUsers.length >= 2) {
+        // The OLDEST user (first in sorted array) is the "waiting" user
+        const waitingUser = validPoolUsers[0];
+        // The NEWEST user (last in sorted array) is the "arriving" user
+        const arrivingUser = validPoolUsers[validPoolUsers.length - 1];
+        
+        if (waitingUser.userId !== arrivingUser.userId) {
+          try {
+            console.log(`🔄 Firestore: CHAIN PAIRING: ${arrivingUser.userId} (arriving) pairs with ${waitingUser.userId} (waiting)`);
             
-            // NEW CHAIN PAIRING: Only the newest user gets paired with the waiting user
-            // The waiting user sees the newest user as their buddy
-            await set(ref(db, `users/${currentWaitingUser.userId}/buddyInfo`), {
-              hasBuddy: true,
-              buddyId: newestUser.userId,
-              pairId: pairId,
-              matchedAt: pairData.matchedAt
-            });
+            // Create buddy pair in Firestore
+            const pairData = {
+              matchedAt: new Date().toISOString(),
+              compatibilityScore: 0.85,
+              matchReasons: ['Chain pairing algorithm', 'Arriving user paired with waiting user'],
+              status: 'active',
+              lastMessageAt: new Date().toISOString(),
+              user1RemovedFromPool: false,
+              user2RemovedFromPool: false
+            };
             
-            // The newest user also sees the waiting user as their buddy (bidirectional for first pair)
-            await set(ref(db, `users/${newestUser.userId}/buddyInfo`), {
-              hasBuddy: true,
-              buddyId: currentWaitingUser.userId,
-              pairId: pairId,
-              matchedAt: pairData.matchedAt
-            });
+            const pairId = await service.createBuddyPair(arrivingUser.userId, waitingUser.userId, pairData);
             
-            // CRITICAL: Remove ONLY the current waiting user from matching pool
-            // The newest user stays in the pool for the next pairing
-            await service.removeFromMatchingPool(currentWaitingUser.userId);
-            
-            console.log(`✅ Firestore: CHAIN PAIRING: Created buddy pair ${pairId}`);
-            console.log(`✅ Firestore: CHAIN PAIRING: Removed ${currentWaitingUser.userId} (current waiting) from matching pool`);
-            console.log(`✅ Firestore: CHAIN PAIRING: Kept ${newestUser.userId} (newest) in matching pool for next pairing`);
-            
-            // If current user was matched, reload their buddy data
-            if (user?.uid) {
-              const currentUserMatched = [newestUser.userId, currentWaitingUser.userId].includes(user.uid);
-              if (currentUserMatched) {
-                try {
-                  await loadRealBuddy();
-                } catch (reloadError) {
-                  console.error('Error reloading buddy data:', reloadError);
+            if (pairId) {
+              // Update user profiles with buddy info in Realtime Database
+              const { ref, set } = await import('firebase/database');
+              
+              // BOTH users see each other as buddies (bidirectional pairing)
+              await set(ref(db, `users/${waitingUser.userId}/buddyInfo`), {
+                hasBuddy: true,
+                buddyId: arrivingUser.userId,
+                pairId: pairId,
+                matchedAt: pairData.matchedAt
+              });
+              
+              await set(ref(db, `users/${arrivingUser.userId}/buddyInfo`), {
+                hasBuddy: true,
+                buddyId: waitingUser.userId,
+                pairId: pairId,
+                matchedAt: pairData.matchedAt
+              });
+              
+              // CRITICAL: Remove ONLY the waiting user from matching pool
+              // The arriving user stays in the pool for the next pairing
+              await service.removeFromMatchingPool(waitingUser.userId);
+              
+              console.log(`✅ Firestore: CHAIN PAIRING: Created buddy pair ${pairId}`);
+              console.log(`✅ Firestore: CHAIN PAIRING: Removed ${waitingUser.userId} (waiting) from matching pool`);
+              console.log(`✅ Firestore: CHAIN PAIRING: Kept ${arrivingUser.userId} (arriving) in matching pool for next pairing`);
+              
+              // If current user was matched, reload their buddy data
+              if (user?.uid) {
+                const currentUserMatched = [arrivingUser.userId, waitingUser.userId].includes(user.uid);
+                if (currentUserMatched) {
+                  try {
+                    await loadRealBuddy();
+                  } catch (reloadError) {
+                    console.error('Error reloading buddy data:', reloadError);
+                  }
                 }
               }
+            } else {
+              console.error(`❌ Firestore: Failed to create buddy pair between ${arrivingUser.userId} and ${waitingUser.userId}`);
             }
-          } else {
-            console.error(`❌ Firestore: Failed to create buddy pair between ${newestUser.userId} and ${currentWaitingUser.userId}`);
+            
+          } catch (pairError) {
+            console.error(`❌ Firestore: Failed to create buddy pair between ${arrivingUser.userId} and ${waitingUser.userId}:`, pairError);
           }
-          
-        } catch (pairError) {
-          console.error(`❌ Firestore: Failed to create buddy pair between ${newestUser.userId} and ${currentWaitingUser.userId}:`, pairError);
+        } else {
+          console.log('ℹ️ Firestore: Same user in pool, cannot pair');
         }
       } else {
-        console.log('ℹ️ Firestore: Same user in pool, cannot pair');
+        console.log('ℹ️ Firestore: Not enough users in pool for pairing (need 2, have', validPoolUsers.length, ')');
       }
       
     } catch (error) {
@@ -5525,7 +5529,7 @@ const App = () => {
       
       console.log(`🔄 Realtime Database: Valid users for pairing: ${validPoolUsers.join(', ')}`);
       
-      // NEW CHAIN PAIRING LOGIC for Realtime Database:
+      // CORRECTED CHAIN PAIRING LOGIC for Realtime Database:
       // Sort users by joinedAt timestamp (oldest first)
       const poolUsersWithTimestamps = [];
       for (const userId of validPoolUsers) {
@@ -5555,77 +5559,83 @@ const App = () => {
         poolUsersWithTimestamps.map(u => ({ userId: u.userId, joinedAt: u.joinedAt }))
       );
       
-      // Find the current waiting user (oldest in pool)
-      const currentWaitingUser = poolUsersWithTimestamps[0];
-      // Find the newest user (last in sorted array)
-      const newestUser = poolUsersWithTimestamps[poolUsersWithTimestamps.length - 1];
-      
-      if (currentWaitingUser && newestUser && currentWaitingUser.userId !== newestUser.userId) {
-        console.log(`🔄 Realtime Database: CHAIN PAIRING: ${newestUser.userId} (newest) pairs with ${currentWaitingUser.userId} (current waiting)`);
+      // CHAIN PAIRING: Each new user pairs with the previous user in the pool
+      // We need at least 2 users to create a pair
+      if (poolUsersWithTimestamps.length >= 2) {
+        // The OLDEST user (first in sorted array) is the "waiting" user
+        const waitingUser = poolUsersWithTimestamps[0];
+        // The NEWEST user (last in sorted array) is the "arriving" user
+        const arrivingUser = poolUsersWithTimestamps[poolUsersWithTimestamps.length - 1];
         
-        try {
-          // Create buddy pair
-          const pairId = push(ref(db, 'buddyPairs')).key;
+        if (waitingUser && arrivingUser && waitingUser.userId !== arrivingUser.userId) {
+          console.log(`🔄 Realtime Database: CHAIN PAIRING: ${arrivingUser.userId} (arriving) pairs with ${waitingUser.userId} (waiting)`);
           
-          const pairData = {
-            pairId: pairId,
-            users: [newestUser.userId, currentWaitingUser.userId],
-            matchedAt: new Date().toISOString(),
-            compatibilityScore: 0.85,
-            matchReasons: ['Chain pairing algorithm', 'Newest user paired with current waiting user'],
-            status: 'active',
-            lastMessageAt: new Date().toISOString(),
-            user1RemovedFromPool: false,
-            user2RemovedFromPool: false
-          };
-          
-          await set(ref(db, `buddyPairs/${pairId}`), pairData);
-          
-          // NEW CHAIN PAIRING: Only the newest user gets paired with the waiting user
-          // The waiting user sees the newest user as their buddy
-          await set(ref(db, `users/${currentWaitingUser.userId}/buddyInfo`), {
-            hasBuddy: true,
-            buddyId: newestUser.userId,
-            pairId: pairId,
-            matchedAt: pairData.matchedAt
-          });
-          
-          // The newest user also sees the waiting user as their buddy (bidirectional for first pair)
-          await set(ref(db, `users/${newestUser.userId}/buddyInfo`), {
-            hasBuddy: true,
-            buddyId: currentWaitingUser.userId,
-            pairId: pairId,
-            matchedAt: pairData.matchedAt
-          });
-          
-          // CRITICAL: Remove ONLY the current waiting user from matching pool
-          // The newest user stays in the pool for the next pairing
-          Object.keys(raw).forEach(async (entryKey) => {
-            const entry = raw[entryKey];
-            const entryUid = entry?.uid || entry?.userId || entryKey;
-            if (entryUid === currentWaitingUser.userId) {
-              await remove(ref(db, `matchingPool/${entryKey}`));
-              console.log(`✅ Realtime Database: Removed ${currentWaitingUser.userId} (current waiting) from matching pool`);
-            }
-          });
-          
-          // Update buddy pair pool removal flags
-          await set(ref(db, `buddyPairs/${pairId}/user1RemovedFromPool`), true);
-          await set(ref(db, `buddyPairs/${pairId}/user2RemovedFromPool`), false); // Newest user stays in pool
-          
-          console.log(`✅ Realtime Database: CHAIN PAIRING: Created buddy pair ${pairId}`);
-          console.log(`✅ Realtime Database: CHAIN PAIRING: Kept ${newestUser.userId} (newest) in matching pool for next pairing`);
-          
-        } catch (pairError) {
-          console.error('Error creating buddy pair:', pairError);
+          try {
+            // Create buddy pair
+            const pairId = push(ref(db, 'buddyPairs')).key;
+            
+            const pairData = {
+              pairId: pairId,
+              users: [arrivingUser.userId, waitingUser.userId],
+              matchedAt: new Date().toISOString(),
+              compatibilityScore: 0.85,
+              matchReasons: ['Chain pairing algorithm', 'Arriving user paired with waiting user'],
+              status: 'active',
+              lastMessageAt: new Date().toISOString(),
+              user1RemovedFromPool: false,
+              user2RemovedFromPool: false
+            };
+            
+            await set(ref(db, `buddyPairs/${pairId}`), pairData);
+            
+            // BOTH users see each other as buddies (bidirectional pairing)
+            await set(ref(db, `users/${waitingUser.userId}/buddyInfo`), {
+              hasBuddy: true,
+              buddyId: arrivingUser.userId,
+              pairId: pairId,
+              matchedAt: pairData.matchedAt
+            });
+            
+            await set(ref(db, `users/${arrivingUser.userId}/buddyInfo`), {
+              hasBuddy: true,
+              buddyId: waitingUser.userId,
+              pairId: pairId,
+              matchedAt: pairData.matchedAt
+            });
+            
+            // CRITICAL: Remove ONLY the waiting user from matching pool
+            // The arriving user stays in the pool for the next pairing
+            Object.keys(raw).forEach(async (entryKey) => {
+              const entry = raw[entryKey];
+              const entryUid = entry?.uid || entry?.userId || entryKey;
+              if (entryUid === waitingUser.userId) {
+                await remove(ref(db, `matchingPool/${entryKey}`));
+                console.log(`✅ Realtime Database: Removed ${waitingUser.userId} (waiting) from matching pool`);
+              }
+            });
+            
+            // Update buddy pair pool removal flags
+            await set(ref(db, `buddyPairs/${pairId}/user1RemovedFromPool`), true);
+            await set(ref(db, `buddyPairs/${pairId}/user2RemovedFromPool`), false); // Arriving user stays in pool
+            
+            console.log(`✅ Realtime Database: CHAIN PAIRING: Created buddy pair ${pairId}`);
+            console.log(`✅ Realtime Database: CHAIN PAIRING: Kept ${arrivingUser.userId} (arriving) in matching pool for next pairing`);
+            
+          } catch (pairError) {
+            console.error('Error creating buddy pair:', pairError);
+          }
+        } else {
+          console.log('ℹ️ Realtime Database: Same user in pool, cannot pair');
         }
       } else {
-        console.log('ℹ️ Realtime Database: Same user in pool or not enough users, cannot pair');
+        console.log('ℹ️ Realtime Database: Not enough users in pool for pairing (need 2, have', poolUsersWithTimestamps.length, ')');
       }
       
       // If current user was matched, reload their buddy data
-      if (user?.uid) {
-        const currentUserMatched = [newestUser?.userId, currentWaitingUser?.userId].includes(user.uid);
+      if (user?.uid && poolUsersWithTimestamps.length >= 2) {
+        const waitingUser = poolUsersWithTimestamps[0];
+        const arrivingUser = poolUsersWithTimestamps[poolUsersWithTimestamps.length - 1];
+        const currentUserMatched = [arrivingUser?.userId, waitingUser?.userId].includes(user.uid);
         if (currentUserMatched) {
           try {
             await loadRealBuddy();
@@ -5771,7 +5781,8 @@ const App = () => {
             lastActive: Date.now(),
             userId: authUser.uid,
             heroName: completeUserData.heroName,
-            archetype: completeUserData.archetype
+            archetype: completeUserData.archetype,
+            joinedAt: new Date().toISOString() // CRITICAL: Add timestamp for chain pairing
           };
           await set(ref(db, `matchingPool/${authUser.uid}`), matchingPoolData);
           console.log('✅ User added to Realtime Database matching pool (fallback)');
@@ -5788,7 +5799,8 @@ const App = () => {
             lastActive: new Date(),
             userId: authUser.uid,
             heroName: completeUserData.heroName,
-            archetype: completeUserData.archetype
+            archetype: completeUserData.archetype,
+            joinedAt: new Date().toISOString() // CRITICAL: Add timestamp for chain pairing
           };
           
           const success = await service.addToMatchingPool(authUser.uid, matchingPoolData);
