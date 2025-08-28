@@ -2945,126 +2945,143 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater }) => {
         
         <div className="relative z-10">
           {/* Header */}
-          <div className="text-center mb-8">
-            <h3 className="text-3xl font-bold text-white mb-3">💧 Hydration</h3>
-            <p className="text-gray-300 text-lg">Track your daily water intake</p>
-          </div>
-          
-          {/* Hydration Streak Display */}
           <div className="text-center mb-6">
-            <div className="inline-flex items-center gap-3 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-2xl px-6 py-3">
-              <span className="text-2xl">🔥</span>
-              <div>
-                <p className="text-orange-200 text-sm font-medium">Hydration Streak</p>
-                <p className="text-2xl font-bold text-orange-300">{hydrationStreak} days</p>
-              </div>
-            </div>
+            <h3 className="text-3xl font-bold text-white">💧 Hydration</h3>
           </div>
           
-          {/* Enhanced Water Bottle Visualization */}
-          <div className="flex items-center justify-center mb-8">
+          {/* Enhanced Individual Glasses Grid Visualization */}
+          <div className="flex items-center justify-center mb-6">
             <div className="relative">
-              {/* Realistic Water Bottle Container */}
-              <div className="w-32 h-40 bg-gradient-to-b from-slate-500/30 to-slate-600/30 rounded-t-3xl border border-slate-400/50 relative overflow-hidden shadow-lg">
-                {/* Bottle Neck - Wider and more realistic */}
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-12 h-8 bg-gradient-to-b from-slate-500/30 to-slate-600/30 border border-slate-400/50 rounded-t-2xl"></div>
-                
-                {/* Bottle Cap */}
-                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-14 h-4 bg-slate-400 rounded-full border border-slate-500"></div>
-                
-                {/* Water Fill - Animated gradient from bottom up */}
-                <div 
-                  className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-400 via-blue-500 to-blue-600 transition-all duration-1000 ease-out"
-                  style={{
-                    height: `${(currentWater / 6) * 100}%`,
-                    background: `linear-gradient(to top, 
-                      rgba(96, 165, 250, 0.9) 0%, 
-                      rgba(59, 130, 246, 0.8) 50%, 
-                      rgba(37, 99, 235, 0.7) 100%)`
-                  }}
-                >
-                  {/* Enhanced animated water waves */}
-                  <div className="absolute inset-0 opacity-40">
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent water-wave"></div>
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-300/40 to-transparent water-wave" style={{animationDelay: '1.5s'}}></div>
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-200/20 to-transparent water-ripple" style={{animationDelay: '0.8s'}}></div>
-                  </div>
-                </div>
-                
-                {/* Subtle section indicators - very light lines */}
-                {[...Array(6)].map((_, index) => (
-                  <div
-                    key={index}
-                    className="absolute left-1 right-1 border-t border-slate-400/20"
-                    style={{
-                      top: `${(index * 100) / 6}%`,
-                    }}
-                  />
-                ))}
+              {/* 2x3 Grid of Individual Drinking Glasses */}
+              <div className="grid grid-cols-3 gap-6">
+                {[...Array(6)].map((_, index) => {
+                  const glassNumber = index + 1;
+                  const isFilled = glassNumber <= currentWater;
+                  
+                  return (
+                    <div key={index} className="relative">
+                      {/* Individual Drinking Glass */}
+                      <div className="w-20 h-28 relative">
+                        {/* Glass Container - Proper drinking glass shape (wider at top, narrower at bottom) */}
+                        <div className={`w-full h-full relative transition-all duration-1000 ease-out ${
+                          isFilled 
+                            ? 'glass-glow' 
+                            : ''
+                        }`}>
+                          {/* Glass outline - wider at top, narrower at bottom */}
+                          <div className="absolute inset-0">
+                            <div className="w-full h-full border-2 border-slate-400/40 rounded-t-3xl" style={{
+                              clipPath: 'polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%)'
+                            }}></div>
+                          </div>
+                          
+                          {/* Glass Body */}
+                          <div className="w-full h-full relative overflow-hidden" style={{
+                            clipPath: 'polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%)'
+                          }}>
+                            {/* Empty glass background */}
+                            <div className="absolute inset-0 bg-slate-500/5"></div>
+                            
+                            {/* Water Fill - Only show if glass is filled */}
+                            {isFilled && (
+                              <div className="absolute inset-0 glass-fill">
+                                {/* Water fill animation - fills 3/4 of glass height */}
+                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-400 via-blue-500 to-blue-600 water-fill" style={{
+                                  clipPath: 'polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%)'
+                                }}>
+                                  {/* Gentle wave motion at water surface */}
+                                  <div className="absolute top-0 left-0 right-0 h-3 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                                  
+                                  {/* Subtle water texture */}
+                                  <div className="absolute inset-0 opacity-30">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent water-wave"></div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Glass rim highlight */}
+                            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-transparent via-white/30 to-transparent" style={{
+                              clipPath: 'polygon(15% 0%, 85% 0%, 100% 0%, 0% 0%)'
+                            }}></div>
+                            
+                            {/* Glass side reflection */}
+                            <div className="absolute top-3 right-3 w-1 h-20 bg-gradient-to-b from-transparent via-white/20 to-transparent rounded-full"></div>
+                          </div>
+                        </div>
+                        
+                        {/* Glass number indicator */}
+                        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs text-slate-400 font-medium">
+                          {glassNumber}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
               
-              {/* Enhanced sparkle effects when logging water */}
+              {/* Water fill animation indicator */}
               {showSparkles && (
-                <>
-                  <div className="absolute -top-2 -left-2 text-2xl sparkle-float text-blue-300">✨</div>
-                  <div className="absolute -top-4 right-0 text-xl sparkle-float text-blue-400" style={{animationDelay: '0.2s'}}>💎</div>
-                  <div className="absolute -bottom-2 left-1/2 text-lg sparkle-float text-blue-200" style={{animationDelay: '0.4s'}}>⭐</div>
-                  <div className="absolute -top-6 left-1/2 text-lg sparkle-float text-blue-100" style={{animationDelay: '0.6s'}}>🌟</div>
-                </>
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 bg-blue-400 rounded-full animate-ping opacity-75"></div>
+                  </div>
+                </div>
               )}
             </div>
           </div>
           
           {/* Enhanced Water Count Display */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30 rounded-2xl p-6">
               <p className="text-gray-300 text-lg mb-3">Glasses today</p>
               <p className="text-6xl font-black text-blue-400 mb-2">
                 {currentWater}/6
               </p>
               <p className="text-blue-200 text-sm font-medium">
-                {currentWater === 0 ? 'Start your hydration journey!' : 
-                 currentWater === 6 ? 'Perfect! You\'re fully hydrated!' :
+                {currentWater === 6 ? 'Perfect! You\'re fully hydrated!' :
                  `${currentWater} of 6 glasses completed`}
               </p>
             </div>
           </div>
           
-          {/* Mental Strength Progress Indicator */}
-          <div className="text-center mb-8">
-            <div className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 border border-purple-500/30 rounded-2xl p-4">
-              <p className="text-purple-200 text-sm font-medium mb-2">Mental Strength Progress</p>
-              <div className="flex justify-center items-center gap-2 mb-2">
-                {[...Array(3)].map((_, index) => (
-                  <div
-                    key={index}
-                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                      index < mentalStrengthProgress 
-                        ? 'bg-purple-400 shadow-lg shadow-purple-400/50' 
-                        : 'bg-slate-600 border border-slate-500'
-                    }`}
-                  />
-                ))}
+          {/* Progress Sections - Side by Side */}
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            {/* Hydration Streak Display */}
+            <div className="text-center">
+              <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-2xl px-4 py-3">
+                <span className="text-xl">🔥</span>
+                <div>
+                  <p className="text-orange-200 text-xs font-medium">Hydration Streak</p>
+                  <p className="text-lg font-bold text-orange-300">{hydrationStreak} days</p>
+                </div>
               </div>
-              <p className="text-purple-200 text-sm">
-                {mentalStrengthProgress}/3 days for +1 Mental Strength
-              </p>
             </div>
-          </div>
-          
-          {/* Enhanced Motivational Quote */}
-          <div className="text-center mb-8">
-            <div className="bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-500/30 rounded-2xl p-6 relative overflow-hidden shadow-lg shadow-blue-500/20">
-              {/* Enhanced glow animation */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-400/15 via-transparent to-indigo-400/15 animate-pulse"></div>
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-300/5 via-transparent to-indigo-300/5 animate-pulse" style={{animationDelay: '1s'}}></div>
-              <div className="relative z-10">
-                <p className="text-blue-100 text-lg italic font-medium leading-relaxed drop-shadow-sm">
-                  "Cravings burn hotter in a dry system. Douse the flames from within."
+            
+            {/* Mental Strength Progress Indicator */}
+            <div className="text-center">
+              <div className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 border border-purple-500/30 rounded-2xl px-4 py-3">
+                <p className="text-purple-200 text-xs font-medium mb-1">Mental Strength</p>
+                <div className="flex justify-center items-center gap-1 mb-1">
+                  {[...Array(3)].map((_, index) => (
+                    <div
+                      key={index}
+                      className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                        index < mentalStrengthProgress 
+                          ? 'bg-purple-400 shadow-lg shadow-purple-400/50' 
+                          : 'bg-slate-600 border border-slate-500'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <p className="text-purple-200 text-xs">
+                  {mentalStrengthProgress}/3 days
                 </p>
               </div>
             </div>
           </div>
+          
+
           
           {/* Enhanced Button Layout */}
           <div className="flex flex-col gap-4">
