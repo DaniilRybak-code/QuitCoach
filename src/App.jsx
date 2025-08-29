@@ -2579,6 +2579,11 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
     resisted: 0,
     relapses: 0
   });
+  
+  // Daily craving logs tracking
+  const [dailyCravingLogs, setDailyCravingLogs] = useState(0);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Initialize StatManager and load cravings resisted
   useEffect(() => {
@@ -2599,6 +2604,43 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
     };
 
     initializeStatManager();
+
+    // Load daily craving logs count
+    const loadDailyCravingLogs = async () => {
+      try {
+        const today = new Date().toDateString();
+        const { ref, get } = await import('firebase/database');
+        
+        // Try Firebase first
+        try {
+          const logsRef = ref(db, `users/${user.uid}/profile/dailyCravingLogs/${today}`);
+          const snapshot = await get(logsRef);
+          
+          if (snapshot.exists()) {
+            const logs = snapshot.val();
+            setDailyCravingLogs(logs.count || 0);
+          } else {
+            setDailyCravingLogs(0);
+          }
+        } catch (firebaseError) {
+          // Fallback to localStorage
+          const localStorageKey = `cravingLogs_${user.uid}_${today}`;
+          const storedLogs = localStorage.getItem(localStorageKey);
+          if (storedLogs) {
+            const logs = JSON.parse(storedLogs);
+            setDailyCravingLogs(logs.count || 0);
+          } else {
+            setDailyCravingLogs(0);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading daily craving logs:', error);
+        setDailyCravingLogs(0);
+      }
+    };
+
+    // Load daily craving logs
+    loadDailyCravingLogs();
 
     // Load weekly craving statistics
     const loadWeeklyStats = async () => {
@@ -2732,6 +2774,9 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
       setShowCravingAssessment(false);
       setAssessmentStep(1);
       setCravingData({ strength: 5, mood: '', context: '', outcome: '' });
+      setDailyCravingLogs(0);
+      setShowSuccessMessage(false);
+      setSuccessMessage('');
     };
   }, [user?.uid]);
 
@@ -2863,62 +2908,63 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
         date
       };
 
-      // Save to Firebase with user-specific path
+      // Update daily craving logs count
+      const today = new Date().toDateString();
+      const newCount = dailyCravingLogs + 1;
+      setDailyCravingLogs(newCount);
+      
+      // Initialize newStats variable
+      let newStats = {
+        resisted: weeklyStats.resisted,
+        relapses: weeklyStats.relapses,
+        lastUpdated: timestamp
+      };
+      
+      // Award awareness bonuses only for first 2 logs per day
+      let statBonusAwarded = false;
+      if (newCount <= 2 && statManager) {
+        await statManager.handleCravingLogged();
+        statBonusAwarded = true;
+      }
+      
+      // Save daily count to Firebase
       if (user && user.uid) {
         const { ref, set, push } = await import('firebase/database');
+        
+        try {
+          const logsRef = ref(db, `users/${user.uid}/profile/dailyCravingLogs/${today}`);
+          await set(logsRef, { count: newCount, lastUpdated: timestamp });
+        } catch (firebaseError) {
+          // Fallback to localStorage
+          const localStorageKey = `cravingLogs_${user.uid}_${today}`;
+          localStorage.setItem(localStorageKey, JSON.stringify({ count: newCount, lastUpdated: timestamp }));
+        }
         
         // Save individual craving record
         const cravingsRef = ref(db, `users/${user.uid}/cravings`);
         const newCravingRef = push(cravingsRef);
         await set(newCravingRef, finalCravingData);
         
-        // Always give craving logging bonuses for awareness
-        if (statManager) {
-          await statManager.handleCravingLogged();
-        }
-        
         // Update weekly statistics based on outcome
         const statsRef = ref(db, `users/${user.uid}/profile/cravingStats`);
-        let newStats;
         
         if (outcome === 'resisted') {
           // User successfully resisted - this counts as actual resistance
-          newStats = {
-            resisted: weeklyStats.resisted + 1,
-            relapses: weeklyStats.relapses,
-            lastUpdated: timestamp
-          };
+          newStats.resisted = weeklyStats.resisted + 1;
           
           // Give resistance bonuses
           if (statManager) {
             await statManager.handleCravingResistance();
           }
         } else if (outcome === 'relapsed') {
-          newStats = {
-            resisted: weeklyStats.resisted,
-            relapses: weeklyStats.relapses + 1,
-            lastUpdated: timestamp
-          };
+          newStats.relapses = weeklyStats.relapses + 1;
           
           // Handle relapse
           if (statManager) {
             await statManager.handleRelapse();
           }
-        } else if (outcome === 'logged') {
-          // Just logging a craving - no resistance or relapse counted
-          newStats = {
-            resisted: weeklyStats.resisted,
-            relapses: weeklyStats.relapses,
-            lastUpdated: timestamp
-          };
-        } else {
-          // Fallback case
-          newStats = {
-            resisted: weeklyStats.resisted,
-            relapses: weeklyStats.relapses,
-            lastUpdated: timestamp
-          };
         }
+        // For 'resistance_practices' and 'logged', newStats remains unchanged
         
         await set(statsRef, newStats);
         setWeeklyStats(newStats);
@@ -2931,7 +2977,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
       localCravings.push(finalCravingData);
       localStorage.setItem(`cravings_${user.uid}`, JSON.stringify(localCravings));
       
-      // Save weekly stats to localStorage (use the same logic as Firebase)
+      // Save weekly stats to localStorage
       localStorage.setItem(`cravingStats_${user.uid}`, JSON.stringify(newStats));
       
       // Show appropriate message
@@ -2941,6 +2987,12 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
           message: 'You successfully resisted that craving!\n\nYour Mental Strength and Trigger Defense have increased significantly.\n\nPlus, you earned awareness bonuses for tracking your craving!',
           type: 'success'
         });
+      } else if (outcome === 'resistance_practices') {
+        setPopupData({
+          title: '🛡️ Stay Strong!',
+          message: 'Stay strong! Use distraction or wellbeing practices to resist.\n\nYou earned awareness bonuses for tracking your craving!',
+          type: 'info'
+        });
       } else if (outcome === 'relapsed') {
         setPopupData({
           title: '💪 Don\'t Give Up',
@@ -2948,11 +3000,19 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
           type: 'info'
         });
       } else if (outcome === 'logged') {
-        setPopupData({
-          title: '📝 Craving Logged',
-          message: 'Great job tracking your craving!\n\nYou earned awareness bonuses for your self-awareness.\n\nThis helps build your Motivation and Trigger Defense.',
-          type: 'info'
-        });
+        if (statBonusAwarded) {
+          setPopupData({
+            title: '📝 Craving Logged',
+            message: 'Great job tracking your craving!\n\nYou earned awareness bonuses for your self-awareness.\n\nThis helps build your Motivation and Trigger Defense.',
+            type: 'info'
+          });
+        } else {
+          setPopupData({
+            title: '📝 Daily Limit Reached',
+            message: 'Daily craving logging limit reached. Additional logs are recorded but won\'t award stat points until tomorrow.',
+            type: 'info'
+          });
+        }
       } else {
         setPopupData({
           title: '📝 Progress Recorded',
@@ -3291,16 +3351,17 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
 
         {/* Craving Assessment Modal */}
         {showCravingAssessment && (
-          <CravingAssessmentModal
-            isOpen={showCravingAssessment}
-            onClose={() => setShowCravingAssessment(false)}
-            step={assessmentStep}
-            cravingData={cravingData}
-            setCravingData={setCravingData}
-            onNext={nextStep}
-            onPrev={prevStep}
-            onComplete={completeAssessment}
-          />
+                  <CravingAssessmentModal
+          isOpen={showCravingAssessment}
+          onClose={() => setShowCravingAssessment(false)}
+          step={assessmentStep}
+          cravingData={cravingData}
+          setCravingData={setCravingData}
+          onNext={nextStep}
+          onPrev={prevStep}
+          onComplete={completeAssessment}
+          dailyCravingLogs={dailyCravingLogs}
+        />
         )}
       </div>
     </div>
@@ -3308,7 +3369,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
 };
 
 // Craving Assessment Modal - Multi-step craving assessment flow
-const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCravingData, onNext, onPrev, onComplete }) => {
+const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCravingData, onNext, onPrev, onComplete, dailyCravingLogs }) => {
   // Function to get colors based on craving strength
   const getCravingColors = (strength) => {
     if (strength <= 3) {
@@ -3317,7 +3378,8 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
         slider: '#4ade80',
         shadow: 'rgba(74, 222, 128, 0.5)',
         label: 'Low',
-        effect: 'craving-low'
+        effect: 'craving-low',
+        thumbClass: 'slider-thumb-green'
       };
     } else if (strength <= 7) {
       return {
@@ -3325,7 +3387,8 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
         slider: '#f97316',
         shadow: 'rgba(249, 115, 22, 0.5)',
         label: 'Medium',
-        effect: 'craving-medium'
+        effect: 'craving-medium',
+        thumbClass: 'slider-thumb-orange'
       };
     } else {
       return {
@@ -3333,7 +3396,8 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
         slider: '#ef4444',
         shadow: 'rgba(239, 68, 68, 0.5)',
         label: 'High',
-        effect: 'craving-high'
+        effect: 'craving-high',
+        thumbClass: 'slider-thumb-red'
       };
     }
   };
@@ -3386,7 +3450,7 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
                       style={{
                         background: `linear-gradient(to right, ${colors.slider} 0%, ${colors.slider} ${(cravingData.strength / 10) * 100}%, #475569 ${(cravingData.strength / 10) * 100}%, #475569 100%)`
                       }}
-                      className="w-full h-4 rounded-lg appearance-none cursor-pointer slider mb-4"
+                      className={`w-full h-4 rounded-lg appearance-none cursor-pointer slider mb-4 ${colors.thumbClass}`}
                     />
                     <div className="flex justify-between text-sm text-gray-400">
                       <span>Not at all</span>
@@ -3454,6 +3518,12 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
                 💪 I successfully resisted
               </button>
               <button
+                onClick={() => onComplete('resistance_practices')}
+                className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+              >
+                🛡️ Use resistance practices
+              </button>
+              <button
                 onClick={() => onComplete('logged')}
                 className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
@@ -3495,6 +3565,9 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
               ))}
             </div>
             <p className="text-gray-400 text-sm">Step {step} of 4</p>
+            <div className="mt-2 text-xs text-gray-500">
+              Daily logs: {dailyCravingLogs}/2
+            </div>
           </div>
 
           {/* Step content */}

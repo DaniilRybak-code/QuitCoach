@@ -39,6 +39,37 @@ code {
   transition: all 0.2s ease;
 }
 
+/* Dynamic slider thumb colors */
+.slider-thumb-green::-webkit-slider-thumb {
+  background: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+}
+
+.slider-thumb-green::-moz-range-thumb {
+  background: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+}
+
+.slider-thumb-orange::-webkit-slider-thumb {
+  background: #f97316;
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
+}
+
+.slider-thumb-orange::-moz-range-thumb {
+  background: #f97316;
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
+}
+
+.slider-thumb-red::-webkit-slider-thumb {
+  background: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+.slider-thumb-red::-moz-range-thumb {
+  background: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
 .slider {
   background: linear-gradient(to right, #f97316 0%, #f97316 50%, #475569 50%, #475569 100%);
   transition: background 0.1s ease;
