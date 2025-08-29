@@ -318,7 +318,6 @@ const OnboardingFlow = ({ onComplete, authUser }) => {
           stats: {
             ...stats,
             streakDays: 0,
-            moneySaved: 0,
             experiencePoints: 0
           },
           achievements: [],
@@ -345,7 +344,6 @@ const OnboardingFlow = ({ onComplete, authUser }) => {
           stats: {
             ...fallbackStats,
             streakDays: 0,
-            moneySaved: 0,
             experiencePoints: 0
           },
           achievements: [],
@@ -1024,7 +1022,7 @@ const InfoModal = ({ isOpen, onClose, statType }) => {
         "What increases it:",
         "• Regular logging (3+ days per week): +2 points (weekly)",
         "• Sharing achievements: +3 points per share (weekly)",
-        "• Reaching money saved milestones: +2 points",
+        
         "",
         "What decreases it:",
         "• Long periods inactive (7+ days no logging): -3 points"
@@ -1985,7 +1983,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         return 'Complete breathing exercises, stay hydrated for 3 days straight';
       
       case 'Motivation':
-        if (increase >= 30) return 'Log progress daily, share achievements weekly, track money saved milestones';
+        if (increase >= 30) return 'Log progress daily, share achievements weekly';
         if (increase >= 20) return 'Log progress 5+ days per week, share achievements, track progress';
         return 'Regular logging (3+ days per week), share achievements, reach milestones';
       
@@ -2562,10 +2560,25 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
   const [selectedGame, setSelectedGame] = useState(null);
   const [showCustomPopup, setShowCustomPopup] = useState(false);
   const [popupData, setPopupData] = useState({ title: '', message: '', type: 'info' });
-  const [cravingsResisted, setCravingsResisted] = useState(0);
   const [statManager, setStatManager] = useState(null);
   const [showHydrationModal, setShowHydrationModal] = useState(false);
   const [dailyWater, setDailyWater] = useState(0);
+  
+  // New craving assessment state
+  const [showCravingAssessment, setShowCravingAssessment] = useState(false);
+  const [assessmentStep, setAssessmentStep] = useState(1);
+  const [cravingData, setCravingData] = useState({
+    strength: 5,
+    mood: '',
+    context: '',
+    outcome: ''
+  });
+  
+  // Weekly statistics state
+  const [weeklyStats, setWeeklyStats] = useState({
+    resisted: 0,
+    relapses: 0
+  });
 
   // Initialize StatManager and load cravings resisted
   useEffect(() => {
@@ -2587,38 +2600,93 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
 
     initializeStatManager();
 
-    const loadCravingsResisted = async () => {
+    // Load weekly craving statistics
+    const loadWeeklyStats = async () => {
       try {
-        const { ref, get, onValue } = await import('firebase/database');
-        const cravingsRef = ref(db, `users/${user.uid}/profile/cravingsResisted`);
+        const { ref, get, onValue, query, orderByChild, startAt, endAt, set } = await import('firebase/database');
         
-        // Load initial value
-        const snapshot = await get(cravingsRef);
-        if (snapshot.exists()) {
-          setCravingsResisted(snapshot.val() || 0);
-        } else {
-          // Fallback to localStorage
-          const localWins = parseInt(localStorage.getItem('cravingWins') || 0);
-          setCravingsResisted(localWins);
+        // Calculate date range for last 7 days
+        const now = new Date();
+        const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+        const startDate = sevenDaysAgo.toDateString();
+        const endDate = now.toDateString();
+        
+        // Try to load from Firebase first
+        try {
+          const statsRef = ref(db, `users/${user.uid}/profile/cravingStats`);
+          const snapshot = await get(statsRef);
+          
+          if (snapshot.exists()) {
+            const stats = snapshot.val();
+            // Check if stats are from this week
+            if (stats.lastUpdated && new Date(stats.lastUpdated) > sevenDaysAgo) {
+              setWeeklyStats(stats);
+              return;
+            }
+          }
+        } catch (firebaseError) {
+          console.log('Firebase stats not available, calculating from cravings data');
         }
         
-        // Set up real-time listener
-        const unsubscribe = onValue(cravingsRef, (snapshot) => {
+        // Calculate weekly stats from individual cravings
+        const cravingsRef = ref(db, `users/${user.uid}/cravings`);
+        const cravingsQuery = query(cravingsRef, orderByChild('date'), startAt(startDate), endAt(endDate));
+        
+        try {
+          const cravingsSnapshot = await get(cravingsQuery);
+          let resisted = 0;
+          let relapses = 0;
+          
+          if (cravingsSnapshot.exists()) {
+            cravingsSnapshot.forEach((childSnapshot) => {
+              const craving = childSnapshot.val();
+              if (craving.outcome === 'resisted') {
+                resisted++;
+              } else if (craving.outcome === 'relapsed') {
+                relapses++;
+              }
+            });
+          }
+          
+          const weeklyStats = { resisted, relapses, lastUpdated: now.toISOString() };
+          setWeeklyStats(weeklyStats);
+          
+          // Save calculated stats to Firebase
+          try {
+            const statsRef = ref(db, `users/${user.uid}/profile/cravingStats`);
+            await set(statsRef, weeklyStats);
+          } catch (saveError) {
+            console.log('Could not save weekly stats to Firebase, using localStorage');
+          }
+          
+          // Save to localStorage as fallback
+          localStorage.setItem(`cravingStats_${user.uid}`, JSON.stringify(weeklyStats));
+          
+        } catch (queryError) {
+          console.log('Could not query cravings, using localStorage fallback');
+          // Fallback to localStorage
+          const localStats = JSON.parse(localStorage.getItem(`cravingStats_${user.uid}`) || '{"resisted": 0, "relapses": 0}');
+          setWeeklyStats(localStats);
+        }
+        
+        // Set up real-time listener for stats updates
+        const statsRef = ref(db, `users/${user.uid}/profile/cravingStats`);
+        const unsubscribe = onValue(statsRef, (snapshot) => {
           if (snapshot.exists()) {
-            setCravingsResisted(snapshot.val() || 0);
+            setWeeklyStats(snapshot.val());
           }
         });
         
         return unsubscribe;
       } catch (error) {
-        console.error('Error loading cravings resisted from Firebase:', error);
-        // Fallback to localStorage
-        const localWins = parseInt(localStorage.getItem('cravingWins') || 0);
-        setCravingsResisted(localWins);
+        console.error('Error loading weekly stats:', error);
+        // Fallback to localStorage with user-specific key
+        const localStats = JSON.parse(localStorage.getItem(`cravingStats_${user.uid}`) || '{"resisted": 0, "relapses": 0}');
+        setWeeklyStats(localStats);
       }
     };
 
-    loadCravingsResisted();
+    loadWeeklyStats();
     
     // Load daily water intake
     const loadDailyWater = async () => {
@@ -2656,10 +2724,14 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
 
     loadDailyWater();
 
-    // Cleanup function to clear hydration data when user changes
+    // Cleanup function to clear user data when user changes
     return () => {
       setDailyWater(0);
       setShowHydrationModal(false);
+      setWeeklyStats({ resisted: 0, relapses: 0 });
+      setShowCravingAssessment(false);
+      setAssessmentStep(1);
+      setCravingData({ strength: 5, mood: '', context: '', outcome: '' });
     };
   }, [user?.uid]);
 
@@ -2759,12 +2831,310 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
     }
   };
 
+  // New craving assessment functions
+  const startCravingAssessment = () => {
+    setCravingData({ strength: 5, mood: '', context: '', outcome: '' });
+    setAssessmentStep(1);
+    setShowCravingAssessment(true);
+  };
+
+  const nextStep = () => {
+    if (assessmentStep < 4) {
+      setAssessmentStep(assessmentStep + 1);
+    }
+  };
+
+  const prevStep = () => {
+    if (assessmentStep > 1) {
+      setAssessmentStep(assessmentStep - 1);
+    }
+  };
+
+  const completeAssessment = async (outcome) => {
+    try {
+      const timestamp = new Date().toISOString();
+      const date = new Date().toDateString();
+      
+      // Prepare craving data
+      const finalCravingData = {
+        ...cravingData,
+        outcome,
+        timestamp,
+        date
+      };
+
+      // Save to Firebase with user-specific path
+      if (user && user.uid) {
+        const { ref, set, push } = await import('firebase/database');
+        
+        // Save individual craving record
+        const cravingsRef = ref(db, `users/${user.uid}/cravings`);
+        const newCravingRef = push(cravingsRef);
+        await set(newCravingRef, finalCravingData);
+        
+        // Always give craving logging bonuses for awareness
+        if (statManager) {
+          await statManager.handleCravingLogged();
+        }
+        
+        // Update weekly statistics based on outcome
+        const statsRef = ref(db, `users/${user.uid}/profile/cravingStats`);
+        let newStats;
+        
+        if (outcome === 'resisted') {
+          // User successfully resisted - this counts as actual resistance
+          newStats = {
+            resisted: weeklyStats.resisted + 1,
+            relapses: weeklyStats.relapses,
+            lastUpdated: timestamp
+          };
+          
+          // Give resistance bonuses
+          if (statManager) {
+            await statManager.handleCravingResistance();
+          }
+        } else if (outcome === 'relapsed') {
+          newStats = {
+            resisted: weeklyStats.resisted,
+            relapses: weeklyStats.relapses + 1,
+            lastUpdated: timestamp
+          };
+          
+          // Handle relapse
+          if (statManager) {
+            await statManager.handleRelapse();
+          }
+        } else if (outcome === 'logged') {
+          // Just logging a craving - no resistance or relapse counted
+          newStats = {
+            resisted: weeklyStats.resisted,
+            relapses: weeklyStats.relapses,
+            lastUpdated: timestamp
+          };
+        } else {
+          // Fallback case
+          newStats = {
+            resisted: weeklyStats.resisted,
+            relapses: weeklyStats.relapses,
+            lastUpdated: timestamp
+          };
+        }
+        
+        await set(statsRef, newStats);
+        setWeeklyStats(newStats);
+        
+        console.log('Craving assessment saved:', finalCravingData);
+      }
+      
+      // Fallback to localStorage with user-specific key
+      const localCravings = JSON.parse(localStorage.getItem(`cravings_${user.uid}`) || '[]');
+      localCravings.push(finalCravingData);
+      localStorage.setItem(`cravings_${user.uid}`, JSON.stringify(localCravings));
+      
+      // Save weekly stats to localStorage (use the same logic as Firebase)
+      localStorage.setItem(`cravingStats_${user.uid}`, JSON.stringify(newStats));
+      
+      // Show appropriate message
+      if (outcome === 'resisted') {
+        setPopupData({
+          title: '🎉 Great Job!',
+          message: 'You successfully resisted that craving!\n\nYour Mental Strength and Trigger Defense have increased significantly.\n\nPlus, you earned awareness bonuses for tracking your craving!',
+          type: 'success'
+        });
+      } else if (outcome === 'relapsed') {
+        setPopupData({
+          title: '💪 Don\'t Give Up',
+          message: 'Relapses happen to everyone. The important thing is that you\'re here and trying again.\n\nYou still earned awareness bonuses for tracking your craving!',
+          type: 'info'
+        });
+      } else if (outcome === 'logged') {
+        setPopupData({
+          title: '📝 Craving Logged',
+          message: 'Great job tracking your craving!\n\nYou earned awareness bonuses for your self-awareness.\n\nThis helps build your Motivation and Trigger Defense.',
+          type: 'info'
+        });
+      } else {
+        setPopupData({
+          title: '📝 Progress Recorded',
+          message: 'Your craving has been logged successfully.\n\nYou earned awareness bonuses for tracking your craving!',
+          type: 'info'
+        });
+      }
+      
+      setShowCustomPopup(true);
+      setShowCravingAssessment(false);
+      setAssessmentStep(1);
+      
+    } catch (error) {
+      console.error('Error saving craving assessment:', error);
+      // Still show message even if save fails
+      setPopupData({
+        title: 'Progress Recorded',
+        message: 'Your progress has been recorded locally.\n\nKeep up the great work!',
+        type: 'info'
+      });
+      setShowCustomPopup(true);
+      setShowCravingAssessment(false);
+      setAssessmentStep(1);
+    }
+  };
+
+  // Quick action functions
+  const handleQuickResistance = async () => {
+    try {
+      const timestamp = new Date().toISOString();
+      const date = new Date().toDateString();
+      
+      // Save quick resistance
+      if (user && user.uid) {
+        const { ref, set, push } = await import('firebase/database');
+        
+        // Save to cravings
+        const cravingsRef = ref(db, `users/${user.uid}/cravings`);
+        const newCravingRef = push(cravingsRef);
+        await set(newCravingRef, {
+          strength: 0,
+          mood: 'quick',
+          context: 'quick_action',
+          outcome: 'resisted',
+          timestamp,
+          date
+        });
+        
+        // Update weekly stats
+        const statsRef = ref(db, `users/${user.uid}/profile/cravingStats`);
+        const newStats = {
+          resisted: weeklyStats.resisted + 1,
+          relapses: weeklyStats.relapses,
+          lastUpdated: timestamp
+        };
+        await set(statsRef, newStats);
+        setWeeklyStats(newStats);
+        
+        // Use StatManager
+        if (statManager) {
+          await statManager.handleCravingResistance();
+        }
+      }
+      
+      // Fallback to localStorage
+      const localCravings = JSON.parse(localStorage.getItem(`cravings_${user.uid}`) || '[]');
+      localCravings.push({
+        strength: 0,
+        mood: 'quick',
+        context: 'quick_action',
+        outcome: 'resisted',
+        timestamp,
+        date
+      });
+      localStorage.setItem(`cravings_${user.uid}`, JSON.stringify(localCravings));
+      
+      const newStats = {
+        resisted: weeklyStats.resisted + 1,
+        relapses: weeklyStats.relapses,
+        lastUpdated: timestamp
+      };
+      localStorage.setItem(`cravingStats_${user.uid}`, JSON.stringify(newStats));
+      setWeeklyStats(newStats);
+      
+      setPopupData({
+        title: '🎉 Quick Win!',
+        message: 'Great job resisting that craving!\n\nYour Mental Strength and Trigger Defense have increased.',
+        type: 'success'
+      });
+      setShowCustomPopup(true);
+      
+    } catch (error) {
+      console.error('Error recording quick resistance:', error);
+      setPopupData({
+        title: 'Progress Recorded',
+        message: 'Your progress has been recorded locally.',
+        type: 'info'
+      });
+      setShowCustomPopup(true);
+    }
+  };
+
+  const handleQuickRelapse = async () => {
+    try {
+      const timestamp = new Date().toISOString();
+      const date = new Date().toDateString();
+      
+      // Save quick relapse
+      if (user && user.uid) {
+        const { ref, set, push } = await import('firebase/database');
+        
+        // Save to cravings
+        const cravingsRef = ref(db, `users/${user.uid}/cravings`);
+        const newCravingRef = push(cravingsRef);
+        await set(newCravingRef, {
+          strength: 0,
+          mood: 'quick',
+          context: 'quick_action',
+          outcome: 'relapsed',
+          timestamp,
+          date
+        });
+        
+        // Update weekly stats
+        const statsRef = ref(db, `users/${user.uid}/profile/cravingStats`);
+        const newStats = {
+          resisted: weeklyStats.resisted,
+          relapses: weeklyStats.relapses + 1,
+          lastUpdated: timestamp
+        };
+        await set(statsRef, newStats);
+        setWeeklyStats(newStats);
+        
+        // Use StatManager
+        if (statManager) {
+          await statManager.handleRelapse();
+        }
+      }
+      
+      // Fallback to localStorage
+      const localCravings = JSON.parse(localStorage.getItem(`cravings_${user.uid}`) || '[]');
+      localCravings.push({
+        strength: 0,
+        mood: 'quick',
+        context: 'quick_action',
+        outcome: 'relapsed',
+        timestamp,
+        date
+      });
+      localStorage.setItem(`cravings_${user.uid}`, JSON.stringify(localCravings));
+      
+      const newStats = {
+        resisted: weeklyStats.resisted,
+        relapses: weeklyStats.relapses + 1,
+        lastUpdated: timestamp
+      };
+      localStorage.setItem(`cravingStats_${user.uid}`, JSON.stringify(newStats));
+      setWeeklyStats(newStats);
+      
+      setPopupData({
+        title: '💪 Stay Strong',
+        message: 'Thank you for being honest. Relapses happen to everyone.\n\nLet\'s learn from this and move forward stronger.',
+        type: 'info'
+      });
+      setShowCustomPopup(true);
+      
+    } catch (error) {
+      console.error('Error recording quick relapse:', error);
+      setPopupData({
+        title: 'Progress Recorded',
+        message: 'Your progress has been recorded locally.',
+        type: 'info'
+      });
+      setShowCustomPopup(true);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8 pb-20">
       <div className="max-w-2xl mx-auto px-4">
-        {/* Header - Removed explanatory text for cleaner design */}
+        {/* Header */}
         <div className="mb-8">
-          {/* Navigation Buttons */}
           <div className="flex justify-start gap-3">
             <button
               onClick={onBackToLogin}
@@ -2773,7 +3143,6 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
               ← Back to Login
             </button>
             
-            {/* Development Testing: Reset Account Button */}
             {process.env.NODE_ENV === 'development' && (
               <button
                 onClick={onResetForTesting}
@@ -2783,6 +3152,57 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
                 🔄 Reset ALL User Data
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Main Craving Support Section - Moved to top */}
+        <div className="bg-slate-800/50 rounded-xl p-6 mb-6 border border-slate-600">
+          <h2 className="text-2xl font-bold text-white mb-6 text-center">🚨 Craving Support</h2>
+          
+          {/* Primary "I Feel Like Vaping" Button */}
+          <div className="mb-6">
+            <button
+              onClick={startCravingAssessment}
+              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-6 px-8 rounded-2xl text-xl transition-all duration-300 transform hover:scale-105 shadow-lg border-2 border-orange-400/50"
+            >
+              <div className="flex items-center justify-center gap-3">
+                <span className="text-2xl">⚠️</span>
+                <span>I feel like vaping</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Quick Action Buttons */}
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={handleQuickResistance}
+              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+            >
+              🎯 I resisted craving
+            </button>
+            <button
+              onClick={handleQuickRelapse}
+              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+            >
+              💔 I relapsed
+            </button>
+          </div>
+        </div>
+
+        {/* Weekly Statistics Display */}
+        <div className="bg-slate-800/50 rounded-xl p-6 mb-6 border border-slate-600">
+          <h2 className="text-xl font-bold text-white mb-4 text-center">📊 This Week</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center p-4 bg-green-500/20 rounded-lg border border-green-500/30">
+              <div className="text-3xl mb-2">🎯</div>
+              <p className="text-2xl font-bold text-green-400">{weeklyStats.resisted}</p>
+              <p className="text-sm text-gray-300">Cravings Resisted</p>
+            </div>
+            <div className="text-center p-4 bg-red-500/20 rounded-lg border border-red-500/30">
+              <div className="text-3xl mb-2">💔</div>
+              <p className="text-2xl font-bold text-red-400">{weeklyStats.relapses}</p>
+              <p className="text-sm text-gray-300">Relapses</p>
+            </div>
           </div>
         </div>
 
@@ -2868,25 +3288,253 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
             userId={user.uid}
           />
         )}
-        
-        {/* Progress Tracking - Simplified to focus on cravings only */}
-        <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-600 mt-6">
-          <h2 className="text-xl font-bold text-white mb-4 text-center">📊 Cravings Resisted</h2>
-          <div className="text-center p-6 bg-slate-700/50 rounded-lg border border-slate-500/30">
-            <div className="text-4xl mb-3">🎯</div>
-            <p className="text-lg font-bold text-white mb-2">Total Wins</p>
-            <p className="text-3xl font-bold text-green-400 mb-3">
-              {cravingsResisted}
-            </p>
-            <p className="text-sm text-gray-300 mb-4">Times you successfully resisted cravings</p>
-            
-            <button 
-              onClick={handleCravingResistance}
-              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
-            >
-              🎯 I Resisted a Craving!
-            </button>
+
+        {/* Craving Assessment Modal */}
+        {showCravingAssessment && (
+          <CravingAssessmentModal
+            isOpen={showCravingAssessment}
+            onClose={() => setShowCravingAssessment(false)}
+            step={assessmentStep}
+            cravingData={cravingData}
+            setCravingData={setCravingData}
+            onNext={nextStep}
+            onPrev={prevStep}
+            onComplete={completeAssessment}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Craving Assessment Modal - Multi-step craving assessment flow
+const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCravingData, onNext, onPrev, onComplete }) => {
+  // Function to get colors based on craving strength
+  const getCravingColors = (strength) => {
+    if (strength <= 3) {
+      return {
+        text: 'text-green-400',
+        slider: '#4ade80',
+        shadow: 'rgba(74, 222, 128, 0.5)',
+        label: 'Low',
+        effect: 'craving-low'
+      };
+    } else if (strength <= 7) {
+      return {
+        text: 'text-orange-400',
+        slider: '#f97316',
+        shadow: 'rgba(249, 115, 22, 0.5)',
+        label: 'Medium',
+        effect: 'craving-medium'
+      };
+    } else {
+      return {
+        text: 'text-red-400',
+        slider: '#ef4444',
+        shadow: 'rgba(239, 68, 68, 0.5)',
+        label: 'High',
+        effect: 'craving-high'
+      };
+    }
+  };
+
+  const moods = [
+    { id: 'stressed', icon: '😰', label: 'Stressed' },
+    { id: 'lonely', icon: '😔', label: 'Lonely' },
+    { id: 'happy', icon: '😊', label: 'Happy' },
+    { id: 'bored', icon: '😐', label: 'Bored' },
+    { id: 'excited', icon: '🤩', label: 'Excited' },
+    { id: 'down', icon: '😞', label: 'Down' },
+    { id: 'angry', icon: '😠', label: 'Angry' },
+    { id: 'anxious', icon: '😰', label: 'Anxious' }
+  ];
+
+  const contexts = [
+    { id: 'break', icon: '☕', label: 'I\'m taking a break' },
+    { id: 'partying', icon: '🎉', label: 'I\'m partying' },
+    { id: 'drinking', icon: '🍺', label: 'I\'m drinking alcohol' },
+    { id: 'car', icon: '🚗', label: 'I\'m in a car' },
+    { id: 'coffee', icon: '☕', label: 'I\'m drinking coffee' },
+    { id: 'eating', icon: '🍽️', label: 'I\'ve just finished eating' },
+    { id: 'intimate', icon: '💕', label: 'I\'ve made love' },
+    { id: 'tv', icon: '📺', label: 'I\'m watching TV' },
+    { id: 'wake', icon: '🌅', label: 'I\'ve just woken up' }
+  ];
+
+  const renderStepContent = () => {
+    switch (step) {
+      case 1:
+        return (
+          <div className="text-center">
+            <div className="mb-8">
+              {(() => {
+                const colors = getCravingColors(cravingData.strength);
+                return (
+                  <>
+                    <div className={`text-6xl font-bold mb-2 ${colors.text} ${colors.effect}`}>
+                      {cravingData.strength}
+                    </div>
+                    <div className={`text-lg font-medium mb-6 ${colors.text}`}>
+                      {colors.label} Craving
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      value={cravingData.strength}
+                      onChange={(e) => setCravingData({ ...cravingData, strength: parseInt(e.target.value) })}
+                      style={{
+                        background: `linear-gradient(to right, ${colors.slider} 0%, ${colors.slider} ${(cravingData.strength / 10) * 100}%, #475569 ${(cravingData.strength / 10) * 100}%, #475569 100%)`
+                      }}
+                      className="w-full h-4 rounded-lg appearance-none cursor-pointer slider mb-4"
+                    />
+                    <div className="flex justify-between text-sm text-gray-400">
+                      <span>Not at all</span>
+                      <span>Extremely</span>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
           </div>
+        );
+
+      case 2:
+        return (
+          <div className="text-center">
+            <div className="grid grid-cols-4 gap-3">
+              {moods.map((mood) => (
+                <button
+                  key={mood.id}
+                  onClick={() => setCravingData({ ...cravingData, mood: mood.id })}
+                  className={`p-4 rounded-xl border-2 transition-all duration-300 ${
+                    cravingData.mood === mood.id
+                      ? 'border-blue-400 bg-blue-500/20'
+                      : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
+                  }`}
+                >
+                  <div className="text-3xl mb-2">{mood.icon}</div>
+                  <div className="text-xs text-gray-300">{mood.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="text-center">
+            <div className="grid grid-cols-3 gap-3">
+              {contexts.map((context) => (
+                <button
+                  key={context.id}
+                  onClick={() => setCravingData({ ...cravingData, context: context.id })}
+                  className={`p-4 rounded-xl border-2 transition-all duration-300 ${
+                    cravingData.context === context.id
+                      ? 'border-blue-400 bg-blue-500/20'
+                      : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
+                  }`}
+                >
+                  <div className="text-2xl mb-2">{context.icon}</div>
+                  <div className="text-xs text-gray-300 text-center">{context.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="text-center">
+            <div className="space-y-4">
+              <button
+                onClick={() => onComplete('resisted')}
+                className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+              >
+                💪 I successfully resisted
+              </button>
+              <button
+                onClick={() => onComplete('logged')}
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+              >
+                📝 Just log this craving
+              </button>
+              <button
+                onClick={() => onComplete('relapsed')}
+                className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+              >
+                💔 I had a relapse
+              </button>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-slate-600/50 relative overflow-hidden">
+        <div className="absolute inset-0 bg-orange-500/5 pointer-events-none"></div>
+        
+        <div className="relative z-10">
+          {/* Clean step indicator */}
+          <div className="text-center mb-6">
+            <div className="flex justify-center space-x-2 mb-3">
+              {[1, 2, 3, 4].map((stepNumber) => (
+                <div
+                  key={stepNumber}
+                  className={`w-3 h-3 rounded-full ${
+                    stepNumber <= step ? 'bg-orange-400' : 'bg-slate-600'
+                  }`}
+                />
+              ))}
+            </div>
+            <p className="text-gray-400 text-sm">Step {step} of 4</p>
+          </div>
+
+          {/* Step content */}
+          <div className="mb-8">
+            {renderStepContent()}
+          </div>
+
+          {/* Navigation buttons */}
+          <div className="flex justify-between">
+            {step > 1 && (
+              <button
+                onClick={onPrev}
+                className="px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white rounded-xl transition-colors"
+              >
+                ← Back
+              </button>
+            )}
+            
+            {step < 4 && (
+              <button
+                onClick={onNext}
+                disabled={
+                  (step === 1 && cravingData.strength === undefined) ||
+                  (step === 2 && !cravingData.mood) ||
+                  (step === 3 && !cravingData.context)
+                }
+                className="px-6 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-xl transition-colors ml-auto"
+              >
+                Next →
+              </button>
+            )}
+          </div>
+
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl"
+          >
+            ×
+          </button>
         </div>
       </div>
     </div>
@@ -3674,14 +4322,7 @@ const ProfileView = ({ user, onNavigate }) => {
         <div>
           <h2 className="text-white text-2xl font-bold mb-4">Benefits Monitor</h2>
           
-          <div className="bg-slate-800/50 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-yellow-400">$</span>
-              <span className="text-gray-300 text-sm">Money saved</span>
-            </div>
-            <div className="text-white text-2xl font-bold">{user?.stats?.moneySaved || 0}</div>
-            <p className="text-gray-400 text-sm mt-1">Work in progress</p>
-          </div>
+
         </div>
 
         {/* Diary Section */}
@@ -4265,8 +4906,7 @@ const App = () => {
     mentalStrength: 50,
     motivation: 50,
     triggerDefense: 30,
-    addictionLevel: 50,
-    moneySaved: 0
+    addictionLevel: 50
   });
 
   // Helper function to get default profile
@@ -4491,7 +5131,6 @@ const App = () => {
       motivation: Math.max(0, Math.min(100, parseInt(stats.motivation) || 50)),
       triggerDefense: Math.max(0, Math.min(100, parseInt(stats.triggerDefense) || 30)),
       addictionLevel: Math.max(0, Math.min(100, parseInt(stats.addictionLevel) || 50)),
-      moneySaved: Math.max(0, parseInt(stats.moneySaved) || 0),
       ...stats
     };
   };
@@ -5039,7 +5678,6 @@ const App = () => {
             motivation: buddyData.stats?.mentalStrength || 50,
             cravingResistance: buddyData.stats?.mentalStrength || 50,
             triggerDefense: buddyData.stats?.triggerDefense || 30,
-            moneySaved: buddyData.stats?.moneySaved || 0,
             experiencePoints: buddyData.stats?.experiencePoints || 0
           },
           achievements: buddyData.achievements || [],
@@ -5139,7 +5777,6 @@ const App = () => {
             motivation: buddyData.stats?.mentalStrength || 50,
             cravingResistance: buddyData.stats?.mentalStrength || 50,
             triggerDefense: buddyData.stats?.triggerDefense || 30,
-            moneySaved: buddyData.stats?.moneySaved || 0,
             experiencePoints: buddyData.stats?.experiencePoints || 0
           },
           achievements: buddyData.achievements || [],
@@ -5639,7 +6276,6 @@ const App = () => {
           motivation: 50,
           cravingResistance: 50,
           triggerDefense: 30,
-          moneySaved: 0,
           experiencePoints: 0
         },
         achievements: [],
@@ -5659,7 +6295,6 @@ const App = () => {
           motivation: 50,
           cravingResistance: 50,
           triggerDefense: 30,
-          moneySaved: 0,
           experiencePoints: 0
         },
         achievements: [],
@@ -5807,7 +6442,6 @@ const App = () => {
           motivation: 50,
           triggerDefense: 30,
           streakDays: 0,
-          moneySaved: 0,
           experiencePoints: 0
         },
         achievements: [],

@@ -22,19 +22,57 @@ code {
   height: 20px;
   width: 20px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: #f97316;
   cursor: pointer;
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
+  transition: all 0.2s ease;
 }
 
 .slider::-moz-range-thumb {
   height: 20px;
   width: 20px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: #f97316;
   border: none;
   cursor: pointer;
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
+  transition: all 0.2s ease;
+}
+
+.slider {
+  background: linear-gradient(to right, #f97316 0%, #f97316 50%, #475569 50%, #475569 100%);
+  transition: background 0.1s ease;
+}
+
+/* Craving strength visual feedback */
+.craving-low {
+  text-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+}
+
+.craving-medium {
+  text-shadow: 0 0 20px rgba(249, 115, 22, 0.3);
+}
+
+.craving-high {
+  text-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.slider::-webkit-slider-track {
+  background: transparent;
+}
+
+.slider::-moz-range-track {
+  background: transparent;
 }
 
 /* Custom water animation keyframes */

@@ -150,6 +150,20 @@ class StatManager {
     }
   }
 
+  async handleCravingLogged() {
+    try {
+      await Promise.all([
+        this.updateStat('motivation', 0.25, 'Craving awareness and tracking'),
+        this.updateStat('triggerDefense', 0.25, 'Craving awareness and tracking')
+      ]);
+      
+      return true;
+    } catch (error) {
+      console.error('Error handling craving logged:', error);
+      return false;
+    }
+  }
+
   async handleBreathingExercise() {
     try {
       const today = new Date().toDateString();
@@ -262,45 +276,7 @@ class StatManager {
     }
   }
 
-  async checkMoneyMilestones() {
-    try {
-      const relapseSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/relapseDate`));
-      const userSnapshot = await get(this.userRef);
-      
-      if (!userSnapshot.exists()) return;
 
-      const userData = userSnapshot.val();
-      const lastRelapse = relapseSnapshot.exists() ? new Date(relapseSnapshot.val()) : new Date(userData.quitDate || Date.now());
-      const now = new Date();
-      const cleanDays = Math.floor((now - lastRelapse) / (1000 * 60 * 60 * 24));
-
-      // Calculate money saved (example: $10 per day)
-      const moneyPerDay = 10;
-      const moneySaved = cleanDays * moneyPerDay;
-
-      // Check for money milestones
-      const milestones = [50, 100, 200, 500, 1000];
-      for (const milestone of milestones) {
-        if (moneySaved >= milestone) {
-          const milestoneKey = `moneyMilestone_${milestone}`;
-          const milestoneSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/${milestoneKey}`));
-          
-          if (!milestoneSnapshot.exists()) {
-            await Promise.all([
-              this.updateStat('motivation', 2, `$${milestone} saved milestone`),
-              set(ref(this.db, `users/${this.userUID}/profile/${milestoneKey}`), true)
-            ]);
-          }
-        }
-      }
-
-      // Update money saved in stats
-      await this.updateStat('moneySaved', moneySaved - (userSnapshot.val().stats?.moneySaved || 0), 'Money saved calculation');
-      
-    } catch (error) {
-      console.error('Error checking money milestones:', error);
-    }
-  }
 
   // ===== TRIGGER DEFENSE MANAGEMENT =====
 
@@ -567,7 +543,6 @@ class StatManager {
       await Promise.all([
         this.updateAddictionFromCleanTime(),
         this.checkMilestoneBonuses(),
-        this.checkMoneyMilestones(),
         this.checkInactivityPenalty()
       ]);
     } catch (error) {
