@@ -2735,7 +2735,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
       try {
         const { ref, get, onValue } = await import('firebase/database');
         const today = new Date().toDateString();
-        const waterRef = ref(db, `users/${user.uid}/daily/${today}/water`);
+        const waterRef = ref(db, `users/${user.uid}/profile/daily/${today}/water`);
         
         // Load initial value
         const snapshot = await get(waterRef);
@@ -2855,11 +2855,22 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
       // Use StatManager to handle hydration tracking and streaks
       if (statManager) {
         await statManager.handleHydrationUpdate(newWaterCount);
+        
+        // If we just reached 6 glasses, check for mental strength bonus
+        if (newWaterCount === 6 && dailyWater === 5) {
+          // Check if this is the 3rd consecutive day with 6 glasses
+          const hydrationStreak = await statManager.checkHydrationStreak();
+          if (hydrationStreak >= 3) {
+            // Award mental strength point
+            await statManager.updateStat('mentalStrength', 1, '3-day hydration streak');
+            console.log('Mental Strength +1 for 3-day hydration streak!');
+          }
+        }
       }
       
       // Save to Firebase
       const { ref, set } = await import('firebase/database');
-      const waterRef = ref(db, `users/${user.uid}/daily/${today}/water`);
+      const waterRef = ref(db, `users/${user.uid}/profile/daily/${today}/water`);
       await set(waterRef, newWaterCount);
       
       // Fallback to localStorage if Firebase fails - use user-specific key
@@ -3618,25 +3629,129 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
   );
 };
 
-// Enhanced Hydration Modal Component for Craving Support - Fixed isLoggingWater state
+// Enhanced Hydration Modal Component with Animated Glasses and Streak Logic
 const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) => {
   const [showSparkles, setShowSparkles] = useState(false);
   const [hydrationStreak, setHydrationStreak] = useState(0);
   const [mentalStrengthProgress, setMentalStrengthProgress] = useState(0);
   const [isLoggingWater, setIsLoggingWater] = useState(false);
+  const [showMentalStrengthInfo, setShowMentalStrengthInfo] = useState(false);
   
-  // Simple glass representation
+  // Load hydration streak and mental strength progress on mount
+  useEffect(() => {
+    if (isOpen && userId) {
+      loadHydrationData();
+    }
+  }, [isOpen, userId, currentWater]);
+  
+  const loadHydrationData = async () => {
+    try {
+      const { ref, get } = await import('firebase/database');
+      
+      // Load hydration streak
+      const streak = await checkHydrationStreak();
+      setHydrationStreak(streak);
+      
+      // Load mental strength progress (days with 6 glasses)
+      const progress = await checkMentalStrengthProgress();
+      setMentalStrengthProgress(progress);
+    } catch (error) {
+      console.error('Error loading hydration data:', error);
+    }
+  };
+  
+  // Check hydration streak (consecutive days with water logged)
+  const checkHydrationStreak = async () => {
+    try {
+      const { ref, get } = await import('firebase/database');
+      let streak = 0;
+      for (let i = 0; i < 7; i++) {
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() - i);
+        const checkDateStr = checkDate.toDateString();
+        const waterSnapshot = await get(ref(db, `users/${userId}/profile/daily/${checkDateStr}/water`));
+        
+        if (waterSnapshot.exists() && waterSnapshot.val() > 0) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+      return streak;
+    } catch (error) {
+      console.error('Error checking hydration streak:', error);
+      return 0;
+    }
+  };
+  
+  // Check mental strength progress (days with 6 glasses)
+  const checkMentalStrengthProgress = async () => {
+    try {
+      const { ref, get } = await import('firebase/database');
+      let progress = 0;
+      for (let i = 0; i < 7; i++) {
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() - i);
+        const checkDateStr = checkDate.toDateString();
+        const waterSnapshot = await get(ref(db, `users/${userId}/profile/daily/${checkDateStr}/water`));
+        
+        if (waterSnapshot.exists() && waterSnapshot.val() >= 6) {
+          progress++;
+        }
+      }
+      return Math.min(progress, 3); // Cap at 3 days
+    } catch (error) {
+      console.error('Error checking mental strength progress:', error);
+      return 0;
+    }
+  };
+  
+  // Animated glass representation with water pouring effect
   const renderGlasses = () => {
     return (
       <div className="grid grid-cols-3 gap-4">
         {[...Array(6)].map((_, index) => {
           const isFilled = index < currentWater;
+          const isPouring = index === currentWater - 1 && isLoggingWater;
+          
           return (
-            <div key={index} className="w-16 h-20 border-2 border-blue-400 rounded-lg flex items-center justify-center">
-              {isFilled ? (
-                <div className="w-full h-full bg-blue-500 rounded-lg"></div>
-              ) : (
-                <div className="w-full h-full border-2 border-gray-400 rounded-lg"></div>
+            <div key={index} className="relative w-16 h-20">
+              {/* Glass outline */}
+              <div className="absolute inset-0 border-2 border-blue-400 rounded-lg overflow-hidden">
+                {/* Water level */}
+                {isFilled && (
+                  <div 
+                    className={`w-full bg-gradient-to-b from-blue-400 to-blue-600 ${
+                      isPouring ? 'water-fill' : ''
+                    }`}
+                    style={{ 
+                      height: '100%',
+                      background: 'linear-gradient(to bottom, #60a5fa, #2563eb)'
+                    }}
+                  />
+                )}
+                
+                {/* Water surface effect with ripple */}
+                {isFilled && (
+                  <div className={`absolute top-0 left-0 right-0 h-1 bg-blue-300 opacity-60 rounded-t-lg ${
+                    isPouring ? 'water-ripple' : ''
+                  }`} />
+                )}
+                
+                {/* Pouring animation overlay */}
+                {isPouring && (
+                  <div className="absolute inset-0 bg-gradient-to-b from-blue-300/50 to-transparent water-pour" />
+                )}
+              </div>
+              
+              {/* Glass rim highlight */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-blue-200/40 rounded-t-lg" />
+              
+              {/* Water drop animation when filling */}
+              {isPouring && (
+                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
+                  <div className="w-2 h-3 bg-blue-400 rounded-full water-pour opacity-80" />
+                </div>
               )}
             </div>
           );
@@ -3645,12 +3760,27 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
     );
   };
 
-  const handleLogWater = () => {
+  const handleLogWater = async () => {
     if (!userId || isLoggingWater || currentWater >= 6) return;
     
     setIsLoggingWater(true);
+    
+    // Call the parent's water logging function
     onLogWater();
-    setTimeout(() => setIsLoggingWater(false), 1000);
+    
+    // Wait for the water to be logged, then refresh our data
+    setTimeout(async () => {
+      setIsLoggingWater(false);
+      
+      // Refresh hydration data after logging
+      await loadHydrationData();
+      
+      // Show celebration if we just reached 6 glasses
+      if (currentWater + 1 >= 6) {
+        setShowSparkles(true);
+        setTimeout(() => setShowSparkles(false), 3000);
+      }
+    }, 1000);
   };
 
   if (!isOpen || !userId) return null;
@@ -3658,18 +3788,28 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-slate-600/50 relative overflow-hidden">
+        {/* Celebration background */}
+        {showSparkles && (
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-blue-500/10 pointer-events-none animate-pulse" />
+        )}
+        
         {/* Simple background */}
         <div className="absolute inset-0 bg-blue-500/5 pointer-events-none"></div>
         
         <div className="relative z-10">
-          {/* Header */}
-          <div className="text-center mb-6">
-            <h3 className="text-3xl font-bold text-white">💧 Hydration</h3>
-          </div>
-          
-          {/* Simple Glasses Grid */}
-          <div className="flex items-center justify-center mb-6">
+          {/* Animated Glasses Grid */}
+          <div className="flex items-center justify-center mb-6 relative">
             {renderGlasses()}
+            
+            {/* Celebration sparkles when fully hydrated */}
+            {showSparkles && (
+              <>
+                <div className="absolute -top-4 -left-4 text-2xl animate-bounce">✨</div>
+                <div className="absolute -top-2 -right-2 text-xl animate-bounce" style={{ animationDelay: '0.2s' }}>🌟</div>
+                <div className="absolute -bottom-2 -left-2 text-lg animate-bounce" style={{ animationDelay: '0.4s' }}>💫</div>
+                <div className="absolute -bottom-4 -right-4 text-xl animate-bounce" style={{ animationDelay: '0.6s' }}>⭐</div>
+              </>
+            )}
           </div>
           
           {/* Enhanced Water Count Display */}
@@ -3680,7 +3820,7 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
                 {currentWater}/6
               </p>
               <p className="text-blue-200 text-sm font-medium">
-                {currentWater === 6 ? 'Perfect! You\'re fully hydrated!' :
+                {currentWater === 6 ? '🎉 You are a legend of hydration!' :
                  `${currentWater} of 6 glasses completed`}
               </p>
             </div>
@@ -3688,15 +3828,15 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
           
           {/* Screen reader announcement for water logging */}
           <div aria-live="polite" className="sr-only">
-            {currentWater === 6 ? 'Fully hydrated for today' : `${currentWater} of 6 glasses completed today`}
+            {currentWater === 6 ? 'You are a legend of hydration for today' : `${currentWater} of 6 glasses completed today`}
           </div>
           
           {/* Progress Sections - Side by Side */}
           <div className="grid grid-cols-2 gap-4 mb-8">
             {/* Hydration Streak Display */}
             <div className="text-center">
-              <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-2xl px-4 py-3">
-                <span className="text-xl">🔥</span>
+              <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-2xl px-4 py-3 h-24 flex flex-col justify-center">
+                <span className="text-xl mb-1">🔥</span>
                 <div>
                   <p className="text-orange-200 text-xs font-medium">Hydration Streak</p>
                   <p className="text-lg font-bold text-orange-300">{hydrationStreak} days</p>
@@ -3706,8 +3846,25 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
             
             {/* Mental Strength Progress Indicator */}
             <div className="text-center">
-              <div className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 border border-purple-500/30 rounded-2xl px-4 py-3">
-                <p className="text-purple-200 text-xs font-medium mb-1">Mental Strength</p>
+              <div className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 border border-purple-500/30 rounded-2xl px-4 py-3 h-24 flex flex-col justify-center">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <p className="text-purple-200 text-xs font-medium">Mental Strength</p>
+                  <button
+                    onClick={() => setShowMentalStrengthInfo(!showMentalStrengthInfo)}
+                    className="text-purple-300 hover:text-purple-200 transition-colors"
+                    title="Learn more about Mental Strength"
+                  >
+                    ℹ️
+                  </button>
+                </div>
+                
+                {/* Info tooltip */}
+                {showMentalStrengthInfo && (
+                  <div className="bg-slate-700/90 border border-purple-400/30 rounded-lg p-2 mb-2 text-xs text-purple-100">
+                    Staying hydrated for 3 days straight adds 1 point to Mental Strength stat
+                  </div>
+                )}
+                
                 <div className="flex justify-center items-center gap-1 mb-1">
                   {[...Array(3)].map((_, index) => (
                     <div
@@ -3737,7 +3894,7 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
               disabled={currentWater >= 6 || isLoggingWater}
               className="w-full py-4 px-6 rounded-2xl font-bold text-lg bg-blue-500 hover:bg-blue-600 text-white transition-all duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed"
             >
-              {currentWater >= 6 ? '🎉 Fully Hydrated!' : 
+              {currentWater >= 6 ? '🎉 You are a legend of hydration!' : 
                isLoggingWater ? '💧 Logging...' : '💧 Log Water'}
             </button>
             
