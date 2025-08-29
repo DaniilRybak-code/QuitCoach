@@ -1675,7 +1675,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         const checkDate = new Date();
         checkDate.setDate(checkDate.getDate() - i);
         const checkDateStr = checkDate.toDateString();
-        const waterData = localStorage.getItem(`water_${checkDateStr}`);
+        const waterData = localStorage.getItem(`water_${user.uid}_${checkDateStr}`);
         if (waterData && parseInt(waterData) > 0) {
           hydrationStreak++;
         } else {
@@ -1761,7 +1761,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         const checkDate = new Date();
         checkDate.setDate(checkDate.getDate() - i);
         const checkDateStr = checkDate.toDateString();
-        const waterData = localStorage.getItem(`water_${checkDateStr}`);
+        const waterData = localStorage.getItem(`water_${user.uid}_${checkDateStr}`);
         if (waterData && parseInt(waterData) > 0) {
           hydrationStreak++;
         } else {
@@ -2571,6 +2571,9 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
   useEffect(() => {
     if (!user?.uid) return;
 
+    // Clear any previous user's hydration data from state
+    setDailyWater(0);
+
     // Initialize StatManager
     const initializeStatManager = async () => {
       try {
@@ -2629,8 +2632,8 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
         if (snapshot.exists()) {
           setDailyWater(snapshot.val() || 0);
         } else {
-          // Fallback to localStorage
-          const localWater = parseInt(localStorage.getItem(`water_${today}`) || 0);
+          // Fallback to localStorage - use user-specific key
+          const localWater = parseInt(localStorage.getItem(`water_${user.uid}_${today}`) || 0);
           setDailyWater(localWater);
         }
         
@@ -2644,14 +2647,20 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
         return unsubscribe;
       } catch (error) {
         console.error('Error loading daily water from Firebase:', error);
-        // Fallback to localStorage
+        // Fallback to localStorage - use user-specific key
         const today = new Date().toDateString();
-        const localWater = parseInt(localStorage.getItem(`water_${today}`) || 0);
+        const localWater = parseInt(localStorage.getItem(`water_${user.uid}_${today}`) || 0);
         setDailyWater(localWater);
       }
     };
 
     loadDailyWater();
+
+    // Cleanup function to clear hydration data when user changes
+    return () => {
+      setDailyWater(0);
+      setShowHydrationModal(false);
+    };
   }, [user?.uid]);
 
 
@@ -2715,6 +2724,12 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
   };
 
   const handleWaterIntake = async () => {
+    // Verify user is authenticated before proceeding
+    if (!user?.uid) {
+      console.warn('Cannot log water: No authenticated user');
+      return;
+    }
+
     try {
       const newWaterCount = Math.min(dailyWater + 1, 6);
       setDailyWater(newWaterCount);
@@ -2730,8 +2745,8 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
       const waterRef = ref(db, `users/${user.uid}/daily/${today}/water`);
       await set(waterRef, newWaterCount);
       
-      // Fallback to localStorage if Firebase fails
-      localStorage.setItem(`water_${today}`, newWaterCount.toString());
+      // Fallback to localStorage if Firebase fails - use user-specific key
+      localStorage.setItem(`water_${user.uid}_${today}`, newWaterCount.toString());
       
       console.log('Water intake updated:', newWaterCount);
     } catch (error) {
@@ -2740,7 +2755,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
       const newWaterCount = Math.min(dailyWater + 1, 6);
       setDailyWater(newWaterCount);
       const today = new Date().toDateString();
-      localStorage.setItem(`water_${today}`, newWaterCount.toString());
+      localStorage.setItem(`water_${user.uid}_${today}`, newWaterCount.toString());
     }
   };
 
@@ -2850,6 +2865,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
             onClose={() => setShowHydrationModal(false)}
             onLogWater={handleWaterIntake}
             currentWater={dailyWater}
+            userId={user.uid}
           />
         )}
         
@@ -2878,154 +2894,47 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
 };
 
 // Enhanced Hydration Modal Component for Craving Support - Fixed isLoggingWater state
-const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater }) => {
+const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) => {
   const [showSparkles, setShowSparkles] = useState(false);
   const [hydrationStreak, setHydrationStreak] = useState(0);
   const [mentalStrengthProgress, setMentalStrengthProgress] = useState(0);
   const [isLoggingWater, setIsLoggingWater] = useState(false);
   
-  // Import glass SVG assets with preloading
-  const emptyGlassSvg = "data:image/svg+xml;base64," + btoa(`
-    <svg width="80" height="112" viewBox="0 0 80 112" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 0 L68 0 L80 112 L0 112 Z" stroke="#94A3B8" stroke-width="2" fill="none" opacity="0.4"/>
-      <path d="M12 0 L68 0 L80 112 L0 112 Z" fill="url(#glassGradient)" opacity="0.05"/>
-      <path d="M12 0 L68 0" stroke="white" stroke-width="1" opacity="0.3"/>
-      <rect x="64" y="8" width="2" height="80" fill="white" opacity="0.2" rx="1"/>
-      <ellipse cx="40" cy="110" rx="35" ry="2" fill="#475569" opacity="0.2"/>
-      <path d="M16 8 L64 8" stroke="#94A3B8" stroke-width="0.5" opacity="0.3"/>
-      <path d="M18 16 L62 16" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
-      <path d="M20 24 L60 24" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
-      <path d="M22 32 L58 32" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
-      <path d="M24 40 L56 40" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
-      <path d="M26 48 L54 48" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
-      <path d="M28 56 L52 56" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
-      <path d="M30 64 L50 64" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
-      <path d="M32 72 L48 72" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
-      <path d="M34 80 L46 80" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
-      <path d="M36 88 L44 88" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
-      <defs>
-        <linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#94A3B8;stop-opacity:0.1"/>
-          <stop offset="100%" style="stop-color:#64748B;stop-opacity:0.05"/>
-        </linearGradient>
-      </defs>
-    </svg>
-  `);
-  
-  const filledGlassSvg = "data:image/svg+xml;base64," + btoa(`
-    <svg width="80" height="112" viewBox="0 0 80 112" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 0 L68 0 L80 112 L0 112 Z" stroke="#60A5FA" stroke-width="2" fill="none" opacity="0.5"/>
-      <path d="M12 0 L68 0 L80 112 L0 112 Z" fill="url(#glassGradient)" opacity="0.05"/>
-      <path d="M12 28 L68 28 L80 112 L0 112 Z" fill="url(#waterGradient)"/>
-      <path d="M12 28 L68 28" stroke="white" stroke-width="2" opacity="0.3"/>
-      <path d="M12 28 Q20 26 28 28 Q36 30 44 28 Q52 26 60 28 Q68 30 68 28" stroke="white" stroke-width="1" opacity="0.4" fill="none"/>
-      <path d="M12 0 L68 0" stroke="white" stroke-width="1" opacity="0.3"/>
-      <rect x="64" y="8" width="2" height="80" fill="white" opacity="0.2" rx="1"/>
-      <ellipse cx="40" cy="110" rx="35" ry="2" fill="#475569" opacity="0.2"/>
-      <path d="M16 8 L64 8" stroke="#94A3B8" stroke-width="0.5" opacity="0.3"/>
-      <path d="M18 16 L62 16" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
-      <path d="M20 24 L60 24" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
-      <defs>
-        <linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#94A3B8;stop-opacity:0.1"/>
-          <stop offset="100%" style="stop-color:#64748B;stop-opacity:0.05"/>
-        </linearGradient>
-        <linearGradient id="waterGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" style="stop-color:#60A5FA"/>
-          <stop offset="50%" style="stop-color:#3B82F6"/>
-          <stop offset="100%" style="stop-color:#2563EB"/>
-        </linearGradient>
-      </defs>
-    </svg>
-  `);
-  
-  // Preload images for smooth performance
-  useEffect(() => {
-    if (isOpen) {
-      const preloadImage = (src) => {
-        const img = new Image();
-        img.src = src;
-      };
-      
-      preloadImage(emptyGlassSvg);
-      preloadImage(filledGlassSvg);
-    }
-  }, [isOpen, emptyGlassSvg, filledGlassSvg]);
-
-  // Load hydration streak and mental strength progress
-  useEffect(() => {
-    if (isOpen) {
-      // Calculate hydration streak from recent days
-      const calculateStreak = () => {
-        let streak = 0;
-        let currentDate = new Date();
-        
-        for (let i = 0; i < 7; i++) { // Check last 7 days
-          const dateStr = currentDate.toDateString();
-          const waterCount = parseInt(localStorage.getItem(`water_${dateStr}`) || '0');
-          
-          if (waterCount > 0) {
-            streak++;
-            currentDate.setDate(currentDate.getDate() - 1);
-          } else {
-            break;
-          }
-        }
-        
-        return streak;
-      };
-      
-      const streak = calculateStreak();
-      setHydrationStreak(streak);
-      
-      // Mental strength progress (3 days for +1 Mental Strength)
-      setMentalStrengthProgress(Math.min(streak, 3));
-    }
-  }, [isOpen]);
-
-  const handleLogWater = () => {
-    // Prevent double-tapping during animation
-    if (isLoggingWater || currentWater >= 6) {
-      return;
-    }
-
-    try {
-      setIsLoggingWater(true);
-      setShowSparkles(true);
-      onLogWater();
-      
-      // Hide sparkles after animation
-      setTimeout(() => setShowSparkles(false), 1000);
-      
-      // Add button animation feedback
-      const button = document.querySelector('.log-water-btn');
-      if (button) {
-        button.classList.add('animate-pulse');
-        setTimeout(() => button.classList.remove('animate-pulse'), 500);
-      }
-      
-      // Re-enable button after animation completes
-      setTimeout(() => setIsLoggingWater(false), 800);
-    } catch (error) {
-      console.error('Error logging water:', error);
-      // Re-enable button on error
-      setTimeout(() => setIsLoggingWater(false), 800);
-    }
+  // Simple glass representation
+  const renderGlasses = () => {
+    return (
+      <div className="grid grid-cols-3 gap-4">
+        {[...Array(6)].map((_, index) => {
+          const isFilled = index < currentWater;
+          return (
+            <div key={index} className="w-16 h-20 border-2 border-blue-400 rounded-lg flex items-center justify-center">
+              {isFilled ? (
+                <div className="w-full h-full bg-blue-500 rounded-lg"></div>
+              ) : (
+                <div className="w-full h-full border-2 border-gray-400 rounded-lg"></div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
-  if (!isOpen) return null;
+  const handleLogWater = () => {
+    if (!userId || isLoggingWater || currentWater >= 6) return;
+    
+    setIsLoggingWater(true);
+    onLogWater();
+    setTimeout(() => setIsLoggingWater(false), 1000);
+  };
+
+  if (!isOpen || !userId) return null;
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-slate-600/50 relative overflow-hidden">
-        {/* Enhanced water-themed background with subtle pattern */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-blue-600/5 pointer-events-none"></div>
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-4 left-4 w-2 h-2 bg-blue-400 rounded-full"></div>
-          <div className="absolute top-12 right-8 w-1 h-1 bg-blue-300 rounded-full"></div>
-          <div className="absolute bottom-16 left-12 w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-          <div className="absolute bottom-8 right-16 w-1 h-1 bg-blue-400 rounded-full"></div>
-        </div>
+        {/* Simple background */}
+        <div className="absolute inset-0 bg-blue-500/5 pointer-events-none"></div>
         
         <div className="relative z-10">
           {/* Header */}
@@ -3033,71 +2942,9 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater }) => {
             <h3 className="text-3xl font-bold text-white">💧 Hydration</h3>
           </div>
           
-          {/* Enhanced Individual Glasses Grid Visualization */}
+          {/* Simple Glasses Grid */}
           <div className="flex items-center justify-center mb-6">
-            <div className="relative">
-              {/* 2x3 Grid of Individual Drinking Glasses */}
-              <div className="grid grid-cols-3 gap-6">
-                {[...Array(6)].map((_, index) => {
-                  const glassNumber = index + 1;
-                  const isFilled = glassNumber <= currentWater;
-                  
-                  return (
-                    <div key={index} className="relative">
-                      {/* Individual Drinking Glass */}
-                      <div className="w-20 h-28 relative">
-                        {/* Glass Container with Proper Layering */}
-                        <div className="w-full h-full relative transition-all duration-1000 ease-out hover:scale-105">
-                          {/* Water Fill - Renders behind glass outline */}
-                          {isFilled && (
-                            <div className="absolute inset-0 z-10">
-                              {/* Water fill with proper glass shape masking and smooth animation */}
-                              <div className="w-full h-full bg-gradient-to-t from-blue-400 via-blue-500 to-blue-600 rounded-t-full opacity-80 water-fill-animation"
-                                   style={{
-                                     clipPath: 'polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%)'
-                                   }}>
-                              </div>
-                              
-                              {/* Subtle wave overlay for realistic water effect */}
-                              <div className="absolute inset-0 opacity-30">
-                                <div className="w-full h-full bg-gradient-to-t from-blue-300/40 to-transparent water-wave-overlay"></div>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Glass Outline - Always on top */}
-                          <img 
-                            src={emptyGlassSvg}
-                            alt={`Glass ${glassNumber} of 6: ${isFilled ? 'full' : 'empty'}`}
-                            className="w-full h-full object-contain transition-all duration-1000 ease-out glass-rotated relative z-20"
-                            style={{
-                              filter: isFilled ? 'drop-shadow(0 0 10px rgba(59, 130, 246, 0.3))' : 'none'
-                            }}
-                            role="img"
-                            aria-label={`Glass ${glassNumber} of 6: ${isFilled ? 'full' : 'empty'}`}
-                          />
-                        </div>
-                        
-                        {/* Glass number indicator */}
-                        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs text-slate-400 font-medium">
-                          {glassNumber}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              
-              {/* Water fill animation indicator */}
-              {showSparkles && (
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                    <div className="w-6 h-6 bg-blue-400 rounded-full animate-ping opacity-75"></div>
-                    <div className="absolute inset-0 w-6 h-6 bg-blue-300 rounded-full animate-pulse"></div>
-                  </div>
-                </div>
-              )}
-            </div>
+            {renderGlasses()}
           </div>
           
           {/* Enhanced Water Count Display */}
@@ -3163,15 +3010,7 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater }) => {
             <button
               onClick={handleLogWater}
               disabled={currentWater >= 6 || isLoggingWater}
-              className={`log-water-btn w-full py-4 px-6 rounded-2xl font-bold text-lg transition-all duration-300 transform ${
-                currentWater >= 6
-                  ? 'bg-gradient-to-r from-slate-600 to-slate-700 text-slate-400 cursor-not-allowed'
-                  : isLoggingWater
-                  ? 'bg-gradient-to-r from-blue-400 to-blue-500 text-white cursor-wait'
-                  : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white hover:scale-105 shadow-lg shadow-blue-500/25'
-              }`}
-              aria-label={currentWater >= 6 ? 'Fully hydrated for today' : `Log water intake. Currently ${currentWater} of 6 glasses`}
-              aria-live="polite"
+              className="w-full py-4 px-6 rounded-2xl font-bold text-lg bg-blue-500 hover:bg-blue-600 text-white transition-all duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed"
             >
               {currentWater >= 6 ? '🎉 Fully Hydrated!' : 
                isLoggingWater ? '💧 Logging...' : '💧 Log Water'}
@@ -3301,9 +3140,9 @@ const ProfileView = ({ user, onNavigate }) => {
       }
       
       const today = new Date().toDateString();
-      const savedWater = localStorage.getItem(`water_${today}`);
-      const savedMood = localStorage.getItem(`mood_${today}`);
-      const savedBreathing = localStorage.getItem(`breathing_${today}`);
+      const savedWater = localStorage.getItem(`water_${user.uid}_${today}`);
+      const savedMood = localStorage.getItem(`mood_${user.uid}_${today}`);
+      const savedBreathing = localStorage.getItem(`breathing_${user.uid}_${today}`);
       
       if (savedWater) setDailyWater(parseInt(savedWater));
       if (savedMood) setDailyMood(JSON.parse(savedMood));
@@ -3358,7 +3197,7 @@ const ProfileView = ({ user, onNavigate }) => {
             const checkDate = new Date();
             checkDate.setDate(checkDate.getDate() - i);
             const checkDateStr = checkDate.toDateString();
-            const waterData = localStorage.getItem(`water_${checkDateStr}`);
+            const waterData = localStorage.getItem(`water_${user.uid}_${checkDateStr}`);
             if (waterData) {
               await set(ref(db, `users/${user.uid}/profile/daily/${checkDateStr}/water`), parseInt(waterData));
             }
@@ -3369,7 +3208,7 @@ const ProfileView = ({ user, onNavigate }) => {
             const checkDate = new Date();
             checkDate.setDate(checkDate.getDate() - i);
             const checkDateStr = checkDate.toDateString();
-            const moodData = localStorage.getItem(`mood_${checkDateStr}`);
+            const moodData = localStorage.getItem(`mood_${user.uid}_${checkDateStr}`);
             if (moodData) {
               await set(ref(db, `users/${user.uid}/profile/daily/${checkDateStr}/mood`), JSON.parse(moodData));
             }
@@ -3380,7 +3219,7 @@ const ProfileView = ({ user, onNavigate }) => {
             const checkDate = new Date();
             checkDate.setDate(checkDate.getDate() - i);
             const checkDateStr = checkDate.toDateString();
-            const breathingData = localStorage.getItem(`breathing_${checkDateStr}`);
+            const breathingData = localStorage.getItem(`breathing_${user.uid}_${checkDateStr}`);
             if (breathingData) {
               await set(ref(db, `users/${user.uid}/profile/daily/${checkDateStr}/breathing`), breathingData === 'true');
             }
@@ -4966,18 +4805,32 @@ const App = () => {
               const userRef = ref(db, `users/${firebaseUser.uid}`);
               const snapshot = await get(userRef);
               
-              if (snapshot.exists()) {
-                const userData = snapshot.val();
-                console.log('Existing user data found - auto-login successful');
-                
-                setUser(userData);
-                setHasCompletedOnboarding(true);
-                setCurrentView('arena');
-                console.log('User auto-logged in and redirected to Arena');
-              } else {
-                console.log('No user data found - new user needs onboarding');
-                setCurrentView('onboarding');
-              }
+                          if (snapshot.exists()) {
+              const userData = snapshot.val();
+              console.log('Existing user data found - auto-login successful');
+              
+              // Clear any previous user's data from localStorage to prevent contamination
+              const clearPreviousUserData = () => {
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                  const key = localStorage.key(i);
+                  if (key && (key.startsWith('water_') || key.startsWith('mood_') || key.startsWith('breathing_'))) {
+                    keysToRemove.push(key);
+                  }
+                }
+                keysToRemove.forEach(key => localStorage.removeItem(key));
+                console.log('Cleared previous user data from localStorage');
+              };
+              clearPreviousUserData();
+              
+              setUser(userData);
+              setHasCompletedOnboarding(true);
+              setCurrentView('arena');
+              console.log('User auto-logged in and redirected to Arena');
+            } else {
+              console.log('No user data found - new user needs onboarding');
+              setCurrentView('onboarding');
+            }
             } catch (error) {
               console.error('Error fetching user data during auto-login:', error);
               // Fallback: go to onboarding for new users
@@ -4990,6 +4843,21 @@ const App = () => {
             setUser(null);
             setHasCompletedOnboarding(false);
             setCurrentView('auth');
+            
+            // Clear any user-specific data from localStorage when logging out
+            // This prevents cross-user data contamination
+            const clearUserData = () => {
+              const keysToRemove = [];
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.startsWith('water_') || key.startsWith('mood_') || key.startsWith('breathing_'))) {
+                  keysToRemove.push(key);
+                }
+              }
+              keysToRemove.forEach(key => localStorage.removeItem(key));
+              console.log('Cleared user-specific data from localStorage');
+            };
+            clearUserData();
           }
         });
         
