@@ -13,6 +13,7 @@ console.log('🧪 FirestoreBuddyService constructor:', FirestoreBuddyService?.na
 
 import AuthScreen from './components/AuthScreen';
 import OfflineIndicator from './components/OfflineIndicator';
+import BreathingModal from './components/BreathingModal';
 import { Users, Zap, Trophy, Target, Heart, DollarSign, Calendar, Star, Shield, Sword, Home, User, Settings, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
 
 // Avatar generation utility with fallback
@@ -2563,6 +2564,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
   const [statManager, setStatManager] = useState(null);
   const [showHydrationModal, setShowHydrationModal] = useState(false);
   const [dailyWater, setDailyWater] = useState(0);
+  const [showBreathingModal, setShowBreathingModal] = useState(false);
   
   // New craving assessment state
   const [showCravingAssessment, setShowCravingAssessment] = useState(false);
@@ -3307,10 +3309,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
               💧 Hydration
             </button>
             <button 
-              onClick={() => showQuickActionPopup(
-                '🫁 Breathe',
-                'Take 3 deep breaths:\n\n1. Inhale for 4 seconds\n2. Hold for 4 seconds\n3. Exhale for 4 seconds\n\nRepeat 3 times'
-              )}
+              onClick={() => setShowBreathingModal(true)}
               className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg"
             >
               🫁 Breathe
@@ -3361,6 +3360,15 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
             onLogWater={handleWaterIntake}
             currentWater={dailyWater}
             userId={user.uid}
+          />
+        )}
+
+        {/* Breathing Modal */}
+        {showBreathingModal && (
+          <BreathingModal
+            isOpen={showBreathingModal}
+            onClose={() => setShowBreathingModal(false)}
+            onComplete={handleBreathingComplete}
           />
         )}
 
@@ -4670,112 +4678,7 @@ const WaterModal = ({ isOpen, onClose, onConfirm, currentWater }) => {
     </div>
   );
 };
-const BreathingModal = ({ isOpen, onClose, onComplete }) => {
-  const [currentCycle, setCurrentCycle] = useState(1);
-  const [currentPhase, setCurrentPhase] = useState('exhale');
-  const [timeLeft, setTimeLeft] = useState(5);
-  const [isActive, setIsActive] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen || !isActive) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          // Move to next phase
-          if (currentPhase === 'exhale') {
-            setCurrentPhase('inhale');
-            setTimeLeft(4);
-          } else if (currentPhase === 'inhale') {
-            setCurrentPhase('hold');
-            setTimeLeft(7);
-          } else if (currentPhase === 'hold') {
-            if (currentCycle < 4) {
-              setCurrentCycle(prev => prev + 1);
-              setCurrentPhase('exhale');
-              setTimeLeft(5);
-            } else {
-              // Exercise complete
-              setIsActive(false);
-              onComplete();
-              return 0;
-            }
-          }
-          return prev;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isOpen, isActive, currentPhase, currentCycle, onComplete]);
-
-  const startExercise = () => {
-    setIsActive(true);
-    setCurrentCycle(1);
-    setCurrentPhase('exhale');
-    setTimeLeft(5);
-  };
-
-  if (!isOpen) return null;
-
-  const getPhaseText = () => {
-    switch (currentPhase) {
-      case 'exhale': return 'Exhale, empty lungs';
-      case 'inhale': return 'Inhale quietly through nose';
-      case 'hold': return 'Hold your breath';
-      default: return '';
-    }
-  };
-
-  const getCircleSize = () => {
-    switch (currentPhase) {
-      case 'exhale': return 'w-32 h-32';
-      case 'inhale': return 'w-48 h-48';
-      case 'hold': return 'w-40 h-40';
-      default: return 'w-40 h-40';
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="text-center text-white">
-        {!isActive ? (
-          <div className="mb-8">
-            <h3 className="text-3xl font-bold mb-4">🫁 Breathing Exercise</h3>
-            <p className="text-xl text-gray-300 mb-6">4-cycle breathing pattern</p>
-            <button
-              onClick={startExercise}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-xl text-xl transition-colors"
-            >
-              Start Exercise
-            </button>
-          </div>
-        ) : (
-          <>
-            <h3 className="text-2xl font-bold mb-4">Cycle {currentCycle}/4</h3>
-            <p className="text-xl text-gray-300 mb-8">{getPhaseText()}</p>
-            
-            <div className="flex justify-center mb-8">
-              <div className={`${getCircleSize()} rounded-full border-4 border-blue-400 flex items-center justify-center transition-all duration-1000 ${
-                currentPhase === 'hold' ? 'animate-pulse' : ''
-              }`}>
-                <span className="text-4xl font-bold">{timeLeft}</span>
-              </div>
-            </div>
-            
-            <button
-              onClick={onClose}
-              className="bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
-            >
-              Stop
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-};
+// BreathingModal component is now imported from ./components/BreathingModal
 
 const MoodModal = ({ isOpen, onClose, onSelect, selectedMood }) => {
   const moods = [
