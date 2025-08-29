@@ -3215,65 +3215,69 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
           </div>
         </div>
 
-        {/* Main Craving Support Section - Moved to top */}
-        <div className="bg-slate-800/50 rounded-xl p-6 mb-6 border border-slate-600">
-          <h2 className="text-2xl font-bold text-white mb-6 text-center">🚨 Craving Support</h2>
-          
-          {/* Primary "I Feel Like Vaping" Button */}
-          <div className="mb-6">
+        {/* Main Craving Support Section - Modern Design */}
+        <div className="bg-slate-800/30 rounded-2xl p-8 mb-8 border border-slate-600/30 shadow-xl">
+          {/* Primary "I Feel Like Vaping" Button - Modern Card */}
+          <div className="mb-8">
             <button
               onClick={startCravingAssessment}
-              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-6 px-8 rounded-2xl text-xl transition-all duration-300 transform hover:scale-105 shadow-lg border-2 border-orange-400/50"
+              className="w-full bg-gradient-to-r from-orange-400 via-amber-500 to-orange-500 hover:from-orange-500 hover:via-amber-600 hover:to-orange-600 text-white font-semibold py-5 px-6 rounded-2xl text-lg transition-all duration-300 transform hover:scale-102 shadow-2xl border border-orange-300/30 hover:border-orange-300/50"
             >
               <div className="flex items-center justify-center gap-3">
-                <span className="text-2xl">⚠️</span>
+                <span className="text-xl">⚠️</span>
                 <span>I feel like vaping</span>
               </div>
             </button>
           </div>
 
-          {/* Quick Action Buttons */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Secondary Action Buttons - Pill-shaped with muted colors */}
+          <div className="grid grid-cols-2 gap-6">
             <button
               onClick={handleQuickResistance}
-              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+              className="bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium py-3 px-5 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg border border-slate-500/30 hover:border-slate-400/50"
             >
-              🎯 I resisted craving
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-green-400">✅</span>
+                <span>I resisted craving</span>
+              </div>
             </button>
             <button
               onClick={handleQuickRelapse}
-              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+              className="bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium py-3 px-5 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg border border-slate-500/30 hover:border-slate-400/50"
             >
-              💔 I relapsed
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-red-400">❌</span>
+                <span>I relapsed</span>
+              </div>
             </button>
           </div>
         </div>
 
-        {/* Weekly Statistics Display */}
-        <div className="bg-slate-800/50 rounded-xl p-6 mb-6 border border-slate-600">
-          <h2 className="text-xl font-bold text-white mb-4 text-center">📊 This Week</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center p-4 bg-green-500/20 rounded-lg border border-green-500/30">
-              <div className="text-3xl mb-2">🎯</div>
-              <p className="text-2xl font-bold text-green-400">{weeklyStats.resisted}</p>
-              <p className="text-sm text-gray-300">Cravings Resisted</p>
+        {/* Weekly Statistics Display - Modern Cards */}
+        <div className="bg-slate-800/30 rounded-2xl p-6 mb-8 border border-slate-600/30 shadow-lg">
+          <h2 className="text-lg font-medium text-slate-200 mb-6 text-center">📊 This Week</h2>
+          <div className="grid grid-cols-2 gap-6">
+            <div className="text-center p-5 bg-slate-700/30 rounded-xl border border-slate-500/20 hover:border-slate-400/40 transition-all duration-300">
+              <div className="text-2xl mb-3 text-green-400">🎯</div>
+              <p className="text-2xl font-semibold text-white mb-1">{weeklyStats.resisted}</p>
+              <p className="text-sm text-slate-300">Cravings Resisted</p>
             </div>
-            <div className="text-center p-4 bg-red-500/20 rounded-lg border border-red-500/30">
-              <div className="text-3xl mb-2">💔</div>
-              <p className="text-2xl font-bold text-red-400">{weeklyStats.relapses}</p>
-              <p className="text-sm text-gray-300">Relapses</p>
+            <div className="text-center p-5 bg-slate-700/30 rounded-xl border border-slate-500/20 hover:border-slate-400/40 transition-all duration-300">
+              <div className="text-2xl mb-3 text-red-400">💔</div>
+              <p className="text-2xl font-semibold text-white mb-1">{weeklyStats.relapses}</p>
+              <p className="text-sm text-slate-300">Relapses</p>
             </div>
           </div>
         </div>
 
-        {/* Mini-Games Section */}
-        <div className="bg-slate-800/50 rounded-xl p-6 mb-6 border border-slate-600">
+        {/* Mini-Games Section - Modern Design */}
+        <div className="bg-slate-800/30 rounded-2xl p-6 mb-8 border border-slate-600/30 shadow-lg">
           <div className="text-center">
-            <h2 className="text-xl font-bold text-white mb-4">🎮 Distract Yourself</h2>
+            <h2 className="text-lg font-medium text-slate-200 mb-6">🎮 Distract Yourself</h2>
             <div className="flex justify-center">
               <button
                 onClick={handleMiniGame}
-                className="w-full max-w-xs bg-gradient-to-r from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 border border-orange-500/30"
+                className="w-full max-w-xs bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 border border-slate-500/20 hover:border-slate-400/40 shadow-lg"
               >
                 🐍 Play Snake
               </button>
@@ -3281,13 +3285,13 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-600">
-          <h2 className="text-xl font-bold text-white mb-4 text-center">⚡ Quick Actions</h2>
-          <div className="grid grid-cols-2 gap-3">
+        {/* Quick Actions - Modern Design */}
+        <div className="bg-slate-800/30 rounded-2xl p-6 border border-slate-600/30 shadow-lg">
+          <h2 className="text-lg font-medium text-slate-200 mb-6 text-center">⚡ Quick Actions</h2>
+          <div className="grid grid-cols-2 gap-4">
             <button 
               onClick={() => setShowHydrationModal(true)}
-              className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 text-white font-semibold py-4 px-4 rounded-xl transition-all duration-300 border border-blue-500/30 hover:scale-105"
+              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg"
             >
               💧 Hydration
             </button>
@@ -3296,7 +3300,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
                 '🫁 Breathe',
                 'Take 3 deep breaths:\n\n1. Inhale for 4 seconds\n2. Hold for 4 seconds\n3. Exhale for 4 seconds\n\nRepeat 3 times'
               )}
-              className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 text-white font-semibold py-4 px-4 rounded-xl transition-all duration-300 border border-blue-500/30 hover:scale-105"
+              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg"
             >
               🫁 Breathe
             </button>
@@ -3305,7 +3309,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
                 '🚶‍♂️ Walk',
                 'Take a 5-minute walk:\n\nPhysical activity releases endorphins that can help reduce cravings.\n\nWalk around your room or step outside if possible.'
               )}
-              className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 hover:from-purple-500/30 hover:to-purple-600/30 text-white font-semibold py-4 px-4 rounded-xl transition-all duration-300 border border-purple-500/30 hover:scale-105"
+              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg"
             >
               🚶‍♂️ Walk
             </button>
@@ -3314,7 +3318,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
                 '🧘‍♀️ Meditate',
                 'Quick Meditation:\n\n1. Close your eyes\n2. Focus on your breath\n3. Count to 10 slowly\n4. Repeat 3 times\n\nThis helps calm your mind and reduce stress.'
               )}
-              className="bg-gradient-to-r from-green-500/20 to-green-600/20 hover:from-green-500/30 hover:to-green-600/30 text-white font-semibold py-4 px-4 rounded-xl transition-all duration-300 border border-green-500/30 hover:scale-105"
+              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg"
             >
               🧘‍♀️ Meditate
             </button>
