@@ -2877,11 +2877,80 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
   );
 };
 
-// Enhanced Hydration Modal Component for Craving Support
+// Enhanced Hydration Modal Component for Craving Support - Fixed isLoggingWater state
 const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater }) => {
   const [showSparkles, setShowSparkles] = useState(false);
   const [hydrationStreak, setHydrationStreak] = useState(0);
   const [mentalStrengthProgress, setMentalStrengthProgress] = useState(0);
+  const [isLoggingWater, setIsLoggingWater] = useState(false);
+  
+  // Import glass SVG assets with preloading
+  const emptyGlassSvg = "data:image/svg+xml;base64," + btoa(`
+    <svg width="80" height="112" viewBox="0 0 80 112" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 0 L68 0 L80 112 L0 112 Z" stroke="#94A3B8" stroke-width="2" fill="none" opacity="0.4"/>
+      <path d="M12 0 L68 0 L80 112 L0 112 Z" fill="url(#glassGradient)" opacity="0.05"/>
+      <path d="M12 0 L68 0" stroke="white" stroke-width="1" opacity="0.3"/>
+      <rect x="64" y="8" width="2" height="80" fill="white" opacity="0.2" rx="1"/>
+      <ellipse cx="40" cy="110" rx="35" ry="2" fill="#475569" opacity="0.2"/>
+      <path d="M16 8 L64 8" stroke="#94A3B8" stroke-width="0.5" opacity="0.3"/>
+      <path d="M18 16 L62 16" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
+      <path d="M20 24 L60 24" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
+      <path d="M22 32 L58 32" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
+      <path d="M24 40 L56 40" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
+      <path d="M26 48 L54 48" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
+      <path d="M28 56 L52 56" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
+      <path d="M30 64 L50 64" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
+      <path d="M32 72 L48 72" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
+      <path d="M34 80 L46 80" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
+      <path d="M36 88 L44 88" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
+      <defs>
+        <linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#94A3B8;stop-opacity:0.1"/>
+          <stop offset="100%" style="stop-color:#64748B;stop-opacity:0.05"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  `);
+  
+  const filledGlassSvg = "data:image/svg+xml;base64," + btoa(`
+    <svg width="80" height="112" viewBox="0 0 80 112" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 0 L68 0 L80 112 L0 112 Z" stroke="#60A5FA" stroke-width="2" fill="none" opacity="0.5"/>
+      <path d="M12 0 L68 0 L80 112 L0 112 Z" fill="url(#glassGradient)" opacity="0.05"/>
+      <path d="M12 28 L68 28 L80 112 L0 112 Z" fill="url(#waterGradient)"/>
+      <path d="M12 28 L68 28" stroke="white" stroke-width="2" opacity="0.3"/>
+      <path d="M12 28 Q20 26 28 28 Q36 30 44 28 Q52 26 60 28 Q68 30 68 28" stroke="white" stroke-width="1" opacity="0.4" fill="none"/>
+      <path d="M12 0 L68 0" stroke="white" stroke-width="1" opacity="0.3"/>
+      <rect x="64" y="8" width="2" height="80" fill="white" opacity="0.2" rx="1"/>
+      <ellipse cx="40" cy="110" rx="35" ry="2" fill="#475569" opacity="0.2"/>
+      <path d="M16 8 L64 8" stroke="#94A3B8" stroke-width="0.5" opacity="0.3"/>
+      <path d="M18 16 L62 16" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
+      <path d="M20 24 L60 24" stroke="#94A3B8" stroke-width="0.5" opacity="0.2"/>
+      <defs>
+        <linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#94A3B8;stop-opacity:0.1"/>
+          <stop offset="100%" style="stop-color:#64748B;stop-opacity:0.05"/>
+        </linearGradient>
+        <linearGradient id="waterGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" style="stop-color:#60A5FA"/>
+          <stop offset="50%" style="stop-color:#3B82F6"/>
+          <stop offset="100%" style="stop-color:#2563EB"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  `);
+  
+  // Preload images for smooth performance
+  useEffect(() => {
+    if (isOpen) {
+      const preloadImage = (src) => {
+        const img = new Image();
+        img.src = src;
+      };
+      
+      preloadImage(emptyGlassSvg);
+      preloadImage(filledGlassSvg);
+    }
+  }, [isOpen, emptyGlassSvg, filledGlassSvg]);
 
   // Load hydration streak and mental strength progress
   useEffect(() => {
@@ -2915,17 +2984,32 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater }) => {
   }, [isOpen]);
 
   const handleLogWater = () => {
-    setShowSparkles(true);
-    onLogWater();
-    
-    // Hide sparkles after animation
-    setTimeout(() => setShowSparkles(false), 1000);
-    
-    // Add button animation feedback
-    const button = document.querySelector('.log-water-btn');
-    if (button) {
-      button.classList.add('animate-pulse');
-      setTimeout(() => button.classList.remove('animate-pulse'), 500);
+    // Prevent double-tapping during animation
+    if (isLoggingWater || currentWater >= 6) {
+      return;
+    }
+
+    try {
+      setIsLoggingWater(true);
+      setShowSparkles(true);
+      onLogWater();
+      
+      // Hide sparkles after animation
+      setTimeout(() => setShowSparkles(false), 1000);
+      
+      // Add button animation feedback
+      const button = document.querySelector('.log-water-btn');
+      if (button) {
+        button.classList.add('animate-pulse');
+        setTimeout(() => button.classList.remove('animate-pulse'), 500);
+      }
+      
+      // Re-enable button after animation completes
+      setTimeout(() => setIsLoggingWater(false), 800);
+    } catch (error) {
+      console.error('Error logging water:', error);
+      // Re-enable button on error
+      setTimeout(() => setIsLoggingWater(false), 800);
     }
   };
 
@@ -2962,52 +3046,36 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater }) => {
                     <div key={index} className="relative">
                       {/* Individual Drinking Glass */}
                       <div className="w-20 h-28 relative">
-                        {/* Glass Container - Proper drinking glass shape (wider at top, narrower at bottom) */}
-                        <div className={`w-full h-full relative transition-all duration-1000 ease-out ${
-                          isFilled 
-                            ? 'glass-glow' 
-                            : ''
-                        }`}>
-                          {/* Glass outline - wider at top, narrower at bottom */}
-                          <div className="absolute inset-0">
-                            <div className="w-full h-full border-2 border-slate-400/40 rounded-t-3xl" style={{
-                              clipPath: 'polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%)'
-                            }}></div>
-                          </div>
-                          
-                          {/* Glass Body */}
-                          <div className="w-full h-full relative overflow-hidden" style={{
-                            clipPath: 'polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%)'
-                          }}>
-                            {/* Empty glass background */}
-                            <div className="absolute inset-0 bg-slate-500/5"></div>
-                            
-                            {/* Water Fill - Only show if glass is filled */}
-                            {isFilled && (
-                              <div className="absolute inset-0 glass-fill">
-                                {/* Water fill animation - fills 3/4 of glass height */}
-                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-400 via-blue-500 to-blue-600 water-fill" style={{
-                                  clipPath: 'polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%)'
-                                }}>
-                                  {/* Gentle wave motion at water surface */}
-                                  <div className="absolute top-0 left-0 right-0 h-3 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                                  
-                                  {/* Subtle water texture */}
-                                  <div className="absolute inset-0 opacity-30">
-                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent water-wave"></div>
-                                  </div>
-                                </div>
+                        {/* Glass Container with Proper Layering */}
+                        <div className="w-full h-full relative transition-all duration-1000 ease-out hover:scale-105">
+                          {/* Water Fill - Renders behind glass outline */}
+                          {isFilled && (
+                            <div className="absolute inset-0 z-10">
+                              {/* Water fill with proper glass shape masking and smooth animation */}
+                              <div className="w-full h-full bg-gradient-to-t from-blue-400 via-blue-500 to-blue-600 rounded-t-full opacity-80 water-fill-animation"
+                                   style={{
+                                     clipPath: 'polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%)'
+                                   }}>
                               </div>
-                            )}
-                            
-                            {/* Glass rim highlight */}
-                            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-transparent via-white/30 to-transparent" style={{
-                              clipPath: 'polygon(15% 0%, 85% 0%, 100% 0%, 0% 0%)'
-                            }}></div>
-                            
-                            {/* Glass side reflection */}
-                            <div className="absolute top-3 right-3 w-1 h-20 bg-gradient-to-b from-transparent via-white/20 to-transparent rounded-full"></div>
-                          </div>
+                              
+                              {/* Subtle wave overlay for realistic water effect */}
+                              <div className="absolute inset-0 opacity-30">
+                                <div className="w-full h-full bg-gradient-to-t from-blue-300/40 to-transparent water-wave-overlay"></div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Glass Outline - Always on top */}
+                          <img 
+                            src={emptyGlassSvg}
+                            alt={`Glass ${glassNumber} of 6: ${isFilled ? 'full' : 'empty'}`}
+                            className="w-full h-full object-contain transition-all duration-1000 ease-out glass-rotated relative z-20"
+                            style={{
+                              filter: isFilled ? 'drop-shadow(0 0 10px rgba(59, 130, 246, 0.3))' : 'none'
+                            }}
+                            role="img"
+                            aria-label={`Glass ${glassNumber} of 6: ${isFilled ? 'full' : 'empty'}`}
+                          />
                         </div>
                         
                         {/* Glass number indicator */}
@@ -3024,7 +3092,8 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater }) => {
               {showSparkles && (
                 <div className="absolute inset-0 pointer-events-none">
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                    <div className="w-4 h-4 bg-blue-400 rounded-full animate-ping opacity-75"></div>
+                    <div className="w-6 h-6 bg-blue-400 rounded-full animate-ping opacity-75"></div>
+                    <div className="absolute inset-0 w-6 h-6 bg-blue-300 rounded-full animate-pulse"></div>
                   </div>
                 </div>
               )}
@@ -3043,6 +3112,11 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater }) => {
                  `${currentWater} of 6 glasses completed`}
               </p>
             </div>
+          </div>
+          
+          {/* Screen reader announcement for water logging */}
+          <div aria-live="polite" className="sr-only">
+            {currentWater === 6 ? 'Fully hydrated for today' : `${currentWater} of 6 glasses completed today`}
           </div>
           
           {/* Progress Sections - Side by Side */}
@@ -3088,14 +3162,19 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater }) => {
             {/* Log Water Button - Primary Action */}
             <button
               onClick={handleLogWater}
-              disabled={currentWater >= 6}
+              disabled={currentWater >= 6 || isLoggingWater}
               className={`log-water-btn w-full py-4 px-6 rounded-2xl font-bold text-lg transition-all duration-300 transform ${
                 currentWater >= 6
                   ? 'bg-gradient-to-r from-slate-600 to-slate-700 text-slate-400 cursor-not-allowed'
+                  : isLoggingWater
+                  ? 'bg-gradient-to-r from-blue-400 to-blue-500 text-white cursor-wait'
                   : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white hover:scale-105 shadow-lg shadow-blue-500/25'
               }`}
+              aria-label={currentWater >= 6 ? 'Fully hydrated for today' : `Log water intake. Currently ${currentWater} of 6 glasses`}
+              aria-live="polite"
             >
-              {currentWater >= 6 ? '🎉 Fully Hydrated!' : '💧 Log Water'}
+              {currentWater >= 6 ? '🎉 Fully Hydrated!' : 
+               isLoggingWater ? '💧 Logging...' : '💧 Log Water'}
             </button>
             
             {/* Done Button - Secondary Action */}

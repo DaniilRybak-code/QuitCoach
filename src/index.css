@@ -110,19 +110,32 @@ code {
   }
 }
 
-/* Water fill animation */
-.water-fill {
-  animation: waterFill 1.5s ease-out forwards;
+
+
+
+
+/* Rotated glass animations */
+.glass-rotated {
+  transform: rotate(180deg);
+}
+
+.glass-rotated:hover {
+  transform: rotate(180deg) scale(1.05);
+}
+
+/* Water fill animation for smooth transitions */
+.water-fill-animation {
+  animation: waterFill 700ms ease-out forwards;
 }
 
 @keyframes waterFill {
   0% {
-    height: 0%;
-    opacity: 0.5;
+    opacity: 0;
+    clip-path: polygon(15% 100%, 85% 100%, 100% 100%, 0% 100%);
   }
   100% {
-    height: 75%;
-    opacity: 1;
+    opacity: 0.8;
+    clip-path: polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%);
   }
 }
 
@@ -138,4 +151,31 @@ code {
   50% {
     box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
   }
+}
+
+/* Water wave overlay animation */
+.water-wave-overlay {
+  animation: waterWaveOverlay 3s ease-in-out infinite;
+}
+
+@keyframes waterWaveOverlay {
+  0%, 100% {
+    transform: translateX(0px);
+  }
+  50% {
+    transform: translateX(2px);
+  }
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
