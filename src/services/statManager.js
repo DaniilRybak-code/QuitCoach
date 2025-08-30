@@ -135,13 +135,42 @@ class StatManager {
 
   async handleCravingResistance() {
     try {
-      await Promise.all([
-        this.updateStat('mentalStrength', 1, 'Successful craving resistance'),
-        this.updateStat('triggerDefense', 3, 'Surviving trigger situation')
-      ]);
-
+      const today = new Date().toDateString();
+      
+      // Check daily limits for craving resistance
+      const dailyLimits = await this.checkDailyCravingResistanceLimits(today);
+      
+      if (!dailyLimits.canAwardMentalStrength && !dailyLimits.canAwardTriggerDefense) {
+        console.log('Daily craving resistance limits reached for both stats');
+        // Still track app usage even if no points awarded
+        await this.trackAppUsageDuringCravings();
+        return true;
+      }
+      
+      // Award points based on remaining daily limits
+      const updates = [];
+      
+      if (dailyLimits.canAwardMentalStrength) {
+        updates.push(this.updateStat('mentalStrength', 1, 'Successful craving resistance'));
+      } else {
+        console.log('Daily mental strength limit reached for craving resistance');
+      }
+      
+      if (dailyLimits.canAwardTriggerDefense) {
+        updates.push(this.updateStat('triggerDefense', 3, 'Surviving trigger situation'));
+      } else {
+        console.log('Daily trigger defense limit reached for craving resistance');
+      }
+      
+      if (updates.length > 0) {
+        await Promise.all(updates);
+      }
+      
       // Track app usage during cravings
       await this.trackAppUsageDuringCravings();
+      
+      // Log the craving resistance for daily tracking
+      await this.logDailyCravingResistance(today, dailyLimits);
       
       return true;
     } catch (error) {
@@ -152,10 +181,37 @@ class StatManager {
 
   async handleCravingLogged() {
     try {
-      await Promise.all([
-        this.updateStat('motivation', 0.25, 'Craving awareness and tracking'),
-        this.updateStat('triggerDefense', 0.25, 'Craving awareness and tracking')
-      ]);
+      const today = new Date().toDateString();
+      
+      // Check daily limits for craving logging (awareness bonuses)
+      const dailyLimits = await this.checkDailyCravingLoggingLimits(today);
+      
+      if (!dailyLimits.canAwardMotivation && !dailyLimits.canAwardTriggerDefense) {
+        console.log('Daily craving logging limits reached for both stats');
+        return true;
+      }
+      
+      // Award points based on remaining daily limits
+      const updates = [];
+      
+      if (dailyLimits.canAwardMotivation) {
+        updates.push(this.updateStat('motivation', 0.25, 'Craving awareness and tracking'));
+      } else {
+        console.log('Daily motivation limit reached for craving logging');
+      }
+      
+      if (dailyLimits.canAwardTriggerDefense) {
+        updates.push(this.updateStat('triggerDefense', 0.25, 'Craving awareness and tracking'));
+      } else {
+        console.log('Daily trigger defense limit reached for craving logging');
+      }
+      
+      if (updates.length > 0) {
+        await Promise.all(updates);
+      }
+      
+      // Log the craving logging for daily tracking
+      await this.logDailyCravingLogging(today, dailyLimits);
       
       return true;
     } catch (error) {
@@ -385,15 +441,15 @@ class StatManager {
       const userData = userSnapshot.val();
       const now = new Date();
       
-      // Check if user has been registered for at least 7 days
+      // Check if user has been registered for at least 7 days before running updates
       const registrationDate = userData.createdAt ? new Date(userData.createdAt) : 
                               userData.quitStartDate ? new Date(userData.quitStartDate) : 
                               now;
       const daysSinceRegistration = Math.floor((now - registrationDate) / (1000 * 60 * 60 * 24));
       
-      // Apply 7-day grace period for new users
-      if (daysSinceRegistration < 7) {
-        console.log(`User registered ${daysSinceRegistration} days ago - grace period active, no inactivity penalty`);
+      // Only run daily updates if user has been registered for at least 1 day
+      if (daysSinceRegistration < 1) {
+        console.log(`User registered ${daysSinceRegistration} days ago - skipping daily updates for new user`);
         return;
       }
       
@@ -439,7 +495,7 @@ class StatManager {
           }
         } else if (daysSinceRegistration >= 7) {
           // Only apply penalty if user has been registered for 7+ days and has no activity at all
-          await this.updateStat('motivation', -3, 'Long period inactive (7+ days)');
+          await this.updateStat('motivation', 1, 'Long period inactive (7+ days)');
           console.log(`Inactivity penalty applied: ${daysSinceRegistration} days since registration with no activity`);
         }
       }
@@ -452,12 +508,12 @@ class StatManager {
     try {
       const today = new Date().toDateString();
       const usageKey = `appUsage_${today}`;
-      const usageSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/${usageKey}`));
+      const usageSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/daily/${usageKey}`));
       
       let usageCount = usageSnapshot.exists() ? usageSnapshot.val() : 0;
       usageCount++;
       
-      await set(ref(this.db, `users/${this.userUID}/profile/${usageKey}`), usageCount);
+      await set(ref(this.db, `users/${this.userUID}/profile/daily/${usageKey}`), usageCount);
       
       // Check if this is the 3rd usage with no relapse
       if (usageCount === 3) {
@@ -524,7 +580,7 @@ class StatManager {
   async runDailyUpdates() {
     try {
       // Check if user has been registered for at least 1 day before running updates
-      const userSnapshot = await get(this.userRef);
+      const userSnapshot = await get(ref(this.db, `users/${this.userUID}`));
       if (!userSnapshot.exists()) return;
       
       const userData = userSnapshot.val();
@@ -589,6 +645,7 @@ class StatManager {
         const now = new Date();
         await set(ref(this.db, `users/${this.userUID}/createdAt`), now.toISOString());
         console.log('Initialized createdAt timestamp for new user');
+        return;
       }
       
       // Ensure today's daily activity is marked
@@ -602,6 +659,194 @@ class StatManager {
       
     } catch (error) {
       console.error('Error ensuring activity tracking initialization:', error);
+    }
+  }
+
+  async checkDailyCravingResistanceLimits(today) {
+    try {
+      const todayStats = await get(ref(this.db, `users/${this.userUID}/profile/daily/${today}/cravingResistanceStats`));
+      if (!todayStats.exists()) {
+        await set(ref(this.db, `users/${this.userUID}/profile/daily/${today}/cravingResistanceStats`), {
+          mentalStrength: 0,
+          triggerDefense: 0
+        });
+        return { canAwardMentalStrength: true, canAwardTriggerDefense: true };
+      }
+
+      const todayData = todayStats.val();
+      const mentalStrengthToday = todayData.mentalStrength || 0;
+      const triggerDefenseToday = todayData.triggerDefense || 0;
+
+      const dailyLimits = {
+        canAwardMentalStrength: mentalStrengthToday < 3,
+        canAwardTriggerDefense: triggerDefenseToday < 5
+      };
+      return dailyLimits;
+    } catch (error) {
+      console.error('Error checking daily craving resistance limits:', error);
+      return { canAwardMentalStrength: true, canAwardTriggerDefense: true }; // Default to true on error
+    }
+  }
+
+  async logDailyCravingResistance(today, dailyLimits) {
+    try {
+      const todayStats = await get(ref(this.db, `users/${this.userUID}/profile/daily/${today}/cravingResistanceStats`));
+      if (!todayStats.exists()) {
+        await set(ref(this.db, `users/${this.userUID}/profile/daily/${today}/cravingResistanceStats`), {
+          mentalStrength: 0,
+          triggerDefense: 0
+        });
+      }
+
+      const todayData = todayStats.val();
+      const mentalStrengthToday = todayData.mentalStrength || 0;
+      const triggerDefenseToday = todayData.triggerDefense || 0;
+
+      // Only add points that were actually awarded based on daily limits
+      const mentalStrengthToAdd = dailyLimits.canAwardMentalStrength ? 1 : 0;
+      const triggerDefenseToAdd = dailyLimits.canAwardTriggerDefense ? 3 : 0;
+
+      await set(ref(this.db, `users/${this.userUID}/profile/daily/${today}/cravingResistanceStats`), {
+        mentalStrength: Math.min(3, mentalStrengthToday + mentalStrengthToAdd),
+        triggerDefense: Math.min(5, triggerDefenseToday + triggerDefenseToAdd)
+      });
+    } catch (error) {
+      console.error('Error logging daily craving resistance:', error);
+    }
+  }
+
+  async getDailyCravingResistanceStats(today = null) {
+    try {
+      const dateToCheck = today || new Date().toDateString();
+      const todayStats = await get(ref(this.db, `users/${this.userUID}/profile/daily/${dateToCheck}/cravingResistanceStats`));
+      
+      if (!todayStats.exists()) {
+        return {
+          mentalStrength: 0,
+          triggerDefense: 0,
+          mentalStrengthLimit: 3,
+          triggerDefenseLimit: 5,
+          mentalStrengthRemaining: 3,
+          triggerDefenseRemaining: 5
+        };
+      }
+
+      const todayData = todayStats.val();
+      const mentalStrengthToday = todayData.mentalStrength || 0;
+      const triggerDefenseToday = todayData.triggerDefense || 0;
+
+      return {
+        mentalStrength: mentalStrengthToday,
+        triggerDefense: triggerDefenseToday,
+        mentalStrengthLimit: 3,
+        triggerDefenseLimit: 5,
+        mentalStrengthRemaining: Math.max(0, 3 - mentalStrengthToday),
+        triggerDefenseRemaining: Math.max(0, 5 - triggerDefenseToday)
+      };
+    } catch (error) {
+      console.error('Error getting daily craving resistance stats:', error);
+      return {
+        mentalStrength: 0,
+        triggerDefense: 0,
+        mentalStrengthLimit: 3,
+        triggerDefenseLimit: 5,
+        mentalStrengthRemaining: 3,
+        triggerDefenseRemaining: 5
+      };
+    }
+  }
+
+  async checkDailyCravingLoggingLimits(today) {
+    try {
+      const todayStats = await get(ref(this.db, `users/${this.userUID}/profile/daily/${today}/cravingLoggingStats`));
+      if (!todayStats.exists()) {
+        await set(ref(this.db, `users/${this.userUID}/profile/daily/${today}/cravingLoggingStats`), {
+          motivation: 0,
+          triggerDefense: 0
+        });
+        return { canAwardMotivation: true, canAwardTriggerDefense: true };
+      }
+
+      const todayData = todayStats.val();
+      const motivationToday = todayData.motivation || 0;
+      const triggerDefenseToday = todayData.triggerDefense || 0;
+
+      const dailyLimits = {
+        canAwardMotivation: motivationToday < 0.5, // 0.5 points per day
+        canAwardTriggerDefense: triggerDefenseToday < 0.5 // 0.5 points per day
+      };
+      return dailyLimits;
+    } catch (error) {
+      console.error('Error checking daily craving logging limits:', error);
+      return { canAwardMotivation: true, canAwardTriggerDefense: true }; // Default to true on error
+    }
+  }
+
+  async logDailyCravingLogging(today, dailyLimits) {
+    try {
+      const todayStats = await get(ref(this.db, `users/${this.userUID}/profile/daily/${today}/cravingLoggingStats`));
+      if (!todayStats.exists()) {
+        await set(ref(this.db, `users/${this.userUID}/profile/daily/${today}/cravingLoggingStats`), {
+          motivation: 0,
+          triggerDefense: 0
+        });
+      }
+
+      const todayData = todayStats.val();
+      const motivationToday = todayData.motivation || 0;
+      const triggerDefenseToday = todayData.triggerDefense || 0;
+
+      // Only add points that were actually awarded based on daily limits
+      const motivationToAdd = dailyLimits.canAwardMotivation ? 0.25 : 0;
+      const triggerDefenseToAdd = dailyLimits.canAwardTriggerDefense ? 0.25 : 0;
+
+      await set(ref(this.db, `users/${this.userUID}/profile/daily/${today}/cravingLoggingStats`), {
+        motivation: Math.min(0.5, motivationToday + motivationToAdd),
+        triggerDefense: Math.min(0.5, triggerDefenseToday + triggerDefenseToAdd)
+      });
+    } catch (error) {
+      console.error('Error logging daily craving logging:', error);
+    }
+  }
+
+  async getDailyCravingLoggingStats(today = null) {
+    try {
+      const dateToCheck = today || new Date().toDateString();
+      const todayStats = await get(ref(this.db, `users/${this.userUID}/profile/daily/${dateToCheck}/cravingLoggingStats`));
+      
+      if (!todayStats.exists()) {
+        return {
+          motivation: 0,
+          triggerDefense: 0,
+          motivationLimit: 0.5,
+          triggerDefenseLimit: 0.5,
+          motivationRemaining: 0.5,
+          triggerDefenseRemaining: 0.5
+        };
+      }
+
+      const todayData = todayStats.val();
+      const motivationToday = todayData.motivation || 0;
+      const triggerDefenseToday = todayData.triggerDefense || 0;
+
+      return {
+        motivation: motivationToday,
+        triggerDefense: triggerDefenseToday,
+        motivationLimit: 0.5,
+        triggerDefenseLimit: 0.5,
+        motivationRemaining: Math.max(0, 0.5 - motivationToday),
+        triggerDefenseRemaining: Math.max(0, 0.5 - triggerDefenseToday)
+      };
+    } catch (error) {
+      console.error('Error getting daily craving logging stats:', error);
+      return {
+        motivation: 0,
+        triggerDefense: 0,
+        motivationLimit: 0.5,
+        triggerDefenseLimit: 0.5,
+        motivationRemaining: 0.5,
+        triggerDefenseRemaining: 0.5
+      };
     }
   }
 }

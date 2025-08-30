@@ -2965,10 +2965,15 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           // User successfully resisted - this counts as actual resistance
           newStats.resisted = weeklyStats.resisted + 1;
           
-          // Give resistance bonuses
+          // Check daily limits before giving resistance bonuses
+          let resistanceLimits = null;
           if (statManager) {
+            resistanceLimits = await statManager.checkDailyCravingResistanceLimits(today);
             await statManager.handleCravingResistance();
           }
+          
+          // Store resistance limits for message display
+          finalCravingData.resistanceLimits = resistanceLimits;
         } else if (outcome === 'relapsed') {
           newStats.relapses = weeklyStats.relapses + 1;
           
@@ -2995,11 +3000,47 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
       
       // Show appropriate message
       if (outcome === 'resisted') {
-        setPopupData({
-          title: '🎉 Great Job!',
-          message: 'You successfully resisted that craving!\n\nYour Mental Strength and Trigger Defense have increased significantly.\n\nPlus, you earned awareness bonuses for tracking your craving!',
-          type: 'success'
-        });
+        // Check if we have resistance limits to determine the message
+        if (finalCravingData.resistanceLimits) {
+          const limits = finalCravingData.resistanceLimits;
+          
+          if (!limits.canAwardMentalStrength && !limits.canAwardTriggerDefense) {
+            // Both limits reached
+            setPopupData({
+              title: '🎯 Daily Limits Reached',
+              message: 'You\'ve reached your daily limits for Mental Strength (3 points) and Trigger Defense (5 points).\n\nGreat job staying consistent! Come back tomorrow for more opportunities to grow.',
+              type: 'info'
+            });
+          } else if (!limits.canAwardMentalStrength) {
+            // Only mental strength limit reached
+            setPopupData({
+              title: '🎯 Mental Strength Limit Reached',
+              message: 'You\'ve reached your daily limit for Mental Strength (3 points).\n\nYour Trigger Defense increased by 3 points!\n\nCome back tomorrow for more Mental Strength opportunities.',
+              type: 'info'
+            });
+          } else if (!limits.canAwardTriggerDefense) {
+            // Only trigger defense limit reached
+            setPopupData({
+              title: '🎯 Trigger Defense Limit Reached',
+              message: 'You\'ve reached your daily limit for Trigger Defense (5 points).\n\nYour Mental Strength increased by 1 point!\n\nCome back tomorrow for more Trigger Defense opportunities.',
+              type: 'info'
+            });
+          } else {
+            // Both stats awarded
+            setPopupData({
+              title: '🎉 Great Job!',
+              message: 'You successfully resisted that craving!\n\nYour Mental Strength increased by 1 point and Trigger Defense increased by 3 points!\n\nPlus, you earned awareness bonuses for tracking your craving!',
+              type: 'success'
+            });
+          }
+        } else {
+          // Fallback message if limits not available
+          setPopupData({
+            title: '🎉 Great Job!',
+            message: 'You successfully resisted that craving!\n\nYour Mental Strength and Trigger Defense have increased significantly.\n\nPlus, you earned awareness bonuses for tracking your craving!',
+            type: 'success'
+          });
+        }
       } else if (outcome === 'resistance_practices') {
         setPopupData({
           title: '🛡️ Stay Strong!',
@@ -3058,6 +3099,9 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
       const timestamp = new Date().toISOString();
       const date = new Date().toDateString();
       
+      // Initialize resistance limits variable
+      let resistanceLimits = null;
+      
       // Save quick resistance
       if (user && user.uid) {
         const { ref, set, push } = await import('firebase/database');
@@ -3086,6 +3130,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
         
         // Use StatManager
         if (statManager) {
+          resistanceLimits = await statManager.checkDailyCravingResistanceLimits(date);
           await statManager.handleCravingResistance();
         }
       }
@@ -3110,11 +3155,45 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
       localStorage.setItem(`cravingStats_${user.uid}`, JSON.stringify(newStats));
       setWeeklyStats(newStats);
       
-      setPopupData({
-        title: '🎉 Quick Win!',
-        message: 'Great job resisting that craving!\n\nYour Mental Strength and Trigger Defense have increased.',
-        type: 'success'
-      });
+      // Show appropriate message based on daily limits
+      if (resistanceLimits) {
+        if (!resistanceLimits.canAwardMentalStrength && !resistanceLimits.canAwardTriggerDefense) {
+          // Both limits reached
+          setPopupData({
+            title: '🎯 Daily Limits Reached',
+            message: 'You\'ve reached your daily limits for Mental Strength (3 points) and Trigger Defense (5 points).\n\nGreat job staying consistent! Come back tomorrow for more opportunities to grow.',
+            type: 'info'
+          });
+        } else if (!resistanceLimits.canAwardMentalStrength) {
+          // Only mental strength limit reached
+          setPopupData({
+            title: '🎯 Mental Strength Limit Reached',
+            message: 'You\'ve reached your daily limit for Mental Strength (3 points).\n\nYour Trigger Defense increased by 3 points!\n\nCome back tomorrow for more Mental Strength opportunities.',
+            type: 'info'
+          });
+        } else if (!resistanceLimits.canAwardTriggerDefense) {
+          // Only trigger defense limit reached
+          setPopupData({
+            title: '🎯 Trigger Defense Limit Reached',
+            message: 'You\'ve reached your daily limit for Trigger Defense (5 points).\n\nYour Mental Strength increased by 1 point!\n\nCome back tomorrow for more Trigger Defense opportunities.',
+            type: 'info'
+          });
+        } else {
+          // Both stats awarded
+          setPopupData({
+            title: '🎉 Quick Win!',
+            message: 'Great job resisting that craving!\n\nYour Mental Strength increased by 1 point and Trigger Defense increased by 3 points!',
+            type: 'success'
+          });
+        }
+      } else {
+        // Fallback message if limits not available
+        setPopupData({
+          title: '🎉 Quick Win!',
+          message: 'Great job resisting that craving!\n\nYour Mental Strength and Trigger Defense have increased.',
+          type: 'success'
+        });
+      }
       setShowCustomPopup(true);
       
     } catch (error) {
