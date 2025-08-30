@@ -2573,7 +2573,12 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
     strength: 5,
     mood: '',
     context: '',
-    outcome: ''
+    outcome: '',
+    // Enhanced fields for better analysis
+    copingStrategy: '',
+    location: '',
+    timeOfDay: '',
+    triggerType: ''
   });
   
   // Weekly statistics state
@@ -2913,12 +2918,32 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
       const timestamp = new Date().toISOString();
       const date = new Date().toDateString();
       
-      // Prepare craving data
+      // Prepare enhanced craving data with additional context
+      const now = new Date();
       const finalCravingData = {
         ...cravingData,
         outcome,
         timestamp,
-        date
+        date,
+        // Enhanced metadata for better analysis
+        timeOfDay: now.getHours() < 12 ? 'morning' : now.getHours() < 17 ? 'afternoon' : 'evening',
+        dayOfWeek: now.toLocaleDateString('en-US', { weekday: 'long' }),
+        weekOfYear: Math.ceil((now.getDate() + new Date(now.getFullYear(), 0, 1).getDay()) / 7),
+        month: now.toLocaleDateString('en-US', { month: 'long' }),
+        year: now.getFullYear(),
+        // User context
+        userId: user?.uid,
+        // Session context
+        sessionId: Date.now().toString(),
+        // Device context (basic)
+        userAgent: navigator.userAgent.substring(0, 100),
+        // Enhanced outcome tracking
+        outcomeDetails: {
+          resisted: outcome === 'resisted',
+          relapsed: outcome === 'relapsed',
+          logged: outcome === 'logged',
+          usedPractices: outcome === 'resistance_practices'
+        }
       };
 
       // Update daily craving logs count
@@ -2940,9 +2965,11 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
         statBonusAwarded = true;
       }
       
+      // Import Firebase functions at function scope
+      const { ref, set, push, get } = await import('firebase/database');
+      
       // Save daily count to Firebase
       if (user && user.uid) {
-        const { ref, set, push } = await import('firebase/database');
         
         try {
           const logsRef = ref(db, `users/${user.uid}/profile/dailyCravingLogs/${today}`);
@@ -2953,10 +2980,55 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           localStorage.setItem(localStorageKey, JSON.stringify({ count: newCount, lastUpdated: timestamp }));
         }
         
-        // Save individual craving record
+        // Save individual craving record with enhanced structure
         const cravingsRef = ref(db, `users/${user.uid}/cravings`);
         const newCravingRef = push(cravingsRef);
         await set(newCravingRef, finalCravingData);
+        
+        // Initialize variables for organized collections
+        let historyData = [];
+        let monthHistory = [];
+        
+        // Also save to organized collections for easier analysis
+        try {
+          const organizedRef = ref(db, `users/${user.uid}/profile/cravingHistory/${today}`);
+          const todayHistory = await get(organizedRef);
+          historyData = todayHistory.exists() ? todayHistory.val() : [];
+          historyData.push({
+            id: newCravingRef.key,
+            strength: finalCravingData.strength,
+            mood: finalCravingData.mood,
+            context: finalCravingData.context,
+            outcome: finalCravingData.outcome,
+            timestamp: finalCravingData.timestamp,
+            timeOfDay: finalCravingData.timeOfDay
+          });
+          await set(organizedRef, historyData);
+          console.log(`📅 Daily history updated for ${today}:`, historyData.length, 'records');
+        } catch (error) {
+          console.warn('⚠️ Could not save to daily history:', error);
+        }
+        
+        // Calculate month key for trend analysis
+        const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        
+        // Save to monthly collection for trend analysis
+        try {
+          const monthlyRef = ref(db, `users/${user.uid}/profile/cravingTrends/${monthKey}`);
+          const monthlyData = await get(monthlyRef);
+          monthHistory = monthlyData.exists() ? monthlyData.val() : [];
+          monthHistory.push({
+            id: newCravingRef.key,
+            date: finalCravingData.date,
+            strength: finalCravingData.strength,
+            outcome: finalCravingData.outcome,
+            timeOfDay: finalCravingData.timeOfDay
+          });
+          await set(monthlyRef, monthHistory);
+          console.log(`📊 Monthly trends updated for ${monthKey}:`, monthHistory.length, 'records');
+        } catch (error) {
+          console.warn('⚠️ Could not save to monthly trends:', error);
+        }
         
         // Update weekly statistics based on outcome
         const statsRef = ref(db, `users/${user.uid}/profile/cravingStats`);
@@ -2987,7 +3059,24 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
         await set(statsRef, newStats);
         setWeeklyStats(newStats);
         
-        console.log('Craving assessment saved:', finalCravingData);
+        console.log('📊 Craving assessment saved to database:', {
+          userId: user.uid,
+          cravingId: newCravingRef.key,
+          data: finalCravingData,
+          databasePaths: {
+            main: `users/${user.uid}/cravings/${newCravingRef.key}`,
+            dailyHistory: `users/${user.uid}/profile/cravingHistory/${today}`,
+            monthlyTrends: `users/${user.uid}/profile/cravingTrends/${monthKey}`,
+            weeklyStats: `users/${user.uid}/profile/cravingStats`,
+            dailyLogs: `users/${user.uid}/profile/dailyCravingLogs/${today}`
+          },
+          summary: {
+            dailyHistoryRecords: historyData?.length || 0,
+            monthlyTrendsRecords: monthHistory?.length || 0,
+            monthKey: monthKey,
+            today: today
+          }
+        });
       }
       
       // Fallback to localStorage with user-specific key
@@ -3102,9 +3191,11 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
       // Initialize resistance limits variable
       let resistanceLimits = null;
       
+      // Import Firebase functions at function scope
+      const { ref, set, push, get } = await import('firebase/database');
+      
       // Save quick resistance
       if (user && user.uid) {
-        const { ref, set, push } = await import('firebase/database');
         
         // Save to cravings
         const cravingsRef = ref(db, `users/${user.uid}/cravings`);
@@ -3282,6 +3373,223 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
     }
   };
 
+  // Function to retrieve and analyze craving data for users
+  const getCravingInsights = async (userId, days = 30) => {
+    try {
+      if (!userId) return null;
+      
+      const { ref, get, query, orderByChild, startAt, endAt } = await import('firebase/database');
+      
+      // Calculate date range
+      const endDate = new Date();
+      const startDate = new Date(endDate.getTime() - (days * 24 * 60 * 60 * 1000));
+      
+      // Get craving records from the main collection
+      const cravingsRef = ref(db, `users/${userId}/cravings`);
+      const snapshot = await get(cravingsRef);
+      
+      if (!snapshot.exists()) {
+        return {
+          totalCravings: 0,
+          resistedCount: 0,
+          relapseCount: 0,
+          averageStrength: 0,
+          commonMoods: [],
+          commonContexts: [],
+          timeOfDayPatterns: {},
+          weeklyTrends: {},
+          insights: []
+        };
+      }
+      
+      const cravings = Object.values(snapshot.val() || {});
+      const filteredCravings = cravings.filter(craving => {
+        const cravingDate = new Date(craving.timestamp);
+        return cravingDate >= startDate && cravingDate <= endDate;
+      });
+      
+      if (filteredCravings.length === 0) {
+        return {
+          totalCravings: 0,
+          resistedCount: 0,
+          relapseCount: 0,
+          averageStrength: 0,
+          commonMoods: [],
+          commonContexts: [],
+          timeOfDayPatterns: {},
+          weeklyTrends: {},
+          insights: []
+        };
+      }
+      
+      // Calculate basic statistics
+      const resistedCount = filteredCravings.filter(c => c.outcome === 'resisted').length;
+      const relapseCount = filteredCravings.filter(c => c.outcome === 'relapsed').length;
+      const totalCravings = filteredCravings.length;
+      const averageStrength = filteredCravings.reduce((sum, c) => sum + (c.strength || 0), 0) / totalCravings;
+      
+      // Analyze patterns
+      const moodCounts = {};
+      const contextCounts = {};
+      const timeOfDayCounts = {};
+      const weeklyCounts = {};
+      
+      filteredCravings.forEach(craving => {
+        // Count moods
+        if (craving.mood) {
+          moodCounts[craving.mood] = (moodCounts[craving.mood] || 0) + 1;
+        }
+        
+        // Count contexts
+        if (craving.context) {
+          contextCounts[craving.context] = (contextCounts[craving.context] || 0) + 1;
+        }
+        
+        // Count time of day
+        if (craving.timeOfDay) {
+          timeOfDayCounts[craving.timeOfDay] = (timeOfDayCounts[craving.timeOfDay] || 0) + 1;
+        }
+        
+        // Count by week
+        const cravingDate = new Date(craving.timestamp);
+        const weekKey = `${cravingDate.getFullYear()}-W${Math.ceil((cravingDate.getDate() + new Date(cravingDate.getFullYear(), 0, 1).getDay()) / 7)}`;
+        weeklyCounts[weekKey] = (weeklyCounts[weekKey] || 0) + 1;
+      });
+      
+      // Get top patterns
+      const commonMoods = Object.entries(moodCounts)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 3)
+        .map(([mood, count]) => ({ mood, count }));
+      
+      const commonContexts = Object.entries(contextCounts)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 3)
+        .map(([context, count]) => ({ context, count }));
+      
+      // Generate insights
+      const insights = [];
+      
+      if (resistedCount > relapseCount) {
+        insights.push("You're successfully resisting more cravings than giving in - great job!");
+      }
+      
+      if (averageStrength > 7) {
+        insights.push("Your cravings tend to be high intensity. Consider developing stronger coping strategies for intense moments.");
+      }
+      
+      if (timeOfDayCounts.afternoon > timeOfDayCounts.morning && timeOfDayCounts.afternoon > timeOfDayCounts.evening) {
+        insights.push("Afternoons seem to be your most challenging time. Consider planning activities or support during this period.");
+      }
+      
+      if (commonMoods.length > 0 && commonMoods[0].count > totalCravings * 0.4) {
+        insights.push(`You often experience cravings when feeling ${commonMoods[0].mood}. This might be a key trigger to address.`);
+      }
+      
+      return {
+        totalCravings,
+        resistedCount,
+        relapseCount,
+        averageStrength: Math.round(averageStrength * 10) / 10,
+        successRate: totalCravings > 0 ? Math.round((resistedCount / totalCravings) * 100) : 0,
+        commonMoods,
+        commonContexts,
+        timeOfDayPatterns: timeOfDayCounts,
+        weeklyTrends: weeklyCounts,
+        insights,
+        dateRange: {
+          start: startDate.toDateString(),
+          end: endDate.toDateString(),
+          days
+        }
+      };
+      
+    } catch (error) {
+      console.error('Error getting craving insights:', error);
+      return null;
+    }
+  };
+
+  // Function to export craving data for analysis
+  const exportCravingData = async (userId, format = 'json') => {
+    try {
+      if (!userId) return null;
+      
+      const { ref, get } = await import('firebase/database');
+      
+      // Get all craving records
+      const cravingsRef = ref(db, `users/${user.uid}/cravings`);
+      const snapshot = await get(cravingsRef);
+      
+      if (!snapshot.exists()) {
+        console.log('No craving data to export');
+        return null;
+      }
+      
+      const cravings = Object.values(snapshot.val() || {});
+      
+      if (format === 'json') {
+        // Create downloadable JSON file
+        const dataStr = JSON.stringify(cravings, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `craving-data-${userId}-${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        console.log(`Exported ${cravings.length} craving records for user ${userId}`);
+        return cravings.length;
+      }
+      
+      return cravings.length;
+      
+    } catch (error) {
+      console.error('Error exporting craving data:', error);
+      return null;
+    }
+  };
+
+  // Function to test craving insights
+  const testCravingInsights = async () => {
+    if (!user?.uid) {
+      console.log('No user logged in');
+      return;
+    }
+    
+    console.log('🧪 Testing craving insights...');
+    const insights = await getCravingInsights(user.uid, 30);
+    
+    if (insights) {
+      console.log('📊 Craving Insights:', insights);
+      
+      // Show insights in popup
+      setPopupData({
+        title: '📊 Your Craving Insights',
+        message: `Last 30 days:\n\n` +
+                `Total cravings: ${insights.totalCravings}\n` +
+                `Successfully resisted: ${insights.resistedCount}\n` +
+                `Relapses: ${insights.relapseCount}\n` +
+                `Success rate: ${insights.successRate}%\n` +
+                `Average intensity: ${insights.averageStrength}/10\n\n` +
+                `Top mood triggers: ${insights.commonMoods.map(m => `${m.mood} (${m.count})`).join(', ')}\n` +
+                `Top contexts: ${insights.commonContexts.map(c => `${c.context} (${c.count})`).join(', ')}\n\n` +
+                `Insights:\n${insights.insights.join('\n')}`,
+        type: 'info'
+      });
+      setShowCustomPopup(true);
+    } else {
+      console.log('No insights available');
+      setPopupData({
+        title: '📊 No Data Yet',
+        message: 'Start logging cravings to see insights and patterns!',
+        type: 'info'
+      });
+      setShowCustomPopup(true);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8 pb-20">
       <div className="max-w-2xl mx-auto px-4">
@@ -3372,6 +3680,27 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
                 className="w-full max-w-xs bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 border border-slate-500/20 hover:border-slate-400/40 shadow-lg"
               >
                 🐍 Play Snake
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Data Analysis Section - New */}
+        <div className="bg-slate-800/30 rounded-2xl p-6 mb-8 border border-slate-600/30 shadow-lg">
+          <div className="text-center">
+            <h2 className="text-lg font-medium text-slate-200 mb-6">📊 Data Analysis</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={testCravingInsights}
+                className="bg-blue-600/30 hover:bg-blue-500/40 text-blue-200 font-medium py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 border border-blue-500/20 hover:border-blue-400/40 shadow-lg"
+              >
+                🔍 View Insights
+              </button>
+              <button
+                onClick={() => exportCravingData(user?.uid, 'json')}
+                className="bg-green-600/30 hover:bg-green-500/40 text-green-200 font-medium py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 border border-green-500/20 hover:border-green-400/40 shadow-lg"
+              >
+                📥 Export Data
               </button>
             </div>
           </div>
