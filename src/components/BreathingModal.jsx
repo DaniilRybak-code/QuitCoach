@@ -4,7 +4,7 @@ import BreathingRateSelector from './BreathingRateSelector';
 import DurationPicker from './DurationPicker';
 import BreathingExercise from './BreathingExercise';
 
-const BreathingModal = ({ isOpen, onClose }) => {
+const BreathingModal = ({ isOpen, onClose, onNavigateToCravingSupport }) => {
   const [modalStep, setModalStep] = useState('setup');
   const [selectedRate, setSelectedRate] = useState({
     name: 'INTERMEDIATE',
@@ -51,6 +51,14 @@ const BreathingModal = ({ isOpen, onClose }) => {
     onClose();
   };
 
+  const handleExerciseLeave = () => {
+    // Close the modal and navigate to craving support tab
+    onClose();
+    if (onNavigateToCravingSupport) {
+      onNavigateToCravingSupport();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -63,15 +71,17 @@ const BreathingModal = ({ isOpen, onClose }) => {
       
       {/* Modal Content */}
       <div className="relative w-full max-w-md mx-4 bg-slate-900 rounded-3xl shadow-2xl border border-slate-700/50 overflow-hidden">
-        {/* Close Button */}
-        <button
-          onClick={handleClose}
-          className="absolute top-4 left-4 z-10 w-8 h-8 flex items-center justify-center text-white hover:text-slate-300 transition-colors"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        {/* Close Button - Only show when NOT in active exercise */}
+        {!(modalStep === 'exercise' && isExerciseActive) && (
+          <button
+            onClick={handleClose}
+            className="absolute top-4 left-4 z-10 w-8 h-8 flex items-center justify-center text-white hover:text-slate-300 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
 
         {/* Modal Steps */}
         {modalStep === 'setup' && (
@@ -106,6 +116,7 @@ const BreathingModal = ({ isOpen, onClose }) => {
             duration={duration}
             onComplete={handleExerciseComplete}
             onClose={handleClose}
+            onLeave={handleExerciseLeave}
           />
         )}
       </div>

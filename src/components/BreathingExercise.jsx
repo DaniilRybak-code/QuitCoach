@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const BreathingExercise = ({ rate, duration, onComplete, onClose }) => {
+const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => {
   const [timeRemaining, setTimeRemaining] = useState(duration * 60); // Convert to seconds
   const [currentPhase, setCurrentPhase] = useState('inhale');
   const [phaseTime, setPhaseTime] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [showConfirmPopup, setShowConfirmPopup] = useState(false);
   
   const animationRef = useRef(null);
   const timerRef = useRef(null);
@@ -115,13 +116,52 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose }) => {
     return Math.min(phaseTime, maxTime);
   };
 
+  const handleCloseClick = () => {
+    setShowConfirmPopup(true);
+  };
+
+  const handleConfirmLeave = () => {
+    // Clean up all timers and animations
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (phaseTimerRef.current) {
+      clearInterval(phaseTimerRef.current);
+      phaseTimerRef.current = null;
+    }
+    
+    // Reset state
+    setIsActive(false);
+    setTimeRemaining(0);
+    setProgress(0);
+    
+    // Use onLeave to navigate to Craving Support tab
+    if (onLeave) {
+      onLeave();
+    } else {
+      // Fallback to onClose if onLeave is not provided
+      onClose();
+    }
+  };
+
+  const handleStay = () => {
+    setShowConfirmPopup(false);
+  };
+
   return (
     <div className="h-screen bg-slate-900 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-6">
+        {/* Close Button - Enhanced for better usability */}
         <button
-          onClick={onClose}
-          className="w-8 h-8 flex items-center justify-center text-white hover:text-slate-300 transition-colors"
+          onClick={handleCloseClick}
+          className="w-11 h-11 flex items-center justify-center text-white hover:text-slate-300 transition-colors bg-slate-800/50 hover:bg-slate-700/50 rounded-lg border border-slate-600/30 hover:border-slate-500/50 z-50"
+          title="End breathing exercise"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -129,11 +169,10 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose }) => {
         </button>
         
         <div className="text-center">
-          <h1 className="text-white font-bold text-lg">INCREASE RELAXATION</h1>
           <div className="text-white text-2xl font-mono">{formatTime(timeRemaining)}</div>
         </div>
         
-        <div className="w-8" /> {/* Spacer for centering */}
+        <div className="w-11" /> {/* Spacer for centering */}
       </div>
 
       {/* Breathing Circle */}
@@ -178,6 +217,35 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose }) => {
           />
         </div>
       </div>
+
+      {/* Confirmation Popup */}
+      {showConfirmPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-800 rounded-2xl p-6 mx-4 max-w-sm w-full border border-slate-600/50">
+            <div className="text-center mb-6">
+              <h3 className="text-white text-xl font-bold mb-2">Want to stop now?</h3>
+              <p className="text-slate-300 text-sm leading-relaxed">
+                Stay strong - resist the craving? If you leave now, you will not get the bonus points
+              </p>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={handleConfirmLeave}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded-xl transition-colors"
+              >
+                Leave
+              </button>
+              <button
+                onClick={handleStay}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-xl transition-colors"
+              >
+                Stay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

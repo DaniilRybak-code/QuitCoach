@@ -3369,6 +3369,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
             isOpen={showBreathingModal}
             onClose={() => setShowBreathingModal(false)}
             onComplete={onBreathingComplete}
+            onNavigateToCravingSupport={() => setActiveTab('craving-support')}
           />
         )}
 
