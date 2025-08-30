@@ -11,8 +11,15 @@ const DurationPicker = ({ selectedDuration, onSelect, onBack }) => {
   }, [selectedDuration]);
 
   const handleSliderChange = (e) => {
-    const value = parseInt(e.target.value);
-    setCurrentDuration(value);
+    const newDuration = parseInt(e.target.value);
+    setCurrentDuration(newDuration);
+    
+    // Haptic feedback on mobile
+    if (navigator.vibrate) {
+      navigator.vibrate(50);
+    }
+    
+    console.log(`🎯 Duration picker: Selected ${newDuration} minutes`);
   };
 
   const handleSave = () => {

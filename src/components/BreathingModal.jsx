@@ -52,6 +52,7 @@ const BreathingModal = ({ isOpen, onClose, onNavigateToCravingSupport }) => {
   };
 
   const handleExerciseLeave = () => {
+    console.log(`🚪 User leaving breathing exercise via close button`);
     // Close the modal and navigate to craving support tab
     onClose();
     if (onNavigateToCravingSupport) {

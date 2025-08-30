@@ -19,46 +19,63 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
   
   const animationRef = useRef(null);
   const timerRef = useRef(null);
-  const phaseTimerRef = useRef(null);
+  // phaseTimerRef is no longer needed
 
-  // Start the exercise when component mounts
-  useEffect(() => {
-    setIsActive(true);
-    startBreathingCycle();
-    startMainTimer();
-    
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (phaseTimerRef.current) clearInterval(phaseTimerRef.current);
-    };
-  }, []);
+  // Remove the useEffect from here - will add it after function definitions
 
   const startMainTimer = () => {
+    console.log(`⏰ Starting main timer for ${duration} minutes`);
+    
+    // Prevent multiple timers
+    if (timerRef.current) {
+      console.log(`⚠️ Timer already exists, clearing previous timer`);
+      clearInterval(timerRef.current);
+    }
+    
     timerRef.current = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
+          console.log(`⏰ Main exercise timer completed! Total duration: ${duration} minutes`);
           clearInterval(timerRef.current);
+          timerRef.current = null;
           onComplete();
           return 0;
         }
-        return prev - 1;
+        const newTime = prev - 1;
+        if (newTime % 10 === 0) { // Log every 10 seconds to avoid spam
+          console.log(`⏰ Main timer: ${newTime}s remaining`);
+        }
+        return newTime;
       });
     }, 1000);
+    
+    console.log(`✅ Main timer started successfully`);
   };
 
   const startBreathingCycle = () => {
+    console.log(`🚀 Starting breathing cycle with rate: inhale=${rate.inhale}s, exhale=${rate.exhale}s`);
+    
+    // Prevent multiple animation loops
+    if (animationRef.current) {
+      console.log(`⚠️ Animation already running, clearing previous animation`);
+      cancelAnimationFrame(animationRef.current);
+    }
+    
     const cycleDuration = rate.inhale + rate.exhale;
     let cycleTime = 0;
     let lastPhaseTime = 0;
+    let currentPhaseLocal = 'inhale'; // Local phase tracking
+    
+    console.log(`📊 Cycle duration: ${cycleDuration}s, starting animation loop...`);
 
     const animate = () => {
       cycleTime += 16; // 60fps
       
       if (cycleTime >= cycleDuration * 1000) {
-        console.log(`🔄 Breathing cycle completed, resetting to 0ms. Current phase: ${currentPhase}, phaseTime: ${phaseTime}`);
+        console.log(`🔄 Breathing cycle completed, resetting to 0ms. Current phase: ${currentPhaseLocal}, phaseTime: ${phaseTime}`);
         cycleTime = 0;
         lastPhaseTime = 0;
+        currentPhaseLocal = 'inhale';
         // Force phase reset to ensure clean transition
         setCurrentPhase('inhale');
         setPhaseTime(0);
@@ -66,8 +83,9 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
 
       if (cycleTime < rate.inhale * 1000) {
         // Inhale phase - expand from smallest to largest
-        if (currentPhase !== 'inhale') {
+        if (currentPhaseLocal !== 'inhale') {
           console.log(`🔄 Switching to INHALE phase at ${cycleTime}ms`);
+          currentPhaseLocal = 'inhale';
           setCurrentPhase('inhale');
           setPhaseTime(0);
           lastPhaseTime = 0;
@@ -88,12 +106,13 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
         if (currentPhaseTime !== lastPhaseTime) {
           setPhaseTime(currentPhaseTime);
           lastPhaseTime = currentPhaseTime;
-          console.log(`⏱️ INHALE: ${currentPhaseTime}/${rate.inhale}s (phase: ${currentPhase})`);
+          console.log(`⏱️ INHALE: ${currentPhaseTime}/${rate.inhale}s (phase: ${currentPhaseLocal}, scale: ${newScale.toFixed(3)})`);
         }
       } else {
         // Exhale phase - contract from largest to smallest
-        if (currentPhase !== 'exhale') {
+        if (currentPhaseLocal !== 'exhale') {
           console.log(`🔄 Switching to EXHALE phase at ${cycleTime}ms`);
+          currentPhaseLocal = 'exhale';
           setCurrentPhase('exhale');
           setPhaseTime(0);
           lastPhaseTime = 0;
@@ -114,7 +133,7 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
         if (currentPhaseTime !== lastPhaseTime) {
           setPhaseTime(currentPhaseTime);
           lastPhaseTime = currentPhaseTime;
-          console.log(`⏱️ EXHALE: ${currentPhaseTime}/${rate.exhale}s (phase: ${currentPhase})`);
+          console.log(`⏱️ EXHALE: ${currentPhaseTime}/${rate.exhale}s (phase: ${currentPhaseLocal}, scale: ${newScale.toFixed(3)})`);
         }
       }
 
@@ -122,6 +141,7 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
     };
 
     animate();
+    console.log(`✅ Breathing cycle animation started successfully`);
   };
 
   // Smooth easing function for natural breathing rhythm
@@ -133,15 +153,18 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
   // const startPhaseTimer = () => { ... };
 
   useEffect(() => {
-    // No need to start phase timer anymore - timing is handled in animation loop
-    // if (isActive) {
-    //   startPhaseTimer();
-    // }
+    if (isActive) {
+      startMainTimer();
+      startBreathingCycle();
+    }
     
     return () => {
-      // Cleanup is handled in handleConfirmLeave
+      // Only cleanup if component is unmounting, not when dependencies change
+      if (isActive) {
+        cleanupExercise();
+      }
     };
-  }, [isActive]);
+  }, [isActive]); // Remove rate, duration, onComplete dependencies that were causing issues
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -171,26 +194,23 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
     }
   };
 
+  const handleComplete = () => {
+    console.log(`✅ Breathing exercise completed successfully! Duration: ${duration} minutes`);
+    if (onComplete) {
+      onComplete();
+    }
+  };
+
   const handleCloseClick = () => {
+    console.log(`🔄 User clicked close button, showing confirmation popup`);
     setShowConfirmPopup(true);
   };
 
   const handleConfirmLeave = () => {
-    // Clean up all timers and animations
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    // Phase timer is no longer used - timing is handled in animation loop
+    console.log(`🚪 User confirmed leaving exercise, cleaning up...`);
     
-    // Reset state
-    setIsActive(false);
-    setTimeRemaining(0);
-    setProgress(MIN_SCALE); // Reset to smallest size
+    // Use cleanup function for consistent resource management
+    cleanupExercise();
     
     // Use onLeave to navigate to Craving Support tab
     if (onLeave) {
@@ -204,6 +224,65 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
   const handleStay = () => {
     setShowConfirmPopup(false);
   };
+
+  const startExercise = () => {
+    // Prevent multiple starts
+    if (isActive) {
+      console.log(`⚠️ Exercise already active, ignoring start request`);
+      return;
+    }
+    
+    console.log(`🎬 Starting breathing exercise: ${duration} minutes, rate: ${rate.name}`);
+    console.log(`📊 Initial state - isActive: ${isActive}, progress: ${progress}, currentPhase: ${currentPhase}`);
+    
+    // Reset state before starting
+    setProgress(MIN_SCALE);
+    setCurrentPhase('inhale');
+    setPhaseTime(0);
+    setTimeRemaining(duration * 60);
+    
+    // Set active first, then start timers
+    setIsActive(true);
+    console.log(`✅ isActive set to true, starting timers...`);
+    
+    // Use setTimeout to ensure state is updated before starting timers
+    setTimeout(() => {
+      console.log(`🚀 Starting main timer and breathing cycle...`);
+      startMainTimer();
+      startBreathingCycle();
+    }, 0);
+  };
+
+  const cleanupExercise = () => {
+    console.log(`🧹 Cleaning up breathing exercise resources`);
+    
+    // Cancel animation frame
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    
+    // Clear main timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    // Reset state
+    setIsActive(false);
+    setTimeRemaining(0);
+    setProgress(MIN_SCALE);
+    setCurrentPhase('inhale');
+    setPhaseTime(0);
+  };
+
+  // Start the exercise when component mounts
+  useEffect(() => {
+    if (!isActive) {
+      console.log(`🎬 Component mounted, starting breathing exercise automatically`);
+      startExercise();
+    }
+  }, []); // Empty dependency array - only run once on mount
 
   return (
     <div className="h-screen bg-slate-900 flex flex-col">
