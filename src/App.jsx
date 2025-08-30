@@ -2556,7 +2556,7 @@ const GameModal = ({ gameType, onClose }) => {
   );
 };
 // Craving Support View - Support for Managing Cravings
-const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting }) => {
+const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, onBreathingComplete }) => {
   const [showGameModal, setShowGameModal] = useState(false);
   const [selectedGame, setSelectedGame] = useState(null);
   const [showCustomPopup, setShowCustomPopup] = useState(false);
@@ -3368,7 +3368,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting })
           <BreathingModal
             isOpen={showBreathingModal}
             onClose={() => setShowBreathingModal(false)}
-            onComplete={handleBreathingComplete}
+            onComplete={onBreathingComplete}
           />
         )}
 
@@ -3924,7 +3924,6 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
 const ProfileView = ({ user, onNavigate }) => {
   const [relapseDate, setRelapseDate] = useState(null);
   const [showWaterModal, setShowWaterModal] = useState(false);
-  const [showBreathingModal, setShowBreathingModal] = useState(false);
   const [showMoodModal, setShowMoodModal] = useState(false);
   const [showTriggerModal, setShowTriggerModal] = useState(false);
   const [showDiaryModal, setShowDiaryModal] = useState(false);
@@ -4290,26 +4289,7 @@ const ProfileView = ({ user, onNavigate }) => {
     setShowMoodModal(false);
   };
 
-  // Handle breathing exercise completion
-  const handleBreathingComplete = async () => {
-    setDailyBreathing(true);
-    const today = new Date().toDateString();
-    
-    // Use StatManager to handle breathing exercise and streaks
-    if (statManager) {
-      await statManager.handleBreathingExercise();
-    }
-    
-    // Save to Firebase
-    const success = await saveToFirebase(`daily/${today}/breathing`, true);
-    
-    // Fallback to localStorage if Firebase fails
-    if (!success) {
-      localStorage.setItem(`breathing_${today}`, 'true');
-    }
-    
-    setShowBreathingModal(false);
-  };
+
 
   // Handle trigger scheduling
   const handleTriggerSchedule = async (day, triggerType, time) => {
@@ -4477,24 +4457,7 @@ const ProfileView = ({ user, onNavigate }) => {
               </div>
             </button>
 
-            {/* Breathing Exercise Button */}
-            <button
-              onClick={() => setShowBreathingModal(true)}
-              className="w-full bg-gradient-to-r from-purple-500/20 to-purple-600/20 bg-slate-800/50 rounded-xl p-4 text-left hover:scale-105 transition-all duration-300"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-xl">
-                  🫁
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-white font-bold text-lg">Complete breathing exercise</h3>
-                  <p className="text-gray-300 text-sm">
-                    {dailyBreathing ? 'Completed! Stay calm!' : 'Tap to start 4-cycle breathing'}
-                  </p>
-                </div>
-                <div className="text-purple-400 text-2xl">→</div>
-              </div>
-            </button>
+            {/* Breathing exercises are now available in the Craving Support tab */}
 
             {/* Mood Tracking Button */}
             <button
@@ -4597,11 +4560,7 @@ const ProfileView = ({ user, onNavigate }) => {
         currentWater={dailyWater}
       />
       
-      <BreathingModal 
-        isOpen={showBreathingModal} 
-        onClose={() => setShowBreathingModal(false)}
-        onComplete={handleBreathingComplete}
-      />
+      {/* BreathingModal is now imported and used in CravingSupportView */}
       
       <MoodModal 
         isOpen={showMoodModal} 
@@ -5011,6 +4970,9 @@ const App = () => {
   // Firestore buddy matching service
   const [firestoreBuddyService, setFirestoreBuddyService] = useState(null);
   const firestoreBuddyServiceRef = useRef(null);
+  
+  // StatManager instance
+  const [statManager, setStatManager] = useState(null);
 
   // Initialize FirestoreBuddyService
   const initializeFirestoreBuddyService = async () => {
@@ -5072,6 +5034,27 @@ const App = () => {
     }
     if (profileData.scheduledTriggers) {
       setScheduledTriggers(profileData.scheduledTriggers);
+    }
+  };
+
+  // Handle breathing exercise completion
+  const handleBreathingComplete = async () => {
+    const today = new Date().toDateString();
+    
+    // Save to Firebase
+    try {
+      const { ref, set } = await import('firebase/database');
+      const breathingRef = ref(db, `users/${authUser?.uid}/profile/daily/${today}/breathing`);
+      await set(breathingRef, true);
+    } catch (error) {
+      console.error('Error saving breathing exercise to Firebase:', error);
+      // Fallback to localStorage if Firebase fails
+      localStorage.setItem(`breathing_${authUser?.uid}_${today}`, 'true');
+    }
+    
+    // Use StatManager to handle breathing exercise and streaks
+    if (statManager) {
+      await statManager.handleBreathingExercise();
     }
   };
 
@@ -5602,6 +5585,18 @@ const App = () => {
               setUser(userData);
               setHasCompletedOnboarding(true);
               setCurrentView('arena');
+              
+              // Initialize StatManager for the authenticated user
+              try {
+                const StatManager = await import('./services/statManager.js');
+                const manager = new StatManager.default(db, firebaseUser.uid);
+                await manager.initialize();
+                setStatManager(manager);
+                console.log('✅ StatManager initialized successfully');
+              } catch (error) {
+                console.error('Error initializing StatManager:', error);
+              }
+              
               console.log('User auto-logged in and redirected to Arena');
             } else {
               console.log('No user data found - new user needs onboarding');
@@ -6872,6 +6867,7 @@ const App = () => {
                 nemesis={getCurrentOpponent()}
                 onBackToLogin={handleBackToLogin}
                 onResetForTesting={handleResetForTesting}
+                onBreathingComplete={handleBreathingComplete}
               />
             </div>
           )}

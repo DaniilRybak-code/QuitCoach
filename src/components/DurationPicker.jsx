@@ -1,71 +1,36 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const DurationPicker = ({ selectedDuration, onSelect, onBack }) => {
   const [currentDuration, setCurrentDuration] = useState(selectedDuration);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startY, setStartY] = useState(0);
-  const [startScroll, setStartScroll] = useState(0);
-  const pickerRef = useRef(null);
-
-  const durations = Array.from({ length: 9 }, (_, i) => i + 2); // 2 to 10 minutes
+  
+  const minDuration = 2;
+  const maxDuration = 10;
 
   useEffect(() => {
     setCurrentDuration(selectedDuration);
   }, [selectedDuration]);
 
-  const handleTouchStart = (e) => {
-    setIsDragging(true);
-    setStartY(e.touches[0].clientY);
-    setStartScroll(pickerRef.current.scrollTop);
-  };
-
-  const handleTouchMove = (e) => {
-    if (!isDragging) return;
-    
-    const deltaY = startY - e.touches[0].clientY;
-    const newScrollTop = startScroll + deltaY;
-    
-    if (pickerRef.current) {
-      pickerRef.current.scrollTop = newScrollTop;
-    }
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-    
-    // Snap to nearest duration
-    if (pickerRef.current) {
-      const itemHeight = 80; // Height of each duration item
-      const scrollTop = pickerRef.current.scrollTop;
-      const index = Math.round(scrollTop / itemHeight);
-      const snappedDuration = durations[Math.max(0, Math.min(index, durations.length - 1))];
-      
-      setCurrentDuration(snappedDuration);
-      
-      // Smooth scroll to snapped position
-      pickerRef.current.scrollTo({
-        top: index * itemHeight,
-        behavior: 'smooth'
-      });
-    }
-  };
-
-  const handleDurationClick = (duration) => {
-    setCurrentDuration(duration);
-    
-    // Scroll to position
-    if (pickerRef.current) {
-      const index = durations.indexOf(duration);
-      const itemHeight = 80;
-      pickerRef.current.scrollTo({
-        top: index * itemHeight,
-        behavior: 'smooth'
-      });
-    }
+  const handleSliderChange = (e) => {
+    const value = parseInt(e.target.value);
+    setCurrentDuration(value);
   };
 
   const handleSave = () => {
     onSelect(currentDuration);
+  };
+
+  const getDurationLabel = (duration) => {
+    if (duration <= 3) return "Short Session";
+    if (duration <= 6) return "Medium Session";
+    if (duration <= 8) return "Long Session";
+    return "Extended Session";
+  };
+
+  const getDurationColor = (duration) => {
+    if (duration <= 3) return "text-green-400";
+    if (duration <= 6) return "text-blue-400";
+    if (duration <= 8) return "text-orange-400";
+    return "text-red-400";
   };
 
   return (
@@ -76,48 +41,36 @@ const DurationPicker = ({ selectedDuration, onSelect, onBack }) => {
         <p className="text-slate-400">Choose your session length</p>
       </div>
 
-      {/* Duration Picker */}
-      <div className="relative mb-8">
-        {/* Selection Indicator */}
-        <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-20 bg-slate-700/30 rounded-xl border-2 border-slate-500/50 pointer-events-none z-10" />
-        
-        {/* Picker Container */}
-        <div 
-          ref={pickerRef}
-          className="h-60 overflow-hidden relative"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Spacer for centering */}
-          <div className="h-20" />
-          
-          {/* Duration Options */}
-          <div className="space-y-0">
-            {durations.map((duration) => (
-              <div
-                key={duration}
-                onClick={() => handleDurationClick(duration)}
-                className={`h-20 flex items-center justify-center text-4xl font-bold cursor-pointer transition-all duration-200 ${
-                  currentDuration === duration 
-                    ? 'text-white scale-110' 
-                    : 'text-slate-400 hover:text-slate-300'
-                }`}
-              >
-                {duration}
-              </div>
-            ))}
-          </div>
-          
-          {/* Bottom Spacer for centering */}
-          <div className="h-20" />
+      {/* Large Duration Display */}
+      <div className="text-center mb-8">
+        <div className={`text-8xl font-bold ${getDurationColor(currentDuration)} mb-2`}>
+          {currentDuration} mins
         </div>
+        <div className={`text-xl font-medium ${getDurationColor(currentDuration)}`}>
+          {getDurationLabel(currentDuration)}
+        </div>
+      </div>
+
+      {/* Duration Slider */}
+      <div className="mb-8">
+        <input
+          type="range"
+          min={minDuration}
+          max={maxDuration}
+          step={1}
+          value={currentDuration}
+          onChange={handleSliderChange}
+          style={{
+            background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((currentDuration - minDuration) / (maxDuration - minDuration)) * 100}%, #475569 ${((currentDuration - minDuration) / (maxDuration - minDuration)) * 100}%, #475569 100%)`
+          }}
+          className="w-full h-4 rounded-lg appearance-none cursor-pointer slider mb-4"
+        />
       </div>
 
       {/* Save Button */}
       <button
         onClick={handleSave}
-        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold text-lg py-4 px-6 rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg"
+        className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold text-lg py-4 px-6 rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg transform active:scale-95"
       >
         SAVE
       </button>
@@ -125,7 +78,7 @@ const DurationPicker = ({ selectedDuration, onSelect, onBack }) => {
       {/* Back Button */}
       <button
         onClick={onBack}
-        className="w-full mt-4 bg-slate-700/50 hover:bg-slate-600/50 text-white font-medium py-3 px-6 rounded-2xl transition-all duration-300 border border-slate-600/30"
+        className="w-full mt-4 bg-slate-700/50 hover:bg-slate-600/50 text-white font-medium py-3 px-6 rounded-2xl transition-all duration-300 border border-slate-600/30 hover:border-slate-500/50"
       >
         Back to Setup
       </button>

@@ -300,3 +300,56 @@ code {
   white-space: nowrap;
   border: 0;
 }
+
+/* Duration picker scrollbar hiding */
+.duration-picker::-webkit-scrollbar {
+  display: none;
+}
+
+.duration-picker {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Duration Slider Custom Styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-track {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: none;
+}
+
+input[type="range"]::-moz-range-track {
+  background: transparent;
+  border: none;
+}
+
+input[type="range"]::-moz-range-thumb {
+  background: transparent;
+  border: none;
+}
+
+input[type="range"]::-ms-track {
+  background: transparent;
+  border: none;
+}
+
+input[type="range"]::-ms-thumb {
+  background: transparent;
+  border: none;
+}
+
+
