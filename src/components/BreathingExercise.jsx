@@ -1,11 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => {
+  // Circle size constants for precise scaling - must be defined before useState
+  const INNER_CIRCLE_SIZE = 80; // w-20 h-20 = 80px
+  const OUTER_CIRCLE_SIZE = 320; // w-80 h-80 = 320px
+  
+  // Calculate scale ratios - now from center (0.1) to outer boundary (4.0)
+  const MIN_SCALE = 0.1; // Start from center (small size)
+  const MAX_SCALE = OUTER_CIRCLE_SIZE / INNER_CIRCLE_SIZE; // 320/80 = 4.0 (full outer circle size)
+  const SCALE_RANGE = MAX_SCALE - MIN_SCALE; // 3.9 (expansion range)
+
   const [timeRemaining, setTimeRemaining] = useState(duration * 60); // Convert to seconds
   const [currentPhase, setCurrentPhase] = useState('inhale');
   const [phaseTime, setPhaseTime] = useState(0);
   const [isActive, setIsActive] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(MIN_SCALE); // Start from center
   const [showConfirmPopup, setShowConfirmPopup] = useState(false);
   
   const animationRef = useRef(null);
@@ -41,30 +50,72 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
   const startBreathingCycle = () => {
     const cycleDuration = rate.inhale + rate.exhale;
     let cycleTime = 0;
+    let lastPhaseTime = 0;
 
     const animate = () => {
       cycleTime += 16; // 60fps
       
       if (cycleTime >= cycleDuration * 1000) {
+        console.log(`🔄 Breathing cycle completed, resetting to 0ms. Current phase: ${currentPhase}, phaseTime: ${phaseTime}`);
         cycleTime = 0;
+        lastPhaseTime = 0;
+        // Force phase reset to ensure clean transition
+        setCurrentPhase('inhale');
+        setPhaseTime(0);
       }
 
-      const phaseProgress = (cycleTime % (rate.inhale * 1000)) / (rate.inhale * 1000);
-      
       if (cycleTime < rate.inhale * 1000) {
-        // Inhale phase
+        // Inhale phase - expand from smallest to largest
         if (currentPhase !== 'inhale') {
+          console.log(`🔄 Switching to INHALE phase at ${cycleTime}ms`);
           setCurrentPhase('inhale');
           setPhaseTime(0);
+          lastPhaseTime = 0;
         }
-        setProgress(0.3 + (phaseProgress * 0.7)); // Scale from 30% to 100%
+        
+        // Calculate inhale progress (0 to 1)
+        const inhaleProgress = cycleTime / (rate.inhale * 1000);
+        
+        // Use ease-in-out function for natural breathing rhythm
+        const easedProgress = easeInOut(inhaleProgress);
+        
+        // Scale from MIN_SCALE to MAX_SCALE
+        const newScale = MIN_SCALE + (easedProgress * SCALE_RANGE);
+        setProgress(newScale);
+        
+        // Update phase time based on animation progress
+        const currentPhaseTime = Math.floor(inhaleProgress * rate.inhale);
+        if (currentPhaseTime !== lastPhaseTime) {
+          setPhaseTime(currentPhaseTime);
+          lastPhaseTime = currentPhaseTime;
+          console.log(`⏱️ INHALE: ${currentPhaseTime}/${rate.inhale}s (phase: ${currentPhase})`);
+        }
       } else {
-        // Exhale phase
+        // Exhale phase - contract from largest to smallest
         if (currentPhase !== 'exhale') {
+          console.log(`🔄 Switching to EXHALE phase at ${cycleTime}ms`);
           setCurrentPhase('exhale');
           setPhaseTime(0);
+          lastPhaseTime = 0;
         }
-        setProgress(1 - (phaseProgress * 0.7)); // Scale from 100% to 30%
+        
+        // Calculate exhale progress (0 to 1)
+        const exhaleProgress = (cycleTime - (rate.inhale * 1000)) / (rate.exhale * 1000);
+        
+        // Use ease-in-out function for natural breathing rhythm
+        const easedProgress = easeInOut(exhaleProgress);
+        
+        // Scale from MAX_SCALE to MIN_SCALE
+        const newScale = MAX_SCALE - (easedProgress * SCALE_RANGE);
+        setProgress(newScale);
+        
+        // Update phase time based on animation progress
+        const currentPhaseTime = Math.floor(exhaleProgress * rate.exhale);
+        if (currentPhaseTime !== lastPhaseTime) {
+          setPhaseTime(currentPhaseTime);
+          lastPhaseTime = currentPhaseTime;
+          console.log(`⏱️ EXHALE: ${currentPhaseTime}/${rate.exhale}s (phase: ${currentPhase})`);
+        }
       }
 
       animationRef.current = requestAnimationFrame(animate);
@@ -73,21 +124,24 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
     animate();
   };
 
-  const startPhaseTimer = () => {
-    phaseTimerRef.current = setInterval(() => {
-      setPhaseTime((prev) => prev + 1);
-    }, 1000);
+  // Smooth easing function for natural breathing rhythm
+  const easeInOut = (t) => {
+    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
   };
 
+  // Remove the old phase timer - timing is now handled in the animation loop
+  // const startPhaseTimer = () => { ... };
+
   useEffect(() => {
-    if (isActive) {
-      startPhaseTimer();
-    }
+    // No need to start phase timer anymore - timing is handled in animation loop
+    // if (isActive) {
+    //   startPhaseTimer();
+    // }
     
     return () => {
-      if (phaseTimerRef.current) clearInterval(phaseTimerRef.current);
+      // Cleanup is handled in handleConfirmLeave
     };
-  }, [isActive, currentPhase]);
+  }, [isActive]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -95,7 +149,13 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getPhaseTime = () => {
+    // Use the current phaseTime state directly since it's now managed by the animation loop
+    return phaseTime;
+  };
+
   const getCircleColor = () => {
+    // Always return the correct color based on current phase
     if (currentPhase === 'inhale') {
       return 'from-orange-400 to-red-500';
     } else {
@@ -109,11 +169,6 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
     } else {
       return 'Exhale slowly through the mouth and empty your lungs';
     }
-  };
-
-  const getPhaseTime = () => {
-    const maxTime = currentPhase === 'inhale' ? rate.inhale : rate.exhale;
-    return Math.min(phaseTime, maxTime);
   };
 
   const handleCloseClick = () => {
@@ -130,15 +185,12 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    if (phaseTimerRef.current) {
-      clearInterval(phaseTimerRef.current);
-      phaseTimerRef.current = null;
-    }
+    // Phase timer is no longer used - timing is handled in animation loop
     
     // Reset state
     setIsActive(false);
     setTimeRemaining(0);
-    setProgress(0);
+    setProgress(MIN_SCALE); // Reset to smallest size
     
     // Use onLeave to navigate to Craving Support tab
     if (onLeave) {
@@ -177,28 +229,23 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
 
       {/* Breathing Circle */}
       <div className="flex-1 flex items-center justify-center relative">
-        {/* Outer Dotted Circle */}
+        {/* Outer Dotted Circle - Target boundary */}
         <div className="absolute w-80 h-80 border-2 border-dashed border-white/30 rounded-full" />
         
-        {/* Middle Dotted Circle */}
-        <div className="absolute w-64 h-64 border-2 border-dashed border-white/20 rounded-full" />
-        
-        {/* Animated Breathing Circle */}
+        {/* Animated Breathing Circle - Scales to match outer boundary */}
         <div 
-          className={`w-20 h-20 bg-gradient-to-br ${getCircleColor()} rounded-full transition-all duration-300 ease-in-out shadow-2xl`}
+          className={`w-20 h-20 bg-gradient-to-br ${getCircleColor()} rounded-full shadow-2xl`}
           style={{
             transform: `scale(${progress})`,
-            boxShadow: `0 0 ${progress * 50}px ${progress * 20}px ${currentPhase === 'inhale' ? 'rgba(251, 146, 60, 0.5)' : 'rgba(59, 130, 246, 0.5)'}`
+            transition: 'none', // Remove CSS transition for precise animation control
+            boxShadow: `0 0 ${Math.max(progress * 40, 10)}px ${Math.max(progress * 15, 5)}px ${currentPhase === 'inhale' ? 'rgba(251, 146, 60, 0.5)' : 'rgba(59, 130, 246, 0.5)'}`
           }}
         />
       </div>
 
       {/* Instructions */}
       <div className="p-6 text-center">
-        <div className="flex items-center justify-center space-x-3 mb-4">
-          <div className={`w-3 h-3 rounded-full ${
-            currentPhase === 'inhale' ? 'bg-orange-400' : 'bg-blue-400'
-          }`} />
+        <div className="flex items-center justify-center mb-4">
           <span className="text-white text-lg">{getInstruction()}</span>
         </div>
         

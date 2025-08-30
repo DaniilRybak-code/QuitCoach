@@ -2556,7 +2556,7 @@ const GameModal = ({ gameType, onClose }) => {
   );
 };
 // Craving Support View - Support for Managing Cravings
-const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, onBreathingComplete }) => {
+const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, onBreathingComplete, setActiveTab }) => {
   const [showGameModal, setShowGameModal] = useState(false);
   const [selectedGame, setSelectedGame] = useState(null);
   const [showCustomPopup, setShowCustomPopup] = useState(false);
@@ -6869,6 +6869,7 @@ const App = () => {
                 onBackToLogin={handleBackToLogin}
                 onResetForTesting={handleResetForTesting}
                 onBreathingComplete={handleBreathingComplete}
+                setActiveTab={setActiveTab}
               />
             </div>
           )}
