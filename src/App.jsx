@@ -45,6 +45,19 @@ const generateFallbackAvatar = (seed) => {
   `)}`;
 };
 
+// Function to get colors based on confidence level
+const getConfidenceColor = (confidence) => {
+  if (confidence <= 3) {
+    return '#ef4444'; // Red for low confidence
+  } else if (confidence <= 6) {
+    return '#fbbf24'; // Yellow for medium confidence
+  } else if (confidence <= 9) {
+    return '#84cc16'; // Greenish for high confidence
+  } else {
+    return '#22c55e'; // Green for maximum confidence
+  }
+};
+
 // Onboarding Flow Component
 const OnboardingFlow = ({ onComplete, authUser }) => {
   const [step, setStep] = useState(1);
@@ -888,14 +901,33 @@ const OnboardingFlow = ({ onComplete, authUser }) => {
                     // Save to Firebase when confidence level changes
                     saveOnboardingStep(newData, 10);
                   }}
-                  className="flex-1 h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer slider"
+                  className="flex-1 h-2 rounded-lg appearance-none cursor-pointer slider"
+                  style={{
+                    background: `linear-gradient(to right, ${getConfidenceColor(userData.confidence)} 0%, ${getConfidenceColor(userData.confidence)} ${(userData.confidence / 10) * 100}%, #475569 ${(userData.confidence / 10) * 100}%, #475569 100%)`
+                  }}
                 />
                 <span className="text-gray-400 text-sm">10</span>
               </div>
-              <div className="text-center mt-2">
-                <span className="text-white font-bold text-lg">{userData.confidence}</span>
-                <span className="text-gray-400 text-sm ml-2">/ 10</span>
-              </div>
+                              <div className="text-center mt-4">
+                  <span 
+                    className="font-bold text-4xl" 
+                    style={{ color: getConfidenceColor(userData.confidence) }}
+                  >
+                    {userData.confidence}
+                  </span>
+                  <span className="text-gray-400 text-lg ml-2">/ 10</span>
+                </div>
+                              <div className="text-center mt-2">
+                  <span 
+                    className="text-sm font-medium"
+                    style={{ color: getConfidenceColor(userData.confidence) }}
+                  >
+                    {userData.confidence <= 3 ? 'You can do this! 💪' :
+                     userData.confidence <= 6 ? 'Good confidence! 🎯' :
+                     userData.confidence <= 9 ? 'Great confidence! 🚀' :
+                     'Excellent confidence! 🌟'}
+                  </span>
+                </div>
             </div>
           </div>
         )}
@@ -1516,6 +1548,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
               <span className="text-xs">💪</span>
             </span>
           </div>
+
         </div>
         
         {/* Achievements */}
@@ -1692,30 +1725,100 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
     try {
       const { ref, get } = await import('firebase/database');
       
-      // Get relapse date from Firebase
-      const relapseRef = ref(db, `users/${user.uid}/profile/relapseDate`);
-      const relapseSnapshot = await get(relapseRef);
+      // Calculate TOTAL cravings resisted from individual cravings data (all time, not just current week)
+      const cravingsRef = ref(db, `users/${user.uid}/cravings`);
       
-      if (relapseSnapshot.exists()) {
-        const relapseDate = new Date(relapseSnapshot.val());
-        const now = new Date();
-        const timeDiff = now.getTime() - relapseDate.getTime();
-        const daysSinceRelapse = Math.floor(timeDiff / (1000 * 3600 * 24));
-        stats.streakDays = daysSinceRelapse;
-      } else {
-        const quitDate = user.quitDate ? new Date(user.quitDate) : new Date();
-        const now = new Date();
-        const timeDiff = now.getTime() - quitDate.getTime();
-        stats.streakDays = Math.floor(timeDiff / (1000 * 3600 * 24));
+      try {
+        const cravingsSnapshot = await get(cravingsRef);
+        let totalResisted = 0;
+        let totalRelapsed = 0;
+        
+        console.log(`🔍 Arena: Checking cravings collection for ${user.heroName} at path: users/${user.uid}/cravings`);
+        console.log(`🔍 Arena: Cravings snapshot exists: ${cravingsSnapshot.exists()}`);
+        
+        if (cravingsSnapshot.exists()) {
+          const cravingsData = cravingsSnapshot.val();
+          console.log(`🔍 Arena: Raw cravings data:`, cravingsData);
+          
+          cravingsSnapshot.forEach((childSnapshot) => {
+            const craving = childSnapshot.val();
+            console.log(`🔍 Arena: Individual craving:`, craving);
+            if (craving.outcome === 'resisted') {
+              totalResisted++;
+            } else if (craving.outcome === 'relapsed') {
+              totalRelapsed++;
+            }
+          });
+        }
+        
+        stats.cravingsResisted = totalResisted;
+        console.log(`💪 Arena: Calculated TOTAL cravings resisted for ${user.heroName}: ${totalResisted} (all time)`);
+        
+        // Also check the profile field as a backup
+        const profileCravingsRef = ref(db, `users/${user.uid}/profile/cravingsResisted`);
+        const profileCravingsSnapshot = await get(profileCravingsRef);
+        if (profileCravingsSnapshot.exists()) {
+          const profileValue = profileCravingsSnapshot.val();
+          console.log(`🔍 Arena: Profile cravingsResisted field value: ${profileValue}`);
+          // Use the higher value between calculated and profile
+          stats.cravingsResisted = Math.max(totalResisted, profileValue);
+        }
+        
+        // Log the final stats object being returned
+        console.log(`🔍 Arena: Final stats object for ${user.heroName}:`, stats);
+      } catch (queryError) {
+        console.log('Could not query cravings for Arena stats, using fallback');
+        // Fallback to profile field if available
+        const cravingsRef = ref(db, `users/${user.uid}/profile/cravingsResisted`);
+        const cravingsSnapshot = await get(cravingsRef);
+        stats.cravingsResisted = cravingsSnapshot.exists() ? cravingsSnapshot.val() : 0;
       }
       
-      // Get cravings resisted from Firebase
-      const cravingsRef = ref(db, `users/${user.uid}/profile/cravingsResisted`);
-      const cravingsSnapshot = await get(cravingsRef);
-      stats.cravingsResisted = cravingsSnapshot.exists() ? cravingsSnapshot.val() : 0;
+      // Calculate current streak from daily craving resistance data
+      let currentStreak = 0;
+      
+      // Check the last 30 days for consecutive days with successful craving resistance
+      for (let i = 0; i < 30; i++) {
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() - i);
+        const checkDateStr = checkDate.toDateString();
+        
+        // Check if user had any successful craving resistance on this date
+        const dailyStatsRef = ref(db, `users/${user.uid}/profile/daily/${checkDateStr}/cravingResistanceStats`);
+        const dailyStatsSnapshot = await get(dailyStatsRef);
+        
+        if (dailyStatsSnapshot.exists()) {
+          const dailyStats = dailyStatsSnapshot.val();
+          // If user had any successful resistance on this day, continue the streak
+          if (dailyStats && dailyStats.successfulResistances > 0) {
+            currentStreak++;
+          } else {
+            // Streak broken, stop counting
+            break;
+          }
+        } else {
+          // No data for this day, check if it's within the last 3 days (allow for missing data)
+          if (i <= 3) {
+            // For recent days, assume streak continues if no relapse data
+            const relapseRef = ref(db, `users/${user.uid}/profile/relapseDate`);
+            const relapseSnapshot = await get(relapseRef);
+            if (!relapseSnapshot.exists() || new Date(relapseSnapshot.val()).toDateString() !== checkDateStr) {
+              currentStreak++;
+            } else {
+              break;
+            }
+          } else {
+            // For older days, assume streak is broken if no data
+            break;
+          }
+        }
+      }
+      
+      stats.streakDays = currentStreak;
+      
+      console.log(`🎯 Arena: Calculated streak for ${user.heroName}: ${currentStreak} days`);
       
       // Calculate hydration streak from Firebase
-      const today = new Date().toDateString();
       let hydrationStreak = 0;
       for (let i = 0; i < 7; i++) {
         const checkDate = new Date();
@@ -1778,12 +1881,26 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   
   // Get real-time stats for both user and nemesis
   const [realTimeUserStats, setRealTimeUserStats] = useState(() => {
-    const defaultStats = { mentalStrength: 50, motivation: 50, triggerDefense: 30, addictionLevel: 50 };
+    const defaultStats = { 
+      mentalStrength: 50, 
+      motivation: 50, 
+      triggerDefense: 30, 
+      addictionLevel: 50,
+      cravingsResisted: 0,
+      streakDays: 0
+    };
     const userStats = user?.stats ? { ...defaultStats, ...user.stats } : defaultStats;
     return userStats;
   });
   const [realTimeNemesisStats, setRealTimeNemesisStats] = useState(() => {
-    const defaultStats = { mentalStrength: 50, motivation: 50, triggerDefense: 30, addictionLevel: 50 };
+    const defaultStats = { 
+      mentalStrength: 50, 
+      motivation: 50, 
+      triggerDefense: 30, 
+      addictionLevel: 50,
+      cravingsResisted: 0,
+      streakDays: 0
+    };
     const nemesisStats = nemesis?.stats ? { ...defaultStats, ...nemesis.stats } : defaultStats;
     return nemesisStats;
   });
@@ -1815,6 +1932,10 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         }
         if (nemesis) {
           const nemesisStats = await calculateRealTimeStats(nemesis);
+          console.log('🔄 Arena: Initial nemesis stats loaded:', nemesisStats);
+          
+          // Store just the calculated stats, not the merged object
+          console.log('🔄 Arena: Initial calculated nemesis stats:', nemesisStats);
           setRealTimeNemesisStats(nemesisStats);
         }
       };
@@ -1824,6 +1945,45 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
 
     initializeUserServices();
   }, [user, nemesis]);
+
+  // Add a refresh function for real-time stats
+  const refreshStats = async () => {
+    console.log('🔄 Arena: Refreshing stats...');
+    if (user) {
+      const userStats = await calculateRealTimeStats(user);
+      console.log('🔄 Arena: Updated user stats:', userStats);
+      console.log('🔄 Arena: User stats cravingsResisted:', userStats.cravingsResisted);
+      console.log('🔄 Arena: User stats streakDays:', userStats.streakDays);
+      setRealTimeUserStats(userStats);
+    }
+    if (nemesis) {
+      const nemesisStats = await calculateRealTimeStats(nemesis);
+      console.log('🔄 Arena: Updated nemesis stats:', nemesisStats);
+      console.log('🔄 Arena: Nemesis stats cravingsResisted:', nemesisStats.cravingsResisted);
+      console.log('🔄 Arena: Nemesis stats streakDays:', nemesisStats.streakDays);
+      
+      // Store just the calculated stats, not the merged object
+      console.log('🔄 Arena: Calculated nemesis stats:', nemesisStats);
+      setRealTimeNemesisStats(nemesisStats);
+    }
+  };
+
+  // Refresh stats every 30 seconds to keep them current
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    const interval = setInterval(refreshStats, 30000); // 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [user?.uid, nemesis?.uid]); // ✅ Added nemesis dependency
+  
+  // Trigger immediate refresh when nemesis changes
+  useEffect(() => {
+    if (nemesis?.uid) {
+      console.log('🔄 Arena: Nemesis changed, triggering immediate refresh...');
+      refreshStats();
+    }
+  }, [nemesis?.uid]);
   
   // Handle online/offline state changes - MOVED TO CORRECT LOCATION AFTER STATE DECLARATIONS
   useEffect(() => {
@@ -2068,13 +2228,54 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
             >
               <span className="text-lg font-bold">i</span>
             </button>
+            
+            {/* Refresh Stats Button */}
+            <button
+              onClick={refreshStats}
+              className="w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+              title="Refresh Stats"
+            >
+              <span className="text-lg font-bold">🔄</span>
+            </button>
+            
+                    {/* Debug Stats Display */}
+        <div className="text-xs text-gray-400 bg-gray-800 p-2 rounded">
+          <div>User Stats: {JSON.stringify(realTimeUserStats)}</div>
+          <div>Base Stats: {JSON.stringify(user?.stats)}</div>
+        </div>
+        
+        {/* Manual Refresh Button */}
+        <button
+          onClick={refreshStats}
+          className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+        >
+          🔄 Refresh Stats
+        </button>
           </div>
         </div>
         
         {/* Enhanced Battle Cards */}
         <div className="flex flex-row items-start justify-center gap-12 mb-8 w-full max-w-7xl mx-auto">
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
-            <TradingCard user={{ ...user, stats: realTimeUserStats }} showComparison={false} nemesisUser={nemesis} />
+            {(() => {
+              const mergedUserStats = { ...user.stats, ...realTimeUserStats };
+              console.log('🎯 TradingCard: Merged user stats:', mergedUserStats);
+              console.log('🎯 TradingCard: User base stats:', user.stats);
+              console.log('🎯 TradingCard: Real-time user stats:', realTimeUserStats);
+              console.log('🎯 TradingCard: Final cravingsResisted:', mergedUserStats.cravingsResisted);
+              console.log('🎯 TradingCard: Final streakDays:', mergedUserStats.streakDays);
+              
+              return (
+                <TradingCard 
+                  user={{ 
+                    ...user, 
+                    stats: mergedUserStats
+                  }} 
+                  showComparison={false} 
+                  nemesisUser={nemesis} 
+                />
+              );
+            })()}
           </div>
           
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
@@ -2087,12 +2288,30 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
           </div>
           
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
-            <TradingCard 
-              user={realBuddy || emptyNemesis} 
-              isNemesis={true} 
-              showComparison={false} 
-              nemesisUser={user} 
-            />
+            {(() => {
+              // Create merged nemesis stats with proper structure
+              const mergedNemesisStats = {
+                ...nemesis,                       // Keep original nemesis profile data
+                stats: {                          // Update only the stats portion
+                  ...nemesis.stats,               // Keep existing stats
+                  ...realTimeNemesisStats         // Override with calculated real-time stats
+                }
+              };
+              
+              console.log('🎯 TradingCard: Merged nemesis stats:', mergedNemesisStats);
+              console.log('🎯 TradingCard: Original nemesis:', nemesis);
+              console.log('🎯 TradingCard: RealTimeNemesisStats:', realTimeNemesisStats);
+              console.log('🎯 TradingCard: Final nemesis cravingsResisted:', mergedNemesisStats.stats?.cravingsResisted);
+              
+              return (
+                <TradingCard 
+                  user={mergedNemesisStats} 
+                  isNemesis={true} 
+                  showComparison={false} 
+                  nemesisUser={user} 
+                />
+              );
+            })()}
           </div>
         </div>
         {/* Battle Recommendations Section - Only show when losing */}
@@ -2686,9 +2905,16 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           let resisted = 0;
           let relapses = 0;
           
+          console.log(`🔍 Weekly Stats: Checking cravings for ${startDate} to ${endDate}`);
+          console.log(`🔍 Weekly Stats: Cravings snapshot exists: ${cravingsSnapshot.exists()}`);
+          
           if (cravingsSnapshot.exists()) {
+            const cravingsData = cravingsSnapshot.val();
+            console.log(`🔍 Weekly Stats: Raw cravings data:`, cravingsData);
+            
             cravingsSnapshot.forEach((childSnapshot) => {
               const craving = childSnapshot.val();
+              console.log(`🔍 Weekly Stats: Individual craving:`, craving);
               if (craving.outcome === 'resisted') {
                 resisted++;
               } else if (craving.outcome === 'relapsed') {
@@ -2696,6 +2922,8 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
               }
             });
           }
+          
+          console.log(`🔍 Weekly Stats: Calculated - resisted: ${resisted}, relapses: ${relapses}`);
           
           const weeklyStats = { resisted, relapses, lastUpdated: now.toISOString() };
           setWeeklyStats(weeklyStats);
@@ -3802,12 +4030,14 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
 
 // Craving Assessment Modal - Multi-step craving assessment flow
 const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCravingData, onNext, onPrev, onComplete, dailyCravingLogs }) => {
+
+
   // Function to get colors based on craving strength
   const getCravingColors = (strength) => {
     if (strength <= 3) {
       return {
         text: 'text-green-400',
-        slider: '#4ade80',
+        slider: '#22c55e', // Green for low cravings (good)
         shadow: 'rgba(74, 222, 128, 0.5)',
         label: 'Low',
         effect: 'craving-low',
@@ -3816,7 +4046,7 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
     } else if (strength <= 7) {
       return {
         text: 'text-orange-400',
-        slider: '#f97316',
+        slider: '#fbbf24', // Yellow for medium cravings (caution)
         shadow: 'rgba(249, 115, 22, 0.5)',
         label: 'Medium',
         effect: 'craving-medium',
@@ -3825,7 +4055,7 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
     } else {
       return {
         text: 'text-red-400',
-        slider: '#ef4444',
+        slider: '#ef4444', // Red for high cravings (danger)
         shadow: 'rgba(239, 68, 68, 0.5)',
         label: 'High',
         effect: 'craving-high',
@@ -3833,6 +4063,8 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
       };
     }
   };
+
+  
 
   const moods = [
     { id: 'stressed', icon: '😰', label: 'Stressed' },
