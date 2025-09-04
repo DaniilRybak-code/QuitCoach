@@ -1259,6 +1259,12 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
   const rarity = RARITIES[calculateRarity(user.stats.streakDays)];
   const ArchetypeIcon = archetype.icon;
   
+  // Debug logging for TradingCard
+  console.log('🎯 TradingCard: Received user object:', user);
+  console.log('🎯 TradingCard: User stats:', user.stats);
+  console.log('🎯 TradingCard: User stats.cravingsResisted:', user.stats?.cravingsResisted);
+  console.log('🎯 TradingCard: User stats.streakDays:', user.stats?.streakDays);
+  
   // Generate and store personalized special features based on onboarding responses
   const getPersonalizedFeatures = async (user) => {
     // Check if features are already stored in Firebase for this user
@@ -1537,14 +1543,22 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
           <div className="flex justify-between text-white text-sm">
             <span className="text-gray-300">Streak:</span>
             <span className="font-bold text-green-400 flex items-center gap-1">
-              {user.stats.streakDays} days
+              {(() => {
+                const streakValue = user.stats.streakDays;
+                console.log('🎯 TradingCard: Rendering streak value:', streakValue);
+                return streakValue;
+              })()} days
               {user.stats.streakDays > 0 && <span className="text-xs">🔥</span>}
             </span>
           </div>
           <div className="flex justify-between text-white text-sm">
             <span className="text-gray-300">Cravings Resisted:</span>
             <span className="font-bold text-blue-400 flex items-center gap-1">
-              {user.stats.cravingsResisted || 0}
+              {(() => {
+                const cravingsValue = user.stats.cravingsResisted || 0;
+                console.log('🎯 TradingCard: Rendering cravings value:', cravingsValue);
+                return cravingsValue;
+              })()}
               <span className="text-xs">💪</span>
             </span>
           </div>
@@ -1774,49 +1788,38 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         stats.cravingsResisted = cravingsSnapshot.exists() ? cravingsSnapshot.val() : 0;
       }
       
-      // Calculate current streak from daily craving resistance data
+      // Calculate current streak based on relapse date (not craving resistance)
       let currentStreak = 0;
       
-      // Check the last 30 days for consecutive days with successful craving resistance
-      for (let i = 0; i < 30; i++) {
-        const checkDate = new Date();
-        checkDate.setDate(checkDate.getDate() - i);
-        const checkDateStr = checkDate.toDateString();
-        
-        // Check if user had any successful craving resistance on this date
-        const dailyStatsRef = ref(db, `users/${user.uid}/profile/daily/${checkDateStr}/cravingResistanceStats`);
-        const dailyStatsSnapshot = await get(dailyStatsRef);
-        
-        if (dailyStatsSnapshot.exists()) {
-          const dailyStats = dailyStatsSnapshot.val();
-          // If user had any successful resistance on this day, continue the streak
-          if (dailyStats && dailyStats.successfulResistances > 0) {
-            currentStreak++;
-          } else {
-            // Streak broken, stop counting
-            break;
-          }
-        } else {
-          // No data for this day, check if it's within the last 3 days (allow for missing data)
-          if (i <= 3) {
-            // For recent days, assume streak continues if no relapse data
-            const relapseRef = ref(db, `users/${user.uid}/profile/relapseDate`);
-            const relapseSnapshot = await get(relapseRef);
-            if (!relapseSnapshot.exists() || new Date(relapseSnapshot.val()).toDateString() !== checkDateStr) {
-              currentStreak++;
-            } else {
-              break;
-            }
-          } else {
-            // For older days, assume streak is broken if no data
-            break;
-          }
-        }
+      console.log(`🔍 Arena: Starting streak calculation for ${user.heroName} (uid: ${user.uid})`);
+      console.log(`🔍 Arena: User quitDate:`, user.quitDate);
+      
+      // Check for relapse date first
+      const relapseRef = ref(db, `users/${user.uid}/profile/relapseDate`);
+      const relapseSnapshot = await get(relapseRef);
+      
+      console.log(`🔍 Arena: Relapse snapshot exists:`, relapseSnapshot.exists());
+      if (relapseSnapshot.exists()) {
+        const relapseValue = relapseSnapshot.val();
+        console.log(`🔍 Arena: Relapse date value:`, relapseValue);
+        // If there's a relapse date, calculate days since last relapse
+        const relapseDate = new Date(relapseValue);
+        const now = new Date();
+        const timeDiff = now.getTime() - relapseDate.getTime();
+        currentStreak = Math.floor(timeDiff / (1000 * 3600 * 24));
+        console.log(`🔍 Arena: Calculated streak from relapse date: ${currentStreak} days (relapse: ${relapseDate.toISOString()}, now: ${now.toISOString()})`);
+      } else {
+        // If no relapse date, calculate days since quit date
+        const quitDate = user.quitDate ? new Date(user.quitDate) : new Date();
+        const now = new Date();
+        const timeDiff = now.getTime() - quitDate.getTime();
+        currentStreak = Math.floor(timeDiff / (1000 * 3600 * 24));
+        console.log(`🔍 Arena: Calculated streak from quit date: ${currentStreak} days (quit: ${quitDate.toISOString()}, now: ${now.toISOString()})`);
       }
       
       stats.streakDays = currentStreak;
       
-      console.log(`🎯 Arena: Calculated streak for ${user.heroName}: ${currentStreak} days`);
+      console.log(`🎯 Arena: Final calculated streak for ${user.heroName}: ${currentStreak} days`);
       
       // Calculate hydration streak from Firebase
       let hydrationStreak = 0;
@@ -1893,6 +1896,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
     return userStats;
   });
   const [realTimeNemesisStats, setRealTimeNemesisStats] = useState(() => {
+    // Always start with default stats - let useEffect handle real-time calculation
     const defaultStats = { 
       mentalStrength: 50, 
       motivation: 50, 
@@ -1901,8 +1905,8 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
       cravingsResisted: 0,
       streakDays: 0
     };
-    const nemesisStats = nemesis?.stats ? { ...defaultStats, ...nemesis.stats } : defaultStats;
-    return nemesisStats;
+    console.log('🔄 Arena: Initializing realTimeNemesisStats with default stats:', defaultStats);
+    return defaultStats;
   });
 
   // Note: Firestore initialization is handled by the parent App component
@@ -1926,16 +1930,20 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
       await initializeStatManager();
 
       const loadStats = async () => {
+        console.log('🔄 Arena: Starting loadStats - user:', user?.heroName, 'nemesis:', nemesis?.heroName);
         if (user) {
           const userStats = await calculateRealTimeStats(user);
+          console.log('🔄 Arena: Setting user stats:', userStats);
           setRealTimeUserStats(userStats);
         }
         if (nemesis) {
+          console.log('🔄 Arena: Calculating nemesis stats for:', nemesis.heroName, 'uid:', nemesis.uid);
           const nemesisStats = await calculateRealTimeStats(nemesis);
           console.log('🔄 Arena: Initial nemesis stats loaded:', nemesisStats);
           
           // Store just the calculated stats, not the merged object
           console.log('🔄 Arena: Initial calculated nemesis stats:', nemesisStats);
+          console.log('🔄 Arena: About to setRealTimeNemesisStats with:', nemesisStats);
           setRealTimeNemesisStats(nemesisStats);
         }
       };
@@ -1949,6 +1957,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   // Add a refresh function for real-time stats
   const refreshStats = async () => {
     console.log('🔄 Arena: Refreshing stats...');
+    console.log('🔄 Arena: Current realTimeNemesisStats before refresh:', realTimeNemesisStats);
     if (user) {
       const userStats = await calculateRealTimeStats(user);
       console.log('🔄 Arena: Updated user stats:', userStats);
@@ -1957,6 +1966,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
       setRealTimeUserStats(userStats);
     }
     if (nemesis) {
+      console.log('🔄 Arena: Refreshing nemesis stats for:', nemesis.heroName, 'uid:', nemesis.uid);
       const nemesisStats = await calculateRealTimeStats(nemesis);
       console.log('🔄 Arena: Updated nemesis stats:', nemesisStats);
       console.log('🔄 Arena: Nemesis stats cravingsResisted:', nemesisStats.cravingsResisted);
@@ -1964,6 +1974,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
       
       // Store just the calculated stats, not the merged object
       console.log('🔄 Arena: Calculated nemesis stats:', nemesisStats);
+      console.log('🔄 Arena: About to setRealTimeNemesisStats with:', nemesisStats);
       setRealTimeNemesisStats(nemesisStats);
     }
   };
@@ -2258,6 +2269,16 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         <div className="flex flex-row items-start justify-center gap-12 mb-8 w-full max-w-7xl mx-auto">
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
             {(() => {
+              // Only render if we have both user and realTimeUserStats
+              if (!user || !realTimeUserStats) {
+                console.log('🎯 TradingCard: Missing data, not rendering user card');
+                return (
+                  <div className="w-80 h-[520px] bg-slate-800 rounded-xl border-2 border-slate-600 p-4 text-white text-center mx-auto flex items-center justify-center">
+                    <div className="animate-pulse">Loading User...</div>
+                  </div>
+                );
+              }
+              
               const mergedUserStats = { ...user.stats, ...realTimeUserStats };
               console.log('🎯 TradingCard: Merged user stats:', mergedUserStats);
               console.log('🎯 TradingCard: User base stats:', user.stats);
@@ -2289,6 +2310,16 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
           
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
             {(() => {
+              // Only render if we have both nemesis and realTimeNemesisStats
+              if (!nemesis || !realTimeNemesisStats) {
+                console.log('🎯 TradingCard: Missing data, not rendering nemesis card');
+                return (
+                  <div className="w-80 h-[520px] bg-slate-800 rounded-xl border-2 border-slate-600 p-4 text-white text-center mx-auto flex items-center justify-center">
+                    <div className="animate-pulse">Loading Nemesis...</div>
+                  </div>
+                );
+              }
+              
               // Create merged nemesis stats with proper structure
               const mergedNemesisStats = {
                 ...nemesis,                       // Keep original nemesis profile data
@@ -2302,6 +2333,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
               console.log('🎯 TradingCard: Original nemesis:', nemesis);
               console.log('🎯 TradingCard: RealTimeNemesisStats:', realTimeNemesisStats);
               console.log('🎯 TradingCard: Final nemesis cravingsResisted:', mergedNemesisStats.stats?.cravingsResisted);
+              console.log('🎯 TradingCard: Final nemesis streakDays:', mergedNemesisStats.stats?.streakDays);
               
               return (
                 <TradingCard 
@@ -5646,7 +5678,9 @@ const App = () => {
     mentalStrength: 50,
     motivation: 50,
     triggerDefense: 30,
-    addictionLevel: 50
+    addictionLevel: 50,
+    streakDays: 0,
+    cravingsResisted: 0
   });
 
   // Helper function to get default profile
@@ -5779,11 +5813,22 @@ const App = () => {
       const unsubscribeStats = onValue(statsRef, (snapshot) => {
         if (snapshot.exists()) {
           const newStats = validateStats(snapshot.val());
+          console.log('🔄 Firebase Listener: Stats changed, new stats:', newStats);
           setUserStats(newStats);
           // Update real-time stats if user is in Arena
           if (currentView === 'arena' && user) {
+            console.log('🔄 Firebase Listener: Current user object:', user);
+            console.log('🔄 Firebase Listener: user.quitDate:', user.quitDate);
+            console.log('🔄 Firebase Listener: user.uid:', user.uid);
             const updatedUser = { ...user, stats: newStats };
-            calculateRealTimeStats(updatedUser).then(setRealTimeUserStats);
+            console.log('🔄 Firebase Listener: Triggering calculateRealTimeStats for Arena with updatedUser:', updatedUser);
+            console.log('🔄 Firebase Listener: updatedUser.quitDate:', updatedUser.quitDate);
+            console.log('🔄 Firebase Listener: updatedUser.uid:', updatedUser.uid);
+            calculateRealTimeStats(updatedUser).then((calculatedStats) => {
+              console.log('🔄 Firebase Listener: calculateRealTimeStats returned:', calculatedStats);
+              console.log('🔄 Firebase Listener: calculatedStats.streakDays:', calculatedStats.streakDays);
+              setRealTimeUserStats(calculatedStats);
+            });
           }
         }
       });
@@ -5892,6 +5937,8 @@ const App = () => {
       motivation: Math.max(0, Math.min(100, parseInt(stats.motivation) || 50)),
       triggerDefense: Math.max(0, Math.min(100, parseInt(stats.triggerDefense) || 30)),
       addictionLevel: Math.max(0, Math.min(100, parseInt(stats.addictionLevel) || 50)),
+      streakDays: Math.max(0, parseInt(stats.streakDays) || 0),
+      cravingsResisted: Math.max(0, parseInt(stats.cravingsResisted) || 0),
       ...stats
     };
   };

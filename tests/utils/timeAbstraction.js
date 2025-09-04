@@ -28,10 +28,9 @@ class TimeAbstraction {
       constructor(...args) {
         if (args.length === 0) {
           super(this.fixedTime);
-          return this;
+        } else {
+          super(...args);
         }
-        super(...args);
-        return this;
       }
     };
 
