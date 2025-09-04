@@ -48,7 +48,7 @@ class StatManager {
 
   async updateAddictionFromCleanTime() {
     try {
-      const relapseSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/relapseDate`));
+      const relapseSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/lastRelapseDate`));
       const userSnapshot = await get(this.userRef);
       
       if (!userSnapshot.exists()) return;
@@ -63,9 +63,9 @@ class StatManager {
         const decrease = cleanWeeks * 2;
         await this.updateStat('addictionLevel', -decrease, `Clean time: ${cleanWeeks} week(s)`);
         
-        // Reset penalty level after 7 clean days
+        // Reset escalation level after 7 clean days
         if (cleanWeeks >= 1) {
-          await this.resetRelapsePenaltyLevel();
+          await this.resetRelapseEscalationLevel();
         }
       }
     } catch (error) {
@@ -76,44 +76,55 @@ class StatManager {
   async handleRelapse() {
     try {
       const now = new Date();
-      const lastRelapseSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/relapseDate`));
+      const lastRelapseSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/lastRelapseDate`));
+      const escalationLevelSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/relapseEscalationLevel`));
       
-      let penaltyLevel = 1; // Default penalty level
+      let escalationLevel = 1; // Default escalation level
       
       if (lastRelapseSnapshot.exists()) {
         const lastRelapse = new Date(lastRelapseSnapshot.val());
         const daysSinceLastRelapse = Math.floor((now - lastRelapse) / (1000 * 60 * 60 * 24));
         
-        // Determine penalty level based on timing
+        // Get current escalation level
+        const currentEscalationLevel = escalationLevelSnapshot.exists() ? escalationLevelSnapshot.val() : 1;
+        
+        // Determine escalation level based on timing
         if (daysSinceLastRelapse <= 3) {
-          penaltyLevel = 3; // Third relapse and on
+          // 3rd+ relapse within 3 days
+          escalationLevel = Math.max(3, currentEscalationLevel + 1);
         } else if (daysSinceLastRelapse <= 7) {
-          penaltyLevel = 2; // Second relapse within 7 days
+          // 2nd relapse within 7 days
+          escalationLevel = Math.max(2, currentEscalationLevel);
         } else {
-          penaltyLevel = 1; // First relapse after clean period
+          // First relapse after clean period (7+ days)
+          escalationLevel = 1;
         }
       }
 
-      // Apply addiction penalty based on level
+      // Apply addiction penalty based on escalation level
       let addictionIncrease = 0;
-      switch (penaltyLevel) {
-        case 1: addictionIncrease = 4; break;  // First relapse
-        case 2: addictionIncrease = 6; break;  // Second relapse
-        case 3: addictionIncrease = 8; break;  // Third+ relapse
+      switch (escalationLevel) {
+        case 1: addictionIncrease = 4; break;  // 1st relapse = +4 points
+        case 2: addictionIncrease = 6; break;  // 2nd relapse within 7 days = +6 points
+        case 3: addictionIncrease = 8; break;  // 3rd+ relapse within 3 days = +8 points
+        default: addictionIncrease = 8; break; // Default to highest penalty
       }
 
       // Update stats
       await Promise.all([
-        this.updateStat('addictionLevel', addictionIncrease, `Relapse penalty level ${penaltyLevel}`),
+        this.updateStat('addictionLevel', addictionIncrease, `Relapse escalation level ${escalationLevel}`),
         this.updateStat('mentalStrength', -3, 'Relapse setback'),
         this.updateStat('triggerDefense', -3, 'Relapse to known trigger')
       ]);
 
-      // Update relapse date
-      await set(ref(this.db, `users/${this.userUID}/profile/relapseDate`), now.toISOString());
+      // Update relapse date and escalation level
+      await Promise.all([
+        set(ref(this.db, `users/${this.userUID}/profile/lastRelapseDate`), now.toISOString()),
+        set(ref(this.db, `users/${this.userUID}/profile/relapseEscalationLevel`), escalationLevel)
+      ]);
       
       // Log relapse behavior
-      await this.logBehavior('relapse', penaltyLevel, `Penalty level ${penaltyLevel} - ${addictionIncrease} addiction, -3 mental, -3 trigger defense`);
+      await this.logBehavior('relapse', escalationLevel, `Escalation level ${escalationLevel} - ${addictionIncrease} addiction, -3 mental, -3 trigger defense`);
       
       return true;
     } catch (error) {
@@ -122,12 +133,41 @@ class StatManager {
     }
   }
 
-  async resetRelapsePenaltyLevel() {
+  async resetRelapseEscalationLevel() {
     try {
-      await set(ref(this.db, `users/${this.userUID}/profile/relapsePenaltyLevel`), 1);
-      console.log('Relapse penalty level reset');
+      await set(ref(this.db, `users/${this.userUID}/profile/relapseEscalationLevel`), 1);
+      console.log('Relapse escalation level reset');
     } catch (error) {
-      console.error('Error resetting relapse penalty level:', error);
+      console.error('Error resetting relapse escalation level:', error);
+    }
+  }
+
+  async getAddictionStatus() {
+    try {
+      const lastRelapseSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/lastRelapseDate`));
+      const escalationLevelSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/relapseEscalationLevel`));
+      const userSnapshot = await get(this.userRef);
+      
+      if (!userSnapshot.exists()) return null;
+
+      const userData = userSnapshot.val();
+      const lastRelapse = lastRelapseSnapshot.exists() ? new Date(lastRelapseSnapshot.val()) : new Date(userData.quitDate || Date.now());
+      const escalationLevel = escalationLevelSnapshot.exists() ? escalationLevelSnapshot.val() : 1;
+      const now = new Date();
+      
+      const daysSinceLastRelapse = Math.floor((now - lastRelapse) / (1000 * 60 * 60 * 24));
+      const cleanWeeks = Math.floor((now - lastRelapse) / (1000 * 60 * 60 * 24 * 7));
+      
+      return {
+        lastRelapseDate: lastRelapse,
+        escalationLevel,
+        daysSinceLastRelapse,
+        cleanWeeks,
+        isCleanFor7Days: daysSinceLastRelapse >= 7
+      };
+    } catch (error) {
+      console.error('Error getting addiction status:', error);
+      return null;
     }
   }
 
