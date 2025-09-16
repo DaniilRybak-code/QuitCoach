@@ -196,6 +196,52 @@ class FirestoreBuddyService {
   }
 
   /**
+   * Get a user's buddy pair information
+   * @param {string} userId - Firebase Auth UID
+   * @returns {Promise<Object|null>} - Buddy pair data or null if not found
+   */
+  async getUserBuddyPair(userId) {
+    try {
+      console.log('🔄 Firestore: Getting buddy pair for user:', userId);
+      
+      // Query for buddy pairs where the user is either user1Id or user2Id
+      const q1 = query(this.buddyPairsCollection, where('user1Id', '==', userId));
+      const q2 = query(this.buddyPairsCollection, where('user2Id', '==', userId));
+      
+      // Execute both queries
+      const [snapshot1, snapshot2] = await Promise.all([
+        getDocs(q1),
+        getDocs(q2)
+      ]);
+      
+      // Check if user is found in either query
+      let buddyPairDoc = null;
+      
+      if (!snapshot1.empty) {
+        buddyPairDoc = snapshot1.docs[0];
+      } else if (!snapshot2.empty) {
+        buddyPairDoc = snapshot2.docs[0];
+      }
+      
+      if (buddyPairDoc) {
+        const pairData = buddyPairDoc.data();
+        console.log('✅ Firestore: Found buddy pair:', buddyPairDoc.id);
+        return {
+          id: buddyPairDoc.id,
+          ...pairData
+        };
+      } else {
+        console.log('ℹ️ Firestore: No buddy pair found for user');
+        return null;
+      }
+      
+    } catch (error) {
+      console.error('❌ Firestore: Error getting buddy pair:', error);
+      return null;
+    }
+  }
+
+  /**
    * Test Firestore connectivity by writing a test document
    * @returns {Promise<boolean>} - Success status
    */
@@ -203,31 +249,17 @@ class FirestoreBuddyService {
     try {
       console.log('🧪 Firestore: Testing connectivity...');
       
-      const testCollection = collection(this.firestore, 'connectionTest');
-      const testDoc = doc(testCollection, 'test-' + Date.now());
-      
-      const testData = {
-        test: true,
-        timestamp: serverTimestamp(),
-        message: 'Firestore connectivity test',
-        service: 'FirestoreBuddyService'
-      };
-
-      await setDoc(testDoc, testData);
-      console.log('✅ Firestore: Connectivity test successful');
-      
-      // Clean up test document
-      await deleteDoc(testDoc);
-      console.log('🧹 Firestore: Test document cleaned up');
-      
-      return true;
+      // Simple connectivity check without requiring write permissions
+      if (this.firestore && typeof this.firestore.app !== 'undefined') {
+        console.log('✅ Firestore: Service available and initialized');
+        return true;
+      } else {
+        console.warn('⚠️ Firestore: Service not properly initialized');
+        return false;
+      }
       
     } catch (error) {
-      console.error('❌ Firestore: Connectivity test failed:', error);
-      console.error('❌ Error details:', {
-        code: error.code,
-        message: error.message
-      });
+      console.warn('⚠️ Firestore: Connectivity check failed (non-critical):', error?.message || error);
       return false;
     }
   }

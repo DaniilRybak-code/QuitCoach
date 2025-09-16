@@ -1,0 +1,24 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "matchingPool": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "buddyPairs": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "healthchecks": {
+      ".read": false,
+      ".write": false
+    },
+    ".read": false,
+    ".write": false
+  }
+}
