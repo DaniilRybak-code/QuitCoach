@@ -7004,9 +7004,9 @@ const App = () => {
               lastMessageAt: new Date().toISOString(),
               user1RemovedFromPool: false,
               user2RemovedFromPool: false,
-              // Store user names for easier buddy display
-              user1Name: targetUser.heroName || 'User 1',
-              user2Name: arrivingUser.heroName || 'User 2'
+              // Store user names for easier buddy display (match the ID assignment order)
+              user1Name: arrivingUser.heroName || 'User 1', // arrivingUser becomes user1Id
+              user2Name: targetUser.heroName || 'User 2'    // targetUser becomes user2Id
             };
             
             console.log('🔄 Firestore: About to call createBuddyPair with data:', {
