@@ -1702,15 +1702,53 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   const calculateRealTimeStats = async (user) => {
     const stats = { ...user.stats };
     
-    // If this is a nemesis/buddy user (marked with isRealBuddy flag), return placeholder stats
+    // If this is a nemesis/buddy user, try to get real stats but handle permission errors gracefully
     if (user?.isRealBuddy) {
-      console.log('🔄 Arena: Returning placeholder stats for nemesis/buddy user:', user.heroName);
-      return {
-        ...stats,
-        streakDays: 0,
-        cravingsResisted: 0,
-        // Keep other stats as they are from the buddy data
-      };
+      console.log('🔄 Arena: Attempting to get real stats for buddy user:', user.heroName);
+      try {
+        // Try to get real stats from Firebase, but don't update addiction (permission issues)
+        // We'll only get public/readable data and calculate streak
+        
+        // Calculate streak based on buddy's quit date (if available)
+        if (user.quitDate) {
+          const quitDate = new Date(user.quitDate);
+          const now = new Date();
+          const timeDiff = now.getTime() - quitDate.getTime();
+          stats.streakDays = Math.max(0, Math.floor(timeDiff / (1000 * 3600 * 24)));
+          console.log('🔄 Arena: Calculated buddy streak from quit date:', stats.streakDays);
+        }
+        
+        // Try to get cravings resisted count (if readable)
+        try {
+          const cravingsRef = ref(db, `users/${user.uid}/cravings`);
+          const cravingsSnapshot = await get(cravingsRef);
+          let totalResisted = 0;
+          
+          if (cravingsSnapshot.exists()) {
+            cravingsSnapshot.forEach((childSnapshot) => {
+              const craving = childSnapshot.val();
+              if (craving.outcome === 'resisted') {
+                totalResisted++;
+              }
+            });
+            stats.cravingsResisted = totalResisted;
+            console.log('🔄 Arena: Got buddy cravings resisted:', totalResisted);
+          }
+        } catch (cravingsError) {
+          console.log('⚠️ Arena: Could not read buddy cravings (permission), using default');
+          stats.cravingsResisted = 0;
+        }
+        
+        return stats;
+        
+      } catch (error) {
+        console.log('⚠️ Arena: Could not get real buddy stats, using placeholders:', error.message);
+        return {
+          ...stats,
+          streakDays: 0,
+          cravingsResisted: 0
+        };
+      }
     }
     
     if (!user?.uid) {
@@ -1896,6 +1934,22 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
       }
     }
     
+    // Update addiction from clean time only for the current authenticated user (not buddies)
+    if (user?.uid && !user?.isRealBuddy && statManager) {
+      try {
+        await statManager.updateAddictionFromCleanTime();
+        // Get updated stats after addiction decay
+        const { ref: dbRef, get } = await import('firebase/database');
+        const updatedStatsSnapshot = await get(dbRef(db, `users/${user.uid}/stats`));
+        if (updatedStatsSnapshot.exists()) {
+          const updatedStats = updatedStatsSnapshot.val();
+          stats.addictionLevel = updatedStats.addictionLevel || stats.addictionLevel;
+        }
+      } catch (error) {
+        console.error('Error updating addiction from clean time:', error);
+      }
+    }
+    
     return stats;
   };
   
@@ -1985,6 +2039,86 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
       isMounted = false;
     };
   }, [user?.uid, nemesis?.uid]); // Only depend on stable user IDs to prevent infinite loops
+
+  // Set up real-time listeners for buddy stats updates
+  useEffect(() => {
+    if (!nemesis?.uid || !nemesis?.isRealBuddy) return;
+
+    let isMounted = true;
+    console.log('🔄 Arena: Setting up real-time listener for buddy stats:', nemesis.heroName);
+
+    const setupBuddyStatsListener = async () => {
+      try {
+        const { ref, onValue } = await import('firebase/database');
+        
+        // Listen for changes in buddy's stats
+        const buddyStatsRef = ref(db, `users/${nemesis.uid}/stats`);
+        const unsubscribeStats = onValue(buddyStatsRef, (snapshot) => {
+          if (!isMounted) return;
+          
+          if (snapshot.exists()) {
+            const updatedBuddyStats = snapshot.val();
+            console.log('🔄 Arena: Buddy stats updated in real-time:', updatedBuddyStats);
+            
+            // Update the nemesis stats in real-time
+            setRealTimeNemesisStats(prevStats => ({
+              ...prevStats,
+              ...updatedBuddyStats
+            }));
+          }
+        }, (error) => {
+          if (error.code !== 'PERMISSION_DENIED') {
+            console.error('Error listening to buddy stats:', error);
+          }
+        });
+
+        // Listen for changes in buddy's profile (for streak calculation)
+        const buddyProfileRef = ref(db, `users/${nemesis.uid}/profile`);
+        const unsubscribeProfile = onValue(buddyProfileRef, async (snapshot) => {
+          if (!isMounted) return;
+          
+          if (snapshot.exists()) {
+            const profileData = snapshot.val();
+            console.log('🔄 Arena: Buddy profile updated, recalculating stats...');
+            
+            // Recalculate buddy stats with new profile data
+            const updatedBuddy = {
+              ...nemesis,
+              quitDate: profileData.quitDate || nemesis.quitDate,
+              // Update other relevant profile fields
+            };
+            
+            const newBuddyStats = await calculateRealTimeStats(updatedBuddy);
+            console.log('🔄 Arena: Recalculated buddy stats from profile update:', newBuddyStats);
+            setRealTimeNemesisStats(newBuddyStats);
+          }
+        }, (error) => {
+          if (error.code !== 'PERMISSION_DENIED') {
+            console.error('Error listening to buddy profile:', error);
+          }
+        });
+
+        return () => {
+          unsubscribeStats();
+          unsubscribeProfile();
+        };
+        
+      } catch (error) {
+        console.error('Error setting up buddy stats listeners:', error);
+      }
+    };
+
+    const cleanupPromise = setupBuddyStatsListener();
+
+    return () => {
+      isMounted = false;
+      cleanupPromise.then(cleanup => {
+        if (cleanup && typeof cleanup === 'function') {
+          cleanup();
+        }
+      });
+    };
+  }, [nemesis?.uid, nemesis?.isRealBuddy]);
 
   // Add a refresh function for real-time stats
   const refreshStats = async () => {
@@ -3421,6 +3555,13 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           if (statManager) {
             await statManager.handleRelapse();
           }
+          
+          // Refresh stats display after relapse
+          if (typeof refreshStats === 'function') {
+            setTimeout(() => refreshStats(), 1000); // Small delay to ensure Firebase updates
+          }
+          
+          // Note: Buddy will see these changes automatically via Firebase listeners
         }
         // For 'resistance_practices' and 'logged', newStats remains unchanged
         
@@ -3687,6 +3828,11 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           date
         });
         
+        // Handle relapse with StatManager
+        if (statManager) {
+          await statManager.handleRelapse();
+        }
+        
         // Update weekly stats
         const statsRef = ref(db, `users/${user.uid}/profile/cravingStats`);
         const newStats = {
@@ -3697,10 +3843,12 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
         await set(statsRef, newStats);
         setWeeklyStats(newStats);
         
-        // Use StatManager
-        if (statManager) {
-          await statManager.handleRelapse();
+        // Refresh stats display after relapse
+        if (typeof refreshStats === 'function') {
+          setTimeout(() => refreshStats(), 1000); // Small delay to ensure Firebase updates
         }
+        
+        // Note: Buddy will see these changes automatically via Firebase listeners
       }
       
       // Fallback to localStorage
@@ -6679,21 +6827,78 @@ const App = () => {
           }
         }
         
+        // Try to get real buddy stats from Firebase
+        let buddyStats = {
+          streakDays: 0, // Will be calculated in real-time
+          addictionLevel: 50,
+          willpower: 50,
+          motivation: 50,
+          cravingResistance: 50,
+          triggerDefense: 30,
+          experiencePoints: 0
+        };
+        
+        try {
+          console.log('🔄 Attempting to get real buddy stats from Firebase...');
+          const { ref, get } = await import('firebase/database');
+          const buddyStatsRef = ref(db, `users/${buddyUserId}/stats`);
+          const buddyStatsSnapshot = await get(buddyStatsRef);
+          
+          if (buddyStatsSnapshot.exists()) {
+            const realBuddyStats = buddyStatsSnapshot.val();
+            buddyStats = {
+              ...buddyStats, // Keep defaults as fallback
+              ...realBuddyStats // Override with real stats
+            };
+            console.log('✅ Got real buddy stats from Firebase:', realBuddyStats);
+          } else {
+            console.log('⚠️ Buddy stats not found in Firebase, using defaults');
+          }
+        } catch (statsError) {
+          console.log('⚠️ Could not read buddy stats (permission), using defaults:', statsError.message);
+        }
+        
+        // Also try to get buddy's quit date and avatar for better display
+        let buddyQuitDate = null;
+        let buddyAvatar = generateAvatar('buddy', 'adventurer'); // Default fallback
+        let buddyArchetype = 'DETERMINED'; // Default fallback
+        
+        try {
+          const buddyProfileRef = ref(db, `users/${buddyUserId}`);
+          const buddyProfileSnapshot = await get(buddyProfileRef);
+          if (buddyProfileSnapshot.exists()) {
+            const buddyProfile = buddyProfileSnapshot.val();
+            
+            if (buddyProfile.quitDate) {
+              buddyQuitDate = new Date(buddyProfile.quitDate);
+              console.log('✅ Got buddy quit date:', buddyQuitDate);
+            }
+            
+            if (buddyProfile.avatar) {
+              buddyAvatar = buddyProfile.avatar;
+              console.log('✅ Got buddy avatar');
+            } else if (buddyProfile.avatarSeed) {
+              buddyAvatar = generateAvatar(buddyProfile.avatarSeed, buddyProfile.archetype || 'adventurer');
+              console.log('✅ Generated buddy avatar from seed');
+            }
+            
+            if (buddyProfile.archetype) {
+              buddyArchetype = buddyProfile.archetype;
+              console.log('✅ Got buddy archetype:', buddyArchetype);
+            }
+          }
+        } catch (profileError) {
+          console.log('⚠️ Could not read buddy profile (permission):', profileError.message);
+        }
+
         const transformedBuddy = {
           heroName: buddyName,
           uid: buddyUserId,
-          stats: {
-            streakDays: 0, // Will be calculated in real-time
-            addictionLevel: 50,
-            willpower: 50,
-            motivation: 50,
-            cravingResistance: 50,
-            triggerDefense: 30,
-            experiencePoints: 0
-          },
+          stats: buddyStats,
+          quitDate: buddyQuitDate,
           achievements: [],
-          archetype: 'DETERMINED',
-          avatar: generateAvatar('buddy', 'adventurer'),
+          archetype: buddyArchetype,
+          avatar: buddyAvatar,
           userId: buddyUserId,
           isRealBuddy: true,
           pairId: buddyPair.id,

@@ -120,6 +120,7 @@ class StatManager {
       // Update relapse date and escalation level
       await Promise.all([
         set(ref(this.db, `users/${this.userUID}/profile/lastRelapseDate`), now.toISOString()),
+        set(ref(this.db, `users/${this.userUID}/profile/relapseDate`), now.toISOString()), // Also update the field used by streak calculation
         set(ref(this.db, `users/${this.userUID}/profile/relapseEscalationLevel`), escalationLevel)
       ]);
       

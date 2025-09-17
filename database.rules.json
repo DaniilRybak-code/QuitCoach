@@ -3,7 +3,22 @@
     "users": {
       "$uid": {
         ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
+        ".write": "$uid === auth.uid",
+        "stats": {
+          ".read": "auth != null"
+        },
+        "profile": {
+          ".read": "$uid === auth.uid",
+          "quitDate": {
+            ".read": "auth != null"
+          },
+          "relapseDate": {
+            ".read": "auth != null"
+          }
+        },
+        "cravings": {
+          ".read": "auth != null"
+        }
       }
     },
     "matchingPool": {
