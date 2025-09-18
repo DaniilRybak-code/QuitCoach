@@ -5,6 +5,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import StatManager from './services/statManager.js';
 import BuddyMatchingService from './services/buddyMatchingService.js';
 import FirestoreBuddyService from './services/firestoreBuddyService.js';
+import FirestoreBehavioralService from './services/firestoreBehavioralService.js';
 
 // Debug: Check if FirestoreBuddyService is imported correctly
 console.log('🧪 FirestoreBuddyService import check:', !!FirestoreBuddyService);
@@ -14,6 +15,7 @@ console.log('🧪 FirestoreBuddyService constructor:', FirestoreBuddyService?.na
 import AuthScreen from './components/AuthScreen';
 import OfflineIndicator from './components/OfflineIndicator';
 import BreathingModal from './components/BreathingModal';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { Users, Zap, Trophy, Target, Heart, DollarSign, Calendar, Star, Shield, Sword, Home, User, Settings, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
 
 // Avatar generation utility with fallback
@@ -3408,6 +3410,21 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
       if (statManager) {
         await statManager.handleHydrationUpdate(newWaterCount);
         
+        // ALSO log hydration to Firestore for predictive analytics
+        if (behavioralService) {
+          try {
+            const hydrationStreak = await statManager.checkHydrationStreak();
+            await behavioralService.logHydration(user.uid, {
+              glassesConsumed: newWaterCount,
+              targetGlasses: 6,
+              currentStreak: hydrationStreak
+            });
+            console.log('✅ Hydration also logged to Firestore for analytics');
+          } catch (firestoreError) {
+            console.warn('⚠️ Could not log hydration to Firestore:', firestoreError.message);
+          }
+        }
+        
         // If we just reached 6 glasses, check for mental strength bonus
         if (newWaterCount === 6 && dailyWater === 5) {
           // Check if this is the 3rd consecutive day with 6 glasses
@@ -3530,6 +3547,27 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
         const newCravingRef = push(cravingsRef);
         await set(newCravingRef, finalCravingData);
         
+        // ALSO save to Firestore for predictive analytics
+        if (behavioralService) {
+          try {
+            await behavioralService.logCraving(user.uid, {
+              outcome: 'resisted',
+              strength: cravingData.strength,
+              duration: cravingData.duration,
+              context: 'detailed_assessment',
+              triggers: cravingData.triggers || [],
+              mood: cravingData.mood,
+              stressLevel: cravingData.stressLevel,
+              copingStrategiesUsed: cravingData.copingStrategies || [],
+              location: cravingData.location,
+              socialSituation: cravingData.socialSituation
+            });
+            console.log('✅ Craving also logged to Firestore for analytics');
+          } catch (firestoreError) {
+            console.warn('⚠️ Could not log craving to Firestore:', firestoreError.message);
+          }
+        }
+        
         // Initialize variables for organized collections
         let historyData = [];
         let monthHistory = [];
@@ -3599,6 +3637,28 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
             console.log('🔄 Detailed Craving: Calling StatManager.handleRelapse()...');
             const relapseResult = await statManager.handleRelapse();
             console.log('🔄 Detailed Craving: StatManager.handleRelapse() result:', relapseResult);
+            
+            // ALSO log relapse to Firestore for predictive analytics
+            if (behavioralService) {
+              try {
+                const escalationLevel = await statManager.getCurrentEscalationLevel();
+                await behavioralService.logRelapse(user.uid, {
+                  escalationLevel: escalationLevel,
+                  triggers: cravingData.triggers || [],
+                  mood: cravingData.mood,
+                  stressLevel: cravingData.stressLevel,
+                  location: cravingData.location,
+                  socialSituation: cravingData.socialSituation,
+                  copingAttempts: cravingData.copingStrategies || [],
+                  addictionIncrease: escalationLevel === 1 ? 4 : escalationLevel === 2 ? 6 : 8,
+                  mentalStrengthDecrease: 3,
+                  triggerDefenseDecrease: 3
+                });
+                console.log('✅ Relapse also logged to Firestore for analytics');
+              } catch (firestoreError) {
+                console.warn('⚠️ Could not log relapse to Firestore:', firestoreError.message);
+              }
+            }
           } else {
             console.error('❌ Detailed Craving: StatManager not available!');
           }
@@ -3887,6 +3947,25 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           console.log('🔄 Quick Relapse: Calling StatManager.handleRelapse()...');
           const relapseResult = await statManager.handleRelapse();
           console.log('🔄 Quick Relapse: StatManager.handleRelapse() result:', relapseResult);
+          
+          // ALSO log relapse to Firestore for predictive analytics
+          if (behavioralService) {
+            try {
+              const escalationLevel = await statManager.getCurrentEscalationLevel();
+              await behavioralService.logRelapse(user.uid, {
+                escalationLevel: escalationLevel,
+                triggers: user.triggers || [], // Use user's known triggers
+                mood: 'quick',
+                context: 'quick_action',
+                addictionIncrease: escalationLevel === 1 ? 4 : escalationLevel === 2 ? 6 : 8,
+                mentalStrengthDecrease: 3,
+                triggerDefenseDecrease: 3
+              });
+              console.log('✅ Quick relapse also logged to Firestore for analytics');
+            } catch (firestoreError) {
+              console.warn('⚠️ Could not log quick relapse to Firestore:', firestoreError.message);
+            }
+          }
           
           // IMMEDIATE verification: Check what's actually in Firebase right after StatManager update
           try {
@@ -4319,19 +4398,56 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
               🫁 Breathe
             </button>
             <button 
-              onClick={() => showQuickActionPopup(
-                '🚶‍♂️ Walk',
-                'Take a 5-minute walk:\n\nPhysical activity releases endorphins that can help reduce cravings.\n\nWalk around your room or step outside if possible.'
-              )}
+              onClick={async () => {
+                // Show the action popup
+                showQuickActionPopup(
+                  '🚶‍♂️ Walk',
+                  'Take a 5-minute walk:\n\nPhysical activity releases endorphins that can help reduce cravings.\n\nWalk around your room or step outside if possible.'
+                );
+                
+                // Log physical activity to Firestore for analytics
+                if (behavioralService) {
+                  try {
+                    await behavioralService.logPhysicalActivity(user.uid, {
+                      type: 'walk',
+                      duration: 5, // 5-minute walk
+                      intensity: 'moderate',
+                      triggerContext: 'craving-triggered',
+                      location: 'indoor/outdoor'
+                    });
+                    console.log('✅ Physical activity (walk) logged to Firestore for analytics');
+                  } catch (error) {
+                    console.warn('⚠️ Could not log physical activity to Firestore:', error.message);
+                  }
+                }
+              }}
               className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg"
             >
               🚶‍♂️ Walk
             </button>
             <button 
-              onClick={() => showQuickActionPopup(
-                '🧘‍♀️ Meditate',
-                'Quick Meditation:\n\n1. Close your eyes\n2. Focus on your breath\n3. Count to 10 slowly\n4. Repeat 3 times\n\nThis helps calm your mind and reduce stress.'
-              )}
+              onClick={async () => {
+                // Show the action popup
+                showQuickActionPopup(
+                  '🧘‍♀️ Meditate',
+                  'Quick Meditation:\n\n1. Close your eyes\n2. Focus on your breath\n3. Count to 10 slowly\n4. Repeat 3 times\n\nThis helps calm your mind and reduce stress.'
+                );
+                
+                // Log meditation to Firestore for analytics
+                if (behavioralService) {
+                  try {
+                    await behavioralService.logMeditation(user.uid, {
+                      type: 'mindfulness',
+                      duration: 2, // 2-minute quick meditation
+                      triggerContext: 'craving-triggered',
+                      completed: true
+                    });
+                    console.log('✅ Meditation (quick) logged to Firestore for analytics');
+                  } catch (error) {
+                    console.warn('⚠️ Could not log meditation to Firestore:', error.message);
+                  }
+                }
+              }}
               className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg"
             >
               🧘‍♀️ Meditate
@@ -5835,7 +5951,7 @@ const DiaryModal = ({ isOpen, onClose, selectedDate, onDateSelect, dailyData }) 
 
 
 
-const SettingsView = ({ onResetApp, onBackToLogin, onResetForTesting, firestoreBuddyService, firestoreBuddyServiceRef, initializeFirestoreBuddyService }) => (
+const SettingsView = ({ onResetApp, onBackToLogin, onResetForTesting, firestoreBuddyService, firestoreBuddyServiceRef, initializeFirestoreBuddyService, behavioralService, user, onShowAnalytics }) => (
   <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pb-20">
     <div className="max-w-md mx-auto px-4 pt-16">
       <div className="text-center mb-8">
@@ -5845,6 +5961,52 @@ const SettingsView = ({ onResetApp, onBackToLogin, onResetForTesting, firestoreB
       </div>
       
       <div className="space-y-4">
+        {/* Analytics */}
+        <div className="bg-slate-800/50 rounded-xl p-4">
+          <h3 className="text-white font-semibold mb-2">📊 Behavioral Analytics</h3>
+          <p className="text-gray-400 text-sm mb-4">View your behavioral patterns and insights</p>
+          <button
+            onClick={onShowAnalytics}
+            disabled={!behavioralService}
+            className={`w-full py-3 rounded-lg transition-colors mb-3 ${
+              behavioralService 
+                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            {behavioralService ? '📈 View Analytics Dashboard' : '📈 Analytics (Service Loading...)'}
+          </button>
+          {behavioralService && (
+            <button
+              onClick={async () => {
+                try {
+                  // Add some test data for demonstration
+                  await behavioralService.logCraving(user.uid, {
+                    outcome: 'resisted',
+                    strength: 7,
+                    duration: 5,
+                    context: 'test_data',
+                    triggers: ['stress', 'work'],
+                    mood: 'anxious',
+                    stressLevel: 6
+                  });
+                  await behavioralService.logBreathingExercise(user.uid, {
+                    duration: 5,
+                    completed: true,
+                    triggerContext: 'test_data'
+                  });
+                  alert('✅ Test data added to Firestore for analytics demo!');
+                } catch (error) {
+                  alert('❌ Error adding test data: ' + error.message);
+                }
+              }}
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg transition-colors text-sm"
+            >
+              🧪 Add Test Data
+            </button>
+          )}
+        </div>
+
         {/* Session Management */}
         <div className="bg-slate-800/50 rounded-xl p-4">
           <h3 className="text-white font-semibold mb-2">Session</h3>
@@ -5955,6 +6117,7 @@ const App = () => {
   const [currentView, setCurrentView] = useState('auth');
   const [selectedMood, setSelectedMood] = useState(null);
   const [user, setUser] = useState(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -5978,6 +6141,7 @@ const App = () => {
   
   // Firestore buddy matching service
   const [firestoreBuddyService, setFirestoreBuddyService] = useState(null);
+  const [behavioralService, setBehavioralService] = useState(null);
   const firestoreBuddyServiceRef = useRef(null);
   
   // StatManager instance
@@ -5992,9 +6156,11 @@ const App = () => {
       }
       
       const firestoreService = new FirestoreBuddyService(firestore);
+      const behavioralSvc = new FirestoreBehavioralService(firestore);
       
       // Test connectivity before setting state
       const connectivityTest = await firestoreService.testConnectivity();
+      const behavioralConnectivityTest = await behavioralSvc.testConnectivity();
       
       if (connectivityTest) {
         // Set state and ref for immediate access
@@ -6003,6 +6169,13 @@ const App = () => {
         console.log('✅ FirestoreBuddyService initialized successfully');
       } else {
         console.warn('⚠️ Firestore connectivity test failed - service not initialized');
+      }
+      
+      if (behavioralConnectivityTest) {
+        setBehavioralService(behavioralSvc);
+        console.log('✅ FirestoreBehavioralService initialized successfully');
+      } else {
+        console.warn('⚠️ Firestore behavioral service connectivity test failed');
       }
     } catch (error) {
       console.error('❌ Error initializing FirestoreBuddyService:', error);
@@ -6066,6 +6239,22 @@ const App = () => {
     // Use StatManager to handle breathing exercise and streaks
     if (statManager) {
       await statManager.handleBreathingExercise();
+      
+      // ALSO log breathing exercise to Firestore for predictive analytics
+      if (behavioralService) {
+        try {
+          const breathingStreak = await statManager.checkBreathingStreak();
+          await behavioralService.logBreathingExercise(user.uid, {
+            duration: 5, // Default breathing exercise duration
+            completed: true,
+            triggerContext: 'scheduled', // or 'craving-triggered'
+            currentStreak: breathingStreak
+          });
+          console.log('✅ Breathing exercise also logged to Firestore for analytics');
+        } catch (firestoreError) {
+          console.warn('⚠️ Could not log breathing exercise to Firestore:', firestoreError.message);
+        }
+      }
     }
   };
 
@@ -8032,7 +8221,28 @@ const App = () => {
                 nemesis={getCurrentOpponent()}
                 onBackToLogin={handleBackToLogin}
                 onResetForTesting={handleResetForTesting}
-                onBreathingComplete={handleBreathingComplete}
+                onBreathingComplete={async (breathingData) => {
+                  await handleBreathingComplete();
+                  
+                  // Log breathing exercise to Firestore for analytics
+                  if (behavioralService && breathingData) {
+                    try {
+                      const breathingStreak = statManager ? await statManager.checkBreathingStreak() : 0;
+                      await behavioralService.logBreathingExercise(user.uid, {
+                        duration: breathingData.duration || 5,
+                        breathingRate: breathingData.rate || '4-7-8',
+                        completed: true,
+                        triggerContext: 'craving-triggered',
+                        currentStreak: breathingStreak,
+                        moodBefore: breathingData.moodBefore,
+                        moodAfter: breathingData.moodAfter
+                      });
+                      console.log('✅ Breathing exercise (modal) logged to Firestore for analytics');
+                    } catch (error) {
+                      console.warn('⚠️ Could not log breathing exercise to Firestore:', error.message);
+                    }
+                  }
+                }}
                 setActiveTab={setActiveTab}
               />
             </div>
@@ -8063,6 +8273,18 @@ const App = () => {
               firestoreBuddyService={firestoreBuddyService}
               firestoreBuddyServiceRef={firestoreBuddyServiceRef}
               initializeFirestoreBuddyService={initializeFirestoreBuddyService}
+              behavioralService={behavioralService}
+              user={user}
+              onShowAnalytics={() => setShowAnalytics(true)}
+            />
+          )}
+
+          {/* Analytics Dashboard Modal */}
+          {showAnalytics && (
+            <AnalyticsDashboard 
+              user={user}
+              behavioralService={behavioralService}
+              onClose={() => setShowAnalytics(false)}
             />
           )}
 

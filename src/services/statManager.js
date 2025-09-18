@@ -115,17 +115,18 @@ class StatManager {
         
         // Get current escalation level
         const currentEscalationLevel = escalationLevelSnapshot.exists() ? escalationLevelSnapshot.val() : 1;
+        console.log(`🔄 StatManager: Current escalation level from Firebase: ${currentEscalationLevel}`);
+        console.log(`🔄 StatManager: Days since last relapse: ${daysSinceLastRelapse}`);
         
-        // Determine escalation level based on timing
-        if (daysSinceLastRelapse <= 3) {
-          // 3rd+ relapse within 3 days
-          escalationLevel = Math.max(3, currentEscalationLevel + 1);
-        } else if (daysSinceLastRelapse <= 7) {
-          // 2nd relapse within 7 days
-          escalationLevel = Math.max(2, currentEscalationLevel);
-        } else {
-          // First relapse after clean period (7+ days)
+        // Determine escalation level based on timing and current level
+        if (daysSinceLastRelapse >= 7) {
+          // First relapse after clean period (7+ days) - reset to 1
           escalationLevel = 1;
+          console.log(`🔄 StatManager: After 7+ days clean → escalation level reset to: ${escalationLevel}`);
+        } else {
+          // Relapse within 7 days - increment from current level
+          escalationLevel = currentEscalationLevel + 1;
+          console.log(`🔄 StatManager: Within ${daysSinceLastRelapse} days → escalation level: ${currentEscalationLevel} + 1 = ${escalationLevel}`);
         }
       }
 
@@ -134,8 +135,7 @@ class StatManager {
       switch (escalationLevel) {
         case 1: addictionIncrease = 4; break;  // 1st relapse = +4 points
         case 2: addictionIncrease = 6; break;  // 2nd relapse within 7 days = +6 points
-        case 3: addictionIncrease = 8; break;  // 3rd+ relapse within 3 days = +8 points
-        default: addictionIncrease = 8; break; // Default to highest penalty
+        default: addictionIncrease = 8; break; // 3rd+ relapse = +8 points
       }
 
       console.log(`🔄 StatManager: Escalation level ${escalationLevel} → addiction increase: +${addictionIncrease}`);
@@ -244,6 +244,19 @@ class StatManager {
     } catch (error) {
       console.error('Error getting addiction status:', error);
       return null;
+    }
+  }
+
+  /**
+   * Get current escalation level for analytics
+   */
+  async getCurrentEscalationLevel() {
+    try {
+      const escalationLevelSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/relapseEscalationLevel`));
+      return escalationLevelSnapshot.exists() ? escalationLevelSnapshot.val() : 1;
+    } catch (error) {
+      console.error('Error getting current escalation level:', error);
+      return 1;
     }
   }
 
