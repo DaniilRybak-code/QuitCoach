@@ -1710,53 +1710,49 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
       cravingsResisted: 0
     };
     
-    // If this is a nemesis/buddy user, try to get real stats but handle permission errors gracefully
+    // If this is a nemesis/buddy user, use the pre-loaded real stats
     if (user?.isRealBuddy) {
-      console.log('🔄 Arena: Attempting to get real stats for buddy user:', user.heroName);
-      try {
-        // Try to get real stats from Firebase, but don't update addiction (permission issues)
-        // We'll only get public/readable data and calculate streak
-        
-        // Calculate streak based on buddy's quit date (if available)
-        if (user.quitDate) {
-          const quitDate = new Date(user.quitDate);
-          const now = new Date();
-          const timeDiff = now.getTime() - quitDate.getTime();
-          stats.streakDays = Math.max(0, Math.floor(timeDiff / (1000 * 3600 * 24)));
-          console.log('🔄 Arena: Calculated buddy streak from quit date:', stats.streakDays);
-        }
-        
-        // Try to get cravings resisted count (if readable)
-        try {
-          const cravingsRef = ref(db, `users/${user.uid}/cravings`);
-          const cravingsSnapshot = await get(cravingsRef);
-          let totalResisted = 0;
-          
-          if (cravingsSnapshot.exists()) {
-            cravingsSnapshot.forEach((childSnapshot) => {
-              const craving = childSnapshot.val();
-              if (craving.outcome === 'resisted') {
-                totalResisted++;
-              }
-            });
-            stats.cravingsResisted = totalResisted;
-            console.log('🔄 Arena: Got buddy cravings resisted:', totalResisted);
-          }
-        } catch (cravingsError) {
-          console.log('⚠️ Arena: Could not read buddy cravings (permission), using default');
-          stats.cravingsResisted = 0;
-        }
-        
-        return stats;
-        
-      } catch (error) {
-        console.log('⚠️ Arena: Could not get real buddy stats, using placeholders:', error.message);
-        return {
-          ...stats,
-          streakDays: 0,
-          cravingsResisted: 0
-        };
+      console.log('🔄 Arena: Using pre-loaded real stats for buddy user:', user.heroName);
+      console.log('🔄 Arena: Buddy user.stats:', user.stats);
+      
+      // Use the pre-loaded real stats from the buddy object
+      if (user.stats) {
+        Object.assign(stats, user.stats);
+        console.log('🔄 Arena: Applied pre-loaded buddy stats:', stats);
       }
+      
+      // Calculate streak based on buddy's quit date (if available)
+      if (user.quitDate) {
+        const quitDate = new Date(user.quitDate);
+        const now = new Date();
+        const timeDiff = now.getTime() - quitDate.getTime();
+        stats.streakDays = Math.max(0, Math.floor(timeDiff / (1000 * 3600 * 24)));
+        console.log('🔄 Arena: Calculated buddy streak from quit date:', stats.streakDays);
+      }
+      
+      // Try to get cravings resisted count (if readable)
+      try {
+        const cravingsRef = ref(db, `users/${user.uid}/cravings`);
+        const cravingsSnapshot = await get(cravingsRef);
+        let totalResisted = 0;
+        
+        if (cravingsSnapshot.exists()) {
+          cravingsSnapshot.forEach((childSnapshot) => {
+            const craving = childSnapshot.val();
+            if (craving.outcome === 'resisted') {
+              totalResisted++;
+            }
+          });
+          stats.cravingsResisted = totalResisted;
+          console.log('🔄 Arena: Got buddy cravings resisted:', totalResisted);
+        }
+      } catch (cravingsError) {
+        console.log('⚠️ Arena: Could not read buddy cravings (permission), using default');
+        stats.cravingsResisted = 0;
+      }
+      
+      console.log('🔄 Arena: Final buddy stats after processing:', stats);
+      return stats;
     }
     
     if (!user?.uid) {
@@ -2121,16 +2117,23 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
             const profileData = snapshot.val();
             console.log('🔄 Arena: Buddy profile updated, recalculating stats...');
             
-            // Recalculate buddy stats with new profile data
-            const updatedBuddy = {
-              ...nemesis,
-              quitDate: profileData.quitDate || nemesis.quitDate,
-              // Update other relevant profile fields
-            };
+            // Update buddy stats preserving the pre-loaded real stats
+            console.log('🔄 Arena: Preserving pre-loaded buddy stats during profile update...');
             
-            const newBuddyStats = await calculateRealTimeStats(updatedBuddy);
-            console.log('🔄 Arena: Recalculated buddy stats from profile update:', newBuddyStats);
-            setRealTimeNemesisStats(newBuddyStats);
+            // Only update the streak calculation, preserve all other pre-loaded stats
+            let updatedStats = { ...realTimeNemesisStats };
+            
+            // Recalculate streak if quit date changed
+            if (profileData.quitDate && profileData.quitDate !== nemesis.quitDate) {
+              const quitDate = new Date(profileData.quitDate);
+              const now = new Date();
+              const timeDiff = now.getTime() - quitDate.getTime();
+              updatedStats.streakDays = Math.max(0, Math.floor(timeDiff / (1000 * 3600 * 24)));
+              console.log('🔄 Arena: Updated buddy streak from profile change:', updatedStats.streakDays);
+            }
+            
+            console.log('🔄 Arena: Preserved buddy stats during profile update:', updatedStats);
+            setRealTimeNemesisStats(updatedStats);
           }
         }, (error) => {
           if (error.code !== 'PERMISSION_DENIED') {
@@ -6941,31 +6944,45 @@ const App = () => {
         let buddyArchetype = 'DETERMINED'; // Default fallback
         
         try {
-          const buddyProfileRef = ref(db, `users/${buddyUserId}`);
-          const buddyProfileSnapshot = await get(buddyProfileRef);
-          if (buddyProfileSnapshot.exists()) {
-            const buddyProfile = buddyProfileSnapshot.val();
-            
-            if (buddyProfile.quitDate) {
-              buddyQuitDate = new Date(buddyProfile.quitDate);
-              console.log('✅ Got buddy quit date:', buddyQuitDate);
-            }
-            
-            if (buddyProfile.avatar) {
-              buddyAvatar = buddyProfile.avatar;
-              console.log('✅ Got buddy avatar');
-            } else if (buddyProfile.avatarSeed) {
-              buddyAvatar = generateAvatar(buddyProfile.avatarSeed, buddyProfile.archetype || 'adventurer');
-              console.log('✅ Generated buddy avatar from seed');
-            }
-            
-            if (buddyProfile.archetype) {
-              buddyArchetype = buddyProfile.archetype;
-              console.log('✅ Got buddy archetype:', buddyArchetype);
-            }
+          console.log('🔄 Loading Firebase imports for buddy profile...');
+          const { ref, get } = await import('firebase/database');
+          console.log('✅ Firebase imports loaded successfully');
+          console.log('🔍 Reading buddy profile fields from path:', `users/${buddyUserId}`);
+          
+          // Read specific fields that we have permission for (not the entire user object)
+          const [avatarSnapshot, avatarSeedSnapshot, archetypeSnapshot, heroNameSnapshot] = await Promise.all([
+            get(ref(db, `users/${buddyUserId}/avatar`)),
+            get(ref(db, `users/${buddyUserId}/avatarSeed`)),
+            get(ref(db, `users/${buddyUserId}/archetype`)),
+            get(ref(db, `users/${buddyUserId}/heroName`))
+          ]);
+          
+          if (avatarSnapshot.exists()) {
+            buddyAvatar = avatarSnapshot.val();
+            console.log('✅ Got buddy avatar from Firebase');
+          } else if (avatarSeedSnapshot.exists()) {
+            const avatarSeed = avatarSeedSnapshot.val();
+            const archetype = archetypeSnapshot.exists() ? archetypeSnapshot.val() : 'adventurer';
+            buddyAvatar = generateAvatar(avatarSeed, archetype);
+            console.log('✅ Generated buddy avatar from seed:', avatarSeed);
+          }
+          
+          if (archetypeSnapshot.exists()) {
+            buddyArchetype = archetypeSnapshot.val();
+            console.log('✅ Got buddy archetype:', buddyArchetype);
+          }
+          
+          if (heroNameSnapshot.exists()) {
+            const buddyHeroName = heroNameSnapshot.val();
+            console.log('✅ Got buddy hero name:', buddyHeroName);
+            // Update the buddy name to use the real hero name
+            buddyName = buddyHeroName;
           }
         } catch (profileError) {
           console.log('⚠️ Could not read buddy profile (permission):', profileError.message);
+          console.log('🔍 Full profile error details:', profileError);
+          console.log('🔍 Trying to access path:', `users/${buddyUserId}`);
+          console.log('🔍 Current user can read own profile, but not buddy profile');
         }
 
         const transformedBuddy = {

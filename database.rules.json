@@ -4,18 +4,42 @@
       "$uid": {
         ".read": "$uid === auth.uid",
         ".write": "$uid === auth.uid",
+        "avatar": {
+          ".read": "auth != null"
+        },
+        "avatarSeed": {
+          ".read": "auth != null"
+        },
+        "archetype": {
+          ".read": "auth != null"
+        },
+        "heroName": {
+          ".read": "auth != null"
+        },
         "stats": {
           ".read": "auth != null"
         },
-        "profile": {
-          ".read": "$uid === auth.uid",
-          "quitDate": {
-            ".read": "auth != null"
-          },
-          "relapseDate": {
-            ".read": "auth != null"
-          }
-        },
+                "profile": {
+                  ".read": "auth != null",
+                  "quitDate": {
+                    ".read": "auth != null"
+                  },
+                  "relapseDate": {
+                    ".read": "auth != null"
+                  },
+                  "avatar": {
+                    ".read": "auth != null"
+                  },
+                  "avatarSeed": {
+                    ".read": "auth != null"
+                  },
+                  "archetype": {
+                    ".read": "auth != null"
+                  },
+                  "heroName": {
+                    ".read": "auth != null"
+                  }
+                },
         "cravings": {
           ".read": "auth != null"
         }
