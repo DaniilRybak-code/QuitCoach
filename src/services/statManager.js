@@ -565,7 +565,7 @@ class StatManager {
       
       // Only run daily updates if user has been registered for at least 1 day
       if (daysSinceRegistration < 1) {
-        console.log(`User registered ${daysSinceRegistration} days ago - skipping daily updates for new user`);
+        // console.log(`User registered ${daysSinceRegistration} days ago - skipping daily updates for new user`);
         return;
       }
       
@@ -708,7 +708,7 @@ class StatManager {
       
       // Only run daily updates if user has been registered for at least 1 day
       if (daysSinceRegistration < 1) {
-        console.log(`User registered ${daysSinceRegistration} days ago - skipping daily updates for new user`);
+        // console.log(`User registered ${daysSinceRegistration} days ago - skipping daily updates for new user`);
         return;
       }
       
@@ -737,7 +737,7 @@ class StatManager {
       // Run initial daily updates
       await this.runDailyUpdates();
       
-      console.log('StatManager initialized successfully');
+      // console.log('StatManager initialized successfully');
     } catch (error) {
       console.error('Error initializing StatManager:', error);
     }
