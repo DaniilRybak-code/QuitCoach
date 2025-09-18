@@ -17,18 +17,38 @@ class StatManager {
 
   async updateStat(statName, change, reason = '') {
     try {
+      console.log(`🔄 StatManager: updateStat called - ${statName}: ${change > 0 ? '+' : ''}${change} (${reason})`);
+      
       const snapshot = await get(this.statsRef);
-      if (!snapshot.exists()) return false;
+      if (!snapshot.exists()) {
+        console.error(`❌ StatManager: Stats don't exist for user ${this.userUID}`);
+        return false;
+      }
 
       const currentStats = snapshot.val();
       const currentValue = currentStats[statName] || 0;
       const newValue = Math.max(0, Math.min(100, currentValue + change));
 
+      console.log(`🔄 StatManager: ${statName} change: ${currentValue} → ${newValue} (${change > 0 ? '+' : ''}${change})`);
+
       // Update the stat
-      await set(this.statsRef, {
+      console.log(`🔄 StatManager: About to write to Firebase - ${statName}: ${newValue}`);
+      console.log(`🔄 StatManager: Writing to path:`, this.statsRef.toString());
+      console.log(`🔄 StatManager: Full stats object to write:`, {
         ...currentStats,
         [statName]: newValue
       });
+      
+      try {
+        await set(this.statsRef, {
+          ...currentStats,
+          [statName]: newValue
+        });
+        console.log(`✅ StatManager: Successfully updated ${statName} in Firebase`);
+      } catch (writeError) {
+        console.error(`❌ StatManager: Firebase write failed for ${statName}:`, writeError);
+        throw writeError; // Re-throw to be caught by outer try-catch
+      }
 
       // Log the behavior
       await this.logBehavior(statName, change, reason);
@@ -39,7 +59,12 @@ class StatManager {
       console.log(`${statName}: ${change > 0 ? '+' : ''}${change} (${reason})`);
       return true;
     } catch (error) {
-      console.error(`Error updating ${statName}:`, error);
+      console.error(`❌ StatManager: CRITICAL ERROR updating ${statName}:`, error);
+      console.error(`❌ StatManager: Error details:`, {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       return false;
     }
   }
@@ -75,11 +100,14 @@ class StatManager {
 
   async handleRelapse() {
     try {
+      console.log('🔄 StatManager: handleRelapse() called for user:', this.userUID);
       const now = new Date();
       const lastRelapseSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/lastRelapseDate`));
       const escalationLevelSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/relapseEscalationLevel`));
       
       let escalationLevel = 1; // Default escalation level
+      console.log('🔄 StatManager: Last relapse exists:', lastRelapseSnapshot.exists());
+      console.log('🔄 StatManager: Current escalation level exists:', escalationLevelSnapshot.exists());
       
       if (lastRelapseSnapshot.exists()) {
         const lastRelapse = new Date(lastRelapseSnapshot.val());
@@ -110,12 +138,59 @@ class StatManager {
         default: addictionIncrease = 8; break; // Default to highest penalty
       }
 
-      // Update stats
-      await Promise.all([
-        this.updateStat('addictionLevel', addictionIncrease, `Relapse escalation level ${escalationLevel}`),
-        this.updateStat('mentalStrength', -3, 'Relapse setback'),
-        this.updateStat('triggerDefense', -3, 'Relapse to known trigger')
-      ]);
+      console.log(`🔄 StatManager: Escalation level ${escalationLevel} → addiction increase: +${addictionIncrease}`);
+
+      // Update stats in a SINGLE write operation to prevent overwriting
+      console.log('🔄 StatManager: Updating all stats in single write operation...');
+      
+      try {
+        // Get current stats once
+        const snapshot = await get(this.statsRef);
+        if (!snapshot.exists()) {
+          console.error('❌ StatManager: No stats found for user');
+          return false;
+        }
+        
+        const currentStats = snapshot.val();
+        console.log('🔄 StatManager: Current stats before relapse:', currentStats);
+        
+        // Calculate all new values
+        const newAddictionLevel = Math.max(0, Math.min(100, (currentStats.addictionLevel || 0) + addictionIncrease));
+        const newMentalStrength = Math.max(0, Math.min(100, (currentStats.mentalStrength || 0) - 3));
+        const newTriggerDefense = Math.max(0, Math.min(100, (currentStats.triggerDefense || 0) - 3));
+        
+        console.log(`🔄 StatManager: addictionLevel change: ${currentStats.addictionLevel} → ${newAddictionLevel} (+${addictionIncrease})`);
+        console.log(`🔄 StatManager: mentalStrength change: ${currentStats.mentalStrength} → ${newMentalStrength} (-3)`);
+        console.log(`🔄 StatManager: triggerDefense change: ${currentStats.triggerDefense} → ${newTriggerDefense} (-3)`);
+        
+        // Write all updates in a single operation
+        const updatedStats = {
+          ...currentStats,
+          addictionLevel: newAddictionLevel,
+          mentalStrength: newMentalStrength,
+          triggerDefense: newTriggerDefense
+        };
+        
+        console.log('🔄 StatManager: Writing complete updated stats:', updatedStats);
+        await set(this.statsRef, updatedStats);
+        console.log('✅ StatManager: Successfully updated ALL stats in single write');
+        
+        // Log individual behaviors for tracking
+        await Promise.all([
+          this.logBehavior('addictionLevel', addictionIncrease, `Relapse escalation level ${escalationLevel}`),
+          this.logBehavior('mentalStrength', -3, 'Relapse setback'),
+          this.logBehavior('triggerDefense', -3, 'Relapse to known trigger')
+        ]);
+        
+        // Show notifications
+        this.showStatNotification('addictionLevel', addictionIncrease, `Relapse escalation level ${escalationLevel}`);
+        this.showStatNotification('mentalStrength', -3, 'Relapse setback');
+        this.showStatNotification('triggerDefense', -3, 'Relapse to known trigger');
+        
+      } catch (error) {
+        console.error('❌ StatManager: CRITICAL ERROR updating relapse stats:', error);
+        throw error;
+      }
 
       // Update relapse date and escalation level
       await Promise.all([

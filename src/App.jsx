@@ -1018,18 +1018,17 @@ const InfoModal = ({ isOpen, onClose, statType }) => {
   const statInfo = {
     addiction: {
       title: "Addiction",
-      description: "Time since last vape - decreases as your body heals",
+      description: "Your body's dependence level - decreases with clean time, increases with relapses",
       impacts: [
         "What decreases it:",
-        "• Clean time: -2 points per week (standard recovery)",
-        "• Cold turkey approach: -3 points per week (faster healing)",
-        "• Tapering approach: -1.5 points per week (gentler decline)",
+        "• Clean time: -2 points per week",
         "",
         "What increases it:",
         "• First relapse (after clean period): +4 points",
         "• Second relapse (within 7 days): +6 additional points",
         "• Third relapse and on (within 3 days): +8 additional points",
-        "• Reset: Penalty level resets after 7 clean days"
+        "",
+        "Note: Escalation level resets after 7 clean days"
       ]
     },
     mentalStrength: {
@@ -1700,7 +1699,16 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   
   // Calculate real-time stats based on user behavior data from Firebase
   const calculateRealTimeStats = async (user) => {
-    const stats = { ...user.stats };
+    // Start with default stats, then read fresh from Firebase
+    let stats = {
+      addictionLevel: 50,
+      mentalStrength: 50,
+      motivation: 50,
+      triggerDefense: 30,
+      experiencePoints: 0,
+      streakDays: 0,
+      cravingsResisted: 0
+    };
     
     // If this is a nemesis/buddy user, try to get real stats but handle permission errors gracefully
     if (user?.isRealBuddy) {
@@ -1934,19 +1942,51 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
       }
     }
     
-    // Update addiction from clean time only for the current authenticated user (not buddies)
-    if (user?.uid && !user?.isRealBuddy && statManager) {
+    // For the current authenticated user (not buddies), read fresh stats from Firebase FIRST
+    if (user?.uid && !user?.isRealBuddy) {
       try {
-        await statManager.updateAddictionFromCleanTime();
-        // Get updated stats after addiction decay
         const { ref: dbRef, get } = await import('firebase/database');
-        const updatedStatsSnapshot = await get(dbRef(db, `users/${user.uid}/stats`));
-        if (updatedStatsSnapshot.exists()) {
-          const updatedStats = updatedStatsSnapshot.val();
-          stats.addictionLevel = updatedStats.addictionLevel || stats.addictionLevel;
+        
+        // Read current stats from Firebase FIRST (before any calculations)
+        // Add timestamp to force fresh read and bypass Firebase cache
+        const timestamp = Date.now();
+        console.log(`🔄 Arena: Force reading fresh stats from Firebase [${timestamp}]...`);
+        
+        // Add delay to ensure StatManager writes are fully committed to Firebase
+        await new Promise(resolve => setTimeout(resolve, 800));
+        console.log(`🔄 Arena: After 800ms delay, reading stats...`);
+        
+        const currentStatsSnapshot = await get(dbRef(db, `users/${user.uid}/stats`));
+        if (currentStatsSnapshot.exists()) {
+          const currentStats = currentStatsSnapshot.val();
+          console.log(`🔄 Arena: Reading CURRENT stats from Firebase [NEW CODE ${timestamp}]:`, currentStats);
+          // Use Firebase stats as the base
+          Object.assign(stats, currentStats);
+          console.log(`🔄 Arena: Using Firebase stats as base [NEW CODE ${timestamp}]:`, stats);
+        } else {
+          // Fallback to user.stats if Firebase stats don't exist
+          Object.assign(stats, user.stats);
+          console.log('🔄 Arena: Using user.stats as fallback:', stats);
         }
+        
+        // Update addiction from clean time
+        if (statManager) {
+          await statManager.updateAddictionFromCleanTime();
+          
+          // Re-read stats after addiction decay update
+          const updatedStatsSnapshot = await get(dbRef(db, `users/${user.uid}/stats`));
+          if (updatedStatsSnapshot.exists()) {
+            const updatedStats = updatedStatsSnapshot.val();
+            console.log('🔄 Arena: Reading stats after addiction decay:', updatedStats);
+            Object.assign(stats, updatedStats);
+            console.log('🔄 Arena: Final stats after decay:', stats);
+          }
+        }
+        
       } catch (error) {
-        console.error('Error updating addiction from clean time:', error);
+        console.error('Error reading/updating stats from Firebase:', error);
+        // Fallback to user.stats on error
+        Object.assign(stats, user.stats);
       }
     }
     
@@ -2520,12 +2560,12 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
               }
               
               const mergedUserStats = { ...user.stats, ...realTimeUserStats };
-              // Reduced logging to prevent infinite loops
-              // console.log('🎯 TradingCard: Merged user stats:', mergedUserStats);
-              // console.log('🎯 TradingCard: User base stats:', user.stats);
-              // console.log('🎯 TradingCard: Real-time user stats:', realTimeUserStats);
-              // console.log('🎯 TradingCard: Final cravingsResisted:', mergedUserStats.cravingsResisted);
-              // console.log('🎯 TradingCard: Final streakDays:', mergedUserStats.streakDays);
+              // Debug user stats merging after relapse
+              console.log('🎯 TradingCard: User base stats:', user.stats);
+              console.log('🎯 TradingCard: Real-time user stats:', realTimeUserStats);
+              console.log('🎯 TradingCard: Merged user stats:', mergedUserStats);
+              console.log('🎯 TradingCard: Final addictionLevel:', mergedUserStats.addictionLevel);
+              console.log('🎯 TradingCard: Final mentalStrength:', mergedUserStats.mentalStrength);
               
               return (
                 <TradingCard 
@@ -3553,12 +3593,23 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           
           // Handle relapse
           if (statManager) {
-            await statManager.handleRelapse();
+            console.log('🔄 Detailed Craving: Calling StatManager.handleRelapse()...');
+            const relapseResult = await statManager.handleRelapse();
+            console.log('🔄 Detailed Craving: StatManager.handleRelapse() result:', relapseResult);
+          } else {
+            console.error('❌ Detailed Craving: StatManager not available!');
           }
           
-          // Refresh stats display after relapse
+          // Refresh stats display after relapse - IMMEDIATE refresh
+          console.log('🔄 Detailed Craving: Triggering stats refresh...');
           if (typeof refreshStats === 'function') {
-            setTimeout(() => refreshStats(), 1000); // Small delay to ensure Firebase updates
+            refreshStats(); // Immediate refresh
+            setTimeout(() => {
+              console.log('🔄 Detailed Craving: Secondary stats refresh...');
+              refreshStats();
+            }, 1500); // Secondary refresh to ensure Firebase sync
+          } else {
+            console.error('❌ Detailed Craving: refreshStats function not available!');
           }
           
           // Note: Buddy will see these changes automatically via Firebase listeners
@@ -3830,7 +3881,26 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
         
         // Handle relapse with StatManager
         if (statManager) {
-          await statManager.handleRelapse();
+          console.log('🔄 Quick Relapse: Calling StatManager.handleRelapse()...');
+          const relapseResult = await statManager.handleRelapse();
+          console.log('🔄 Quick Relapse: StatManager.handleRelapse() result:', relapseResult);
+          
+          // IMMEDIATE verification: Check what's actually in Firebase right after StatManager update
+          try {
+            await new Promise(resolve => setTimeout(resolve, 100)); // Small delay
+            const { ref: dbRef, get } = await import('firebase/database');
+            const verifySnapshot = await get(dbRef(db, `users/${user.uid}/stats`));
+            if (verifySnapshot.exists()) {
+              const verifyStats = verifySnapshot.val();
+              console.log('🔍 Quick Relapse: VERIFICATION - Firebase stats immediately after StatManager:', verifyStats);
+            } else {
+              console.log('❌ Quick Relapse: VERIFICATION - No stats found in Firebase!');
+            }
+          } catch (verifyError) {
+            console.error('❌ Quick Relapse: VERIFICATION failed:', verifyError);
+          }
+        } else {
+          console.error('❌ Quick Relapse: StatManager not available!');
         }
         
         // Update weekly stats
@@ -3843,9 +3913,16 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
         await set(statsRef, newStats);
         setWeeklyStats(newStats);
         
-        // Refresh stats display after relapse
+        // Refresh stats display after relapse - IMMEDIATE refresh
+        console.log('🔄 Quick Relapse: Triggering stats refresh...');
         if (typeof refreshStats === 'function') {
-          setTimeout(() => refreshStats(), 1000); // Small delay to ensure Firebase updates
+          refreshStats(); // Immediate refresh
+          setTimeout(() => {
+            console.log('🔄 Quick Relapse: Secondary stats refresh...');
+            refreshStats();
+          }, 1500); // Secondary refresh to ensure Firebase sync
+        } else {
+          console.log('ℹ️ Quick Relapse: refreshStats function not available in this context (will refresh when returning to Arena)');
         }
         
         // Note: Buddy will see these changes automatically via Firebase listeners
@@ -7749,6 +7826,18 @@ const App = () => {
     console.log('Tab changed to:', tabId);
     setActiveTab(tabId);
     setCurrentView(tabId);
+    
+    // When returning to Arena, force fresh stats reload to catch any stat changes from other tabs
+    if (tabId === 'arena' && user?.uid) {
+      console.log('🔄 Tab: Returning to Arena, forcing fresh stats reload...');
+      setTimeout(() => {
+        // Trigger a fresh calculation of real-time stats
+        if (typeof refreshStats === 'function') {
+          console.log('🔄 Tab: Delayed refresh after tab switch...');
+          refreshStats();
+        }
+      }, 1000); // Longer delay to ensure Firebase writes are committed
+    }
   };
 
   const handleNavigate = (destination) => {
