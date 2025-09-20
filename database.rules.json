@@ -16,6 +16,9 @@
         "heroName": {
           ".read": "auth != null"
         },
+        "quitDate": {
+          ".read": "auth != null"
+        },
         "stats": {
           ".read": "auth != null"
         },
@@ -40,9 +43,10 @@
                     ".read": "auth != null"
                   }
                 },
-        "cravings": {
-          ".read": "auth != null"
-        }
+                "cravings": {
+                  ".read": "auth != null",
+                  ".write": "$uid === auth.uid"
+                }
       }
     },
     "matchingPool": {

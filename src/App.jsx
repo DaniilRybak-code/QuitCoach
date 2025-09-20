@@ -60,6 +60,29 @@ const getConfidenceColor = (confidence) => {
   }
 };
 
+// Helper function to calculate streak with hours/days logic
+const calculateStreak = (startDate, endDate = new Date()) => {
+  const timeDiff = endDate.getTime() - startDate.getTime();
+  const hours = Math.floor(timeDiff / (1000 * 3600));
+  const days = Math.floor(timeDiff / (1000 * 3600 * 24));
+  
+  if (hours < 24) {
+    // Show hours for first 24 hours
+    return {
+      value: Math.max(0, hours),
+      unit: 'hours',
+      displayText: `${Math.max(0, hours)} hour${hours === 1 ? '' : 's'}`
+    };
+  } else {
+    // Show days after 24 hours
+    return {
+      value: Math.max(0, days),
+      unit: 'days', 
+      displayText: `${Math.max(0, days)} day${days === 1 ? '' : 's'}`
+    };
+  }
+};
+
 // Onboarding Flow Component
 const OnboardingFlow = ({ onComplete, authUser }) => {
   const [step, setStep] = useState(1);
@@ -337,7 +360,7 @@ const OnboardingFlow = ({ onComplete, authUser }) => {
             experiencePoints: 0
           },
           achievements: [],
-          quitDate: new Date()
+          quitDate: new Date() // Set quit date to now - streak starts at 0
         };
         
         // Save final step data to Firebase
@@ -363,7 +386,7 @@ const OnboardingFlow = ({ onComplete, authUser }) => {
             experiencePoints: 0
           },
           achievements: [],
-          quitDate: new Date()
+          quitDate: new Date() // Set quit date to now - streak starts at 0
         };
         
         // Try to save fallback data to Firebase
@@ -1551,10 +1574,13 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
             <span className="text-gray-300">Streak:</span>
             <span className="font-bold text-green-400 flex items-center gap-1">
               {(() => {
+                // Use the display text if available, otherwise fallback to days format
+                if (user.stats.streakDisplayText) {
+                  return user.stats.streakDisplayText;
+                }
                 const streakValue = user.stats.streakDays;
-                // console.log('🎯 TradingCard: Rendering streak value:', streakValue);
-                return streakValue;
-              })()} days
+                return `${streakValue} day${streakValue === 1 ? '' : 's'}`;
+              })()}
               {user.stats.streakDays > 0 && <span className="text-xs">🔥</span>}
             </span>
           </div>
@@ -1643,7 +1669,7 @@ const BottomNavigation = ({ activeTab, onTabChange, dataLoadingState, onRefreshD
   );
 };
 // Arena View with Enhanced Battle Algorithm and Recommendations
-const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoading, buddyError, realBuddy }) => {
+const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoading, buddyError, realBuddy, loadRealBuddy, buddyLoadAttempted }) => {
   // Define empty nemesis for when no buddy is available
   const emptyNemesis = {
     heroName: 'Looking for a buddy',
@@ -1726,10 +1752,11 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
       // Calculate streak based on buddy's quit date (if available)
       if (user.quitDate) {
         const quitDate = new Date(user.quitDate);
-        const now = new Date();
-        const timeDiff = now.getTime() - quitDate.getTime();
-        stats.streakDays = Math.max(0, Math.floor(timeDiff / (1000 * 3600 * 24)));
-        console.log('🔄 Arena: Calculated buddy streak from quit date:', stats.streakDays);
+        const streakData = calculateStreak(quitDate);
+        stats.streakDays = streakData.value;
+        stats.streakUnit = streakData.unit;
+        stats.streakDisplayText = streakData.displayText;
+        console.log('🔄 Arena: Calculated buddy streak from quit date:', streakData.displayText);
       }
       
       // Try to get cravings resisted count (if readable)
@@ -1766,11 +1793,14 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         const timeDiff = now.getTime() - relapseDate.getTime();
         const daysSinceRelapse = Math.floor(timeDiff / (1000 * 3600 * 24));
         stats.streakDays = daysSinceRelapse;
+        stats.streakUnit = 'days';
+        stats.streakDisplayText = `${daysSinceRelapse} day${daysSinceRelapse === 1 ? '' : 's'}`;
       } else {
         const quitDate = user.quitDate ? new Date(user.quitDate) : new Date();
-        const now = new Date();
-        const timeDiff = now.getTime() - quitDate.getTime();
-        stats.streakDays = Math.floor(timeDiff / (1000 * 3600 * 24));
+        const streakData = calculateStreak(quitDate);
+        stats.streakDays = streakData.value;
+        stats.streakUnit = streakData.unit;
+        stats.streakDisplayText = streakData.displayText;
       }
       
       const cravingWins = parseInt(localStorage.getItem('cravingWins') || 0);
@@ -1870,15 +1900,19 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         currentStreak = Math.floor(timeDiff / (1000 * 3600 * 24));
         // console.log(`🔍 Arena: Calculated streak from relapse date: ${currentStreak} days (relapse: ${relapseDate.toISOString()}, now: ${now.toISOString()})`);
       } else {
-        // If no relapse date, calculate days since quit date
-        const quitDate = user.quitDate ? new Date(user.quitDate) : new Date();
-        const now = new Date();
-        const timeDiff = now.getTime() - quitDate.getTime();
-        currentStreak = Math.floor(timeDiff / (1000 * 3600 * 24));
-        console.log(`🔍 Arena: Calculated streak from quit date: ${currentStreak} days (quit: ${quitDate.toISOString()}, now: ${now.toISOString()})`);
-      }
+      // If no relapse date, calculate time since quit date
+      const quitDate = user.quitDate ? new Date(user.quitDate) : new Date();
+      const streakData = calculateStreak(quitDate);
       
-      stats.streakDays = currentStreak;
+      currentStreak = streakData.value;
+      stats.streakUnit = streakData.unit;
+      stats.streakDisplayText = streakData.displayText;
+      
+      console.log(`🔍 Arena: Calculated streak from quit date: ${streakData.displayText} (quit: ${quitDate.toISOString()})`);
+      console.log(`🔍 Arena: Setting streak fields - streakDays: ${currentStreak}, streakUnit: ${stats.streakUnit}, streakDisplayText: ${stats.streakDisplayText}`);
+    }
+    
+    stats.streakDays = currentStreak;
       
       // console.log(`🎯 Arena: Final calculated streak for ${user.heroName}: ${currentStreak} days`);
       
@@ -1911,11 +1945,14 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         const timeDiff = now.getTime() - relapseDate.getTime();
         const daysSinceRelapse = Math.floor(timeDiff / (1000 * 3600 * 24));
         stats.streakDays = daysSinceRelapse;
+        stats.streakUnit = 'days';
+        stats.streakDisplayText = `${daysSinceRelapse} day${daysSinceRelapse === 1 ? '' : 's'}`;
       } else {
         const quitDate = user.quitDate ? new Date(user.quitDate) : new Date();
-        const now = new Date();
-        const timeDiff = now.getTime() - quitDate.getTime();
-        stats.streakDays = Math.floor(timeDiff / (1000 * 3600 * 24));
+        const streakData = calculateStreak(quitDate);
+        stats.streakDays = streakData.value;
+        stats.streakUnit = streakData.unit;
+        stats.streakDisplayText = streakData.displayText;
       }
       
       const cravingWins = parseInt(localStorage.getItem('cravingWins') || 0);
@@ -2097,6 +2134,25 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
           if (snapshot.exists()) {
             const updatedBuddyStats = snapshot.val();
             console.log('🔄 Arena: Buddy stats updated in real-time:', updatedBuddyStats);
+            console.log('🔍 Arena: Buddy streak display info - streakDays:', updatedBuddyStats.streakDays, 'streakUnit:', updatedBuddyStats.streakUnit, 'streakDisplayText:', updatedBuddyStats.streakDisplayText);
+            
+            // Apply streak calculation to buddy stats if they don't have display text
+            const buddyQuitDate = nemesis?.quitDate || realBuddy?.quitDate;
+            console.log('🔍 Arena: Checking if buddy needs streak calculation - hasDisplayText:', !!updatedBuddyStats.streakDisplayText, 'buddyQuitDate:', buddyQuitDate);
+            if (!updatedBuddyStats.streakDisplayText && buddyQuitDate) {
+              const quitDate = new Date(buddyQuitDate);
+              const streakData = calculateStreak(quitDate);
+              updatedBuddyStats.streakDays = streakData.value;
+              updatedBuddyStats.streakUnit = streakData.unit;
+              updatedBuddyStats.streakDisplayText = streakData.displayText;
+              console.log('🔄 Arena: Applied streak calculation to buddy stats:', streakData.displayText);
+            } else if (!updatedBuddyStats.streakDisplayText) {
+              console.log('⚠️ Arena: Cannot calculate buddy streak - no quit date available');
+              // Set default display text for buddy
+              updatedBuddyStats.streakUnit = 'days';
+              updatedBuddyStats.streakDisplayText = `${updatedBuddyStats.streakDays || 0} day${updatedBuddyStats.streakDays === 1 ? '' : 's'}`;
+              console.log('🔄 Arena: Set default buddy streak display:', updatedBuddyStats.streakDisplayText);
+            }
             
             // Update the nemesis stats in real-time
             setRealTimeNemesisStats(prevStats => ({
@@ -2122,20 +2178,26 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
             // Update buddy stats preserving the pre-loaded real stats
             console.log('🔄 Arena: Preserving pre-loaded buddy stats during profile update...');
             
-            // Only update the streak calculation, preserve all other pre-loaded stats
-            let updatedStats = { ...realTimeNemesisStats };
-            
-            // Recalculate streak if quit date changed
-            if (profileData.quitDate && profileData.quitDate !== nemesis.quitDate) {
-              const quitDate = new Date(profileData.quitDate);
-              const now = new Date();
-              const timeDiff = now.getTime() - quitDate.getTime();
-              updatedStats.streakDays = Math.max(0, Math.floor(timeDiff / (1000 * 3600 * 24)));
-              console.log('🔄 Arena: Updated buddy streak from profile change:', updatedStats.streakDays);
+            // Don't overwrite real stats with defaults - only update streak if needed
+            if (realTimeNemesisStats && realTimeNemesisStats.addictionLevel !== 50) {
+              // We have real stats loaded, preserve them and only update streak
+              let updatedStats = { ...realTimeNemesisStats };
+              
+              // Recalculate streak if quit date changed
+              if (profileData.quitDate && profileData.quitDate !== nemesis.quitDate) {
+                const quitDate = new Date(profileData.quitDate);
+                const streakData = calculateStreak(quitDate);
+                updatedStats.streakDays = streakData.value;
+                updatedStats.streakUnit = streakData.unit;
+                updatedStats.streakDisplayText = streakData.displayText;
+                console.log('🔄 Arena: Updated buddy streak from profile change:', streakData.displayText);
+              }
+              
+              console.log('🔄 Arena: Preserved real buddy stats during profile update:', updatedStats);
+              setRealTimeNemesisStats(updatedStats);
+            } else {
+              console.log('🔄 Arena: Skipping profile update - waiting for real stats to load first');
             }
-            
-            console.log('🔄 Arena: Preserved buddy stats during profile update:', updatedStats);
-            setRealTimeNemesisStats(updatedStats);
           }
         }, (error) => {
           if (error.code !== 'PERMISSION_DENIED') {
@@ -2163,7 +2225,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         }
       });
     };
-  }, [nemesis?.uid, nemesis?.isRealBuddy]);
+  }, [nemesis?.uid, nemesis?.isRealBuddy, realBuddy?.quitDate]);
 
   // Add a refresh function for real-time stats
   const refreshStats = async () => {
@@ -2206,6 +2268,22 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
       refreshStats();
     }
   }, [nemesis?.uid]);
+  
+  // Trigger refresh when realBuddy data is loaded (to get proper quit date)
+  useEffect(() => {
+    if (realBuddy?.quitDate && nemesis?.uid) {
+      console.log('🔄 Arena: Real buddy data loaded with quit date, refreshing stats...');
+      refreshStats();
+    }
+  }, [realBuddy?.quitDate, nemesis?.uid]);
+  
+  // Load buddy data when user changes - Arena component handles this now
+  useEffect(() => {
+    if (user?.uid && !realBuddy && !buddyLoading && !buddyLoadAttempted) {
+      console.log('🔄 Arena: Loading buddy data for user:', user.uid);
+      loadRealBuddy(calculateRealTimeStats, setRealTimeNemesisStats);
+    }
+  }, [user?.uid, realBuddy, buddyLoading, buddyLoadAttempted]);
   
   // Handle online/offline state changes - MOVED TO CORRECT LOCATION AFTER STATE DECLARATIONS
   useEffect(() => {
@@ -2493,7 +2571,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
             try {
               setBuddyLoadAttempted(false);
               setRealBuddy(null);
-              await loadRealBuddy();
+              await loadRealBuddy(calculateRealTimeStats, setRealTimeNemesisStats);
               console.log('✅ Manual buddy reload completed');
             } catch (error) {
               console.error('❌ Manual buddy reload failed:', error);
@@ -3094,7 +3172,7 @@ const GameModal = ({ gameType, onClose }) => {
   );
 };
 // Craving Support View - Support for Managing Cravings
-const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, onBreathingComplete, setActiveTab }) => {
+const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, onBreathingComplete, setActiveTab, behavioralService }) => {
   const [showGameModal, setShowGameModal] = useState(false);
   const [selectedGame, setSelectedGame] = useState(null);
   const [showCustomPopup, setShowCustomPopup] = useState(false);
@@ -6189,6 +6267,8 @@ const App = () => {
     triggerDefense: 30,
     addictionLevel: 50,
     streakDays: 0,
+    streakUnit: 'hours',
+    streakDisplayText: '0 hours',
     cravingsResisted: 0
   });
 
@@ -6447,7 +6527,7 @@ const App = () => {
       heroName: userData.heroName || 'Hero',
       archetype: userData.archetype || 'The Determined',
       avatar: userData.avatar || generateAvatar('default'),
-      quitDate: userData.quitDate || new Date().toISOString(),
+      quitDate: userData.quitDate, // PRESERVE existing quit date - don't overwrite!
       onboardingCompleted: !!userData.onboardingCompleted,
       updatedAt: userData.updatedAt || Date.now(),
       ...userData
@@ -6463,6 +6543,8 @@ const App = () => {
       triggerDefense: Math.max(0, Math.min(100, parseInt(stats.triggerDefense) || 30)),
       addictionLevel: Math.max(0, Math.min(100, parseInt(stats.addictionLevel) || 50)),
       streakDays: Math.max(0, parseInt(stats.streakDays) || 0),
+      streakUnit: stats.streakUnit || 'hours',
+      streakDisplayText: stats.streakDisplayText || '0 hours',
       cravingsResisted: Math.max(0, parseInt(stats.cravingsResisted) || 0),
       ...stats
     };
@@ -6976,7 +7058,7 @@ const App = () => {
   const [buddyError, setBuddyError] = useState(null);
   const [buddyLoadAttempted, setBuddyLoadAttempted] = useState(false);
   // Load real buddy data - Simplified to prevent React crashes
-  const loadRealBuddy = async () => {
+  const loadRealBuddy = async (calculateRealTimeStatsFn, setRealTimeNemesisStatsFn) => {
     if (!user?.uid || buddyLoading) {
       return;
     }
@@ -7139,12 +7221,18 @@ const App = () => {
           console.log('🔍 Reading buddy profile fields from path:', `users/${buddyUserId}`);
           
           // Read specific fields that we have permission for (not the entire user object)
-          const [avatarSnapshot, avatarSeedSnapshot, archetypeSnapshot, heroNameSnapshot] = await Promise.all([
+          console.log('🔄 Firestore: Attempting to read buddy quit date from multiple locations...');
+          const [avatarSnapshot, avatarSeedSnapshot, archetypeSnapshot, heroNameSnapshot, quitDateSnapshot, profileQuitDateSnapshot, profileSnapshot] = await Promise.all([
             get(ref(db, `users/${buddyUserId}/avatar`)),
             get(ref(db, `users/${buddyUserId}/avatarSeed`)),
             get(ref(db, `users/${buddyUserId}/archetype`)),
-            get(ref(db, `users/${buddyUserId}/heroName`))
+            get(ref(db, `users/${buddyUserId}/heroName`)),
+            get(ref(db, `users/${buddyUserId}/quitDate`)),
+            get(ref(db, `users/${buddyUserId}/profile/quitDate`)),
+            get(ref(db, `users/${buddyUserId}/profile`))
           ]);
+          
+          console.log('🔍 Firestore: Quit date snapshots - root exists:', quitDateSnapshot.exists(), 'profile exists:', profileQuitDateSnapshot.exists());
           
           if (avatarSnapshot.exists()) {
             buddyAvatar = avatarSnapshot.val();
@@ -7167,6 +7255,43 @@ const App = () => {
             // Update the buddy name to use the real hero name
             buddyName = buddyHeroName;
           }
+          
+          if (quitDateSnapshot.exists()) {
+            buddyQuitDate = quitDateSnapshot.val();
+            console.log('✅ Got buddy quit date from Firebase (root):', buddyQuitDate);
+          } else if (profileQuitDateSnapshot.exists()) {
+            buddyQuitDate = profileQuitDateSnapshot.val();
+            console.log('✅ Got buddy quit date from Firebase (profile):', buddyQuitDate);
+          } else {
+            console.log('⚠️ No buddy quit date found in Firebase (neither root nor profile)');
+            console.log('🔍 quitDateSnapshot exists:', quitDateSnapshot.exists());
+            console.log('🔍 profileQuitDateSnapshot exists:', profileQuitDateSnapshot.exists());
+            
+            // Check if profile exists and has any quit date information
+            if (profileSnapshot.exists()) {
+              const profileData = profileSnapshot.val();
+              console.log('🔍 Full profile data available:', profileData);
+              
+              // Look for quit date in profile data
+              if (profileData && profileData.quitDate) {
+                buddyQuitDate = profileData.quitDate;
+                console.log('✅ Found buddy quit date in profile data:', buddyQuitDate);
+              } else {
+                console.log('⚠️ Profile exists but has no quit date field');
+              }
+            } else {
+              console.log('⚠️ No profile data available at all');
+            }
+            
+            if (!buddyQuitDate) {
+              console.log('⚠️ This means the buddy has no quit date stored - streak will be 0');
+              console.log('🔍 Buddy user ID:', buddyUserId);
+              console.log('🔍 This could be because:');
+              console.log('   1. User completed onboarding before quit date was properly saved');
+              console.log('   2. User quit date was overwritten during validation');
+              console.log('   3. User was created before proper quit date handling was implemented');
+            }
+          }
         } catch (profileError) {
           console.log('⚠️ Could not read buddy profile (permission):', profileError.message);
           console.log('🔍 Full profile error details:', profileError);
@@ -7174,11 +7299,14 @@ const App = () => {
           console.log('🔍 Current user can read own profile, but not buddy profile');
         }
 
+        // Use default quit date if none was found
+        const finalBuddyQuitDate = buddyQuitDate || new Date().toISOString();
+        
         const transformedBuddy = {
           heroName: buddyName,
           uid: buddyUserId,
           stats: buddyStats,
-          quitDate: buddyQuitDate,
+          quitDate: finalBuddyQuitDate,
           achievements: [],
           archetype: buddyArchetype,
           avatar: buddyAvatar,
@@ -7193,6 +7321,14 @@ const App = () => {
           specialFeatures: null
         };
         
+        console.log('🔍 Firestore: Final buddy object with quit date:', {
+          heroName: buddyName,
+          originalQuitDate: buddyQuitDate,
+          finalQuitDate: finalBuddyQuitDate,
+          hasOriginalQuitDate: !!buddyQuitDate,
+          usingDefaultQuitDate: !buddyQuitDate
+        });
+        
         setRealBuddy(transformedBuddy);
         console.log('✅ Firestore: Buddy data loaded successfully');
         console.log('🔍 Firestore: Buddy Special Features data:', {
@@ -7202,6 +7338,27 @@ const App = () => {
           hasCopingStrategies: !!transformedBuddy.copingStrategies?.length,
           uid: transformedBuddy.uid
         });
+        
+        // Calculate buddy stats with the final quit date (original or default)
+        console.log('🔄 Firestore: Calculating buddy stats with quit date:', finalBuddyQuitDate);
+        try {
+          // Use the full calculateRealTimeStats function for proper calculation
+          const calculatedStats = await calculateRealTimeStatsFn(transformedBuddy);
+          console.log('🔄 Firestore: Calculated buddy stats with streak:', calculatedStats);
+          setRealTimeNemesisStatsFn(calculatedStats);
+        } catch (calcError) {
+          console.error('❌ Error calculating buddy stats:', calcError);
+          // Fallback to simple streak calculation
+          const streakData = calculateStreak(new Date(finalBuddyQuitDate));
+          const fallbackStats = {
+            ...buddyStats,
+            streakDays: streakData.value,
+            streakUnit: streakData.unit,
+            streakDisplayText: streakData.displayText
+          };
+          console.log('🔄 Firestore: Fallback buddy stats with streak:', fallbackStats);
+          setRealTimeNemesisStatsFn(fallbackStats);
+        }
         
         // Clean up matching pool (Firestore)
         await removeUsersFromMatchingPool(user.uid, buddyUserId);
@@ -7413,7 +7570,8 @@ const App = () => {
   // Load buddy data when user changes - Simplified to prevent crashes
   useEffect(() => {
     if (user?.uid && !realBuddy && !buddyLoading && !buddyLoadAttempted) {
-      loadRealBuddy();
+      // We'll handle buddy loading inside the Arena component where the functions are available
+      console.log('🔄 Buddy loading will be handled by Arena component');
     }
   }, [user?.uid, realBuddy, buddyLoading, buddyLoadAttempted]);
   
@@ -7539,7 +7697,8 @@ const App = () => {
                 const currentUserMatched = [arrivingUser.userId, targetUser.userId].includes(user.uid);
                 if (currentUserMatched) {
                   try {
-                    await loadRealBuddy();
+                    // Buddy reloading will be handled by Arena component
+                    console.log('🔄 Buddy reloading will be handled by Arena component after matching');
                   } catch (reloadError) {
                     console.error('Error reloading buddy data:', reloadError);
                   }
@@ -7710,7 +7869,8 @@ const App = () => {
         const currentUserMatched = [arrivingUser?.userId, waitingUser?.userId].includes(user.uid);
         if (currentUserMatched) {
           try {
-            await loadRealBuddy();
+            // Buddy reloading will be handled by Arena component
+            console.log('🔄 Buddy reloading will be handled by Arena component after matching');
           } catch (reloadError) {
             console.error('Error reloading buddy data:', reloadError);
           }
@@ -8193,6 +8353,8 @@ const App = () => {
                             buddyLoading={buddyLoading}
                             buddyError={buddyError}
                             realBuddy={realBuddy}
+                            loadRealBuddy={loadRealBuddy}
+                            buddyLoadAttempted={buddyLoadAttempted}
                           />
                         );
                 } catch (error) {
@@ -8221,6 +8383,7 @@ const App = () => {
                 nemesis={getCurrentOpponent()}
                 onBackToLogin={handleBackToLogin}
                 onResetForTesting={handleResetForTesting}
+                behavioralService={behavioralService}
                 onBreathingComplete={async (breathingData) => {
                   await handleBreathingComplete();
                   
