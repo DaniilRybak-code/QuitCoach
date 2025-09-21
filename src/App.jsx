@@ -1292,8 +1292,38 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
   
   // Generate and store personalized special features based on onboarding responses
   async function getPersonalizedFeatures(user) {
-    // If this is a buddy/nemesis user, generate simple placeholder features
+    // If this is a buddy/nemesis user, check if they have centralized Special Features
     if (user?.isRealBuddy) {
+      // For User 2 and User 3: Load their real Special Features from centralized stats
+      if (user.uid === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1' || user.uid === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2') {
+        console.log('🔄 TradingCard: Loading centralized Special Features for buddy:', user.heroName);
+        try {
+          const { ref, get } = await import('firebase/database');
+          const statsRef = ref(db, `users/${user.uid}/stats`);
+          const snapshot = await get(statsRef);
+          
+          if (snapshot.exists()) {
+            const stats = snapshot.val();
+            if (stats.specialFeatures && Array.isArray(stats.specialFeatures)) {
+              console.log('✅ TradingCard: Using centralized Special Features for buddy:', stats.specialFeatures);
+              return stats.specialFeatures;
+            }
+          }
+          
+          // Fallback: Try legacy specialFeatures location
+          const legacyRef = ref(db, `users/${user.uid}/specialFeatures`);
+          const legacySnapshot = await get(legacyRef);
+          if (legacySnapshot.exists()) {
+            const features = legacySnapshot.val();
+            console.log('✅ TradingCard: Using legacy Special Features for buddy:', features);
+            return features;
+          }
+        } catch (error) {
+          console.warn('⚠️ TradingCard: Could not load centralized Special Features for buddy:', error.message);
+        }
+      }
+      
+      // For other buddies or fallback: Use placeholder features
       console.log('🔄 TradingCard: Generating placeholder features for buddy:', user.heroName);
       return ['Freedom Chaser', 'Nicotine Fighter', 'Health Seeker', 'Willpower Warrior'];
     }

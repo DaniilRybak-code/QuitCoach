@@ -43,6 +43,9 @@ class CentralizedStatService {
       // Calculate addiction level (with decay and relapse penalties)
       const addictionLevel = await this.calculateAddictionLevel(profileData, effectiveQuitDate);
       
+      // Generate Special Features based on onboarding data
+      const specialFeatures = await this.generateSpecialFeatures(profileData);
+      
       // Build final stats object
       const updatedStats = {
         ...currentStats,
@@ -51,6 +54,7 @@ class CentralizedStatService {
         streakDisplayText: streakData.displayText,
         cravingsResisted: cravingsResisted,
         addictionLevel: addictionLevel,
+        specialFeatures: specialFeatures, // Add Special Features to centralized stats
         lastUpdated: new Date().toISOString()
       };
 
@@ -61,6 +65,7 @@ class CentralizedStatService {
         streak: streakData.displayText,
         cravingsResisted,
         addictionLevel,
+        specialFeatures: specialFeatures?.length || 0,
         effectiveQuitDate
       });
 
@@ -175,6 +180,118 @@ class CentralizedStatService {
       return 50;
     } catch (error) {
       return 50;
+    }
+  }
+
+  /**
+   * Generate Special Features based on user's onboarding data
+   */
+  async generateSpecialFeatures(profileData) {
+    try {
+      // Check if features are already stored
+      const existingFeaturesSnapshot = await get(ref(this.db, `users/${this.userId}/specialFeatures`));
+      if (existingFeaturesSnapshot.exists()) {
+        const features = existingFeaturesSnapshot.val();
+        if (Array.isArray(features) && features.length > 0) {
+          console.log(`📊 CentralizedStats: Using existing Special Features for ${this.userId}:`, features);
+          return features;
+        }
+      }
+
+      // Generate features from onboarding data - check multiple locations
+      let triggers = profileData.triggers || [];
+      let dailyPatterns = profileData.dailyPatterns || [];
+      let copingStrategies = profileData.copingStrategies || [];
+
+      // If not found in profile, check root user object
+      if (triggers.length === 0 || dailyPatterns.length === 0 || copingStrategies.length === 0) {
+        try {
+          const userSnapshot = await get(ref(this.db, `users/${this.userId}`));
+          if (userSnapshot.exists()) {
+            const userData = userSnapshot.val();
+            triggers = triggers.length > 0 ? triggers : (userData.triggers || []);
+            dailyPatterns = dailyPatterns.length > 0 ? dailyPatterns : (userData.dailyPatterns || []);
+            copingStrategies = copingStrategies.length > 0 ? copingStrategies : (userData.copingStrategies || []);
+            
+            console.log(`📊 CentralizedStats: Found onboarding data for ${this.userId}:`, {
+              triggers: triggers.length,
+              dailyPatterns: dailyPatterns.length,
+              copingStrategies: copingStrategies.length
+            });
+          }
+        } catch (error) {
+          console.warn(`⚠️ CentralizedStats: Could not read user onboarding data for ${this.userId}:`, error.message);
+        }
+      }
+
+      const features = [];
+
+      // Special Features categorized by onboarding response types
+      const SPECIAL_FEATURES = {
+        triggers: [
+          'Stress Vaper', 'Social Smoker', 'Coffee Companion', 'Work Breaker',
+          'Gaming Buddy', 'Party Animal', 'Peer Pressure', 'Celebration Trigger',
+          'Anxiety Soother', 'Focus Enhancer', 'Boredom Fighter', 'Emotional Support'
+        ],
+        dailyPatterns: [
+          'Night Owl', 'Morning Struggler', 'Weekend Warrior', 'Routine Builder',
+          'Habit Former', 'Work Breaker', 'Coffee Companion', 'Party Animal'
+        ],
+        copingStrategies: [
+          'First Timer', 'Veteran Quitter', 'Cold Turkey', 'Gradual Reduction',
+          'Stress Reliever', 'Mood Stabilizer', 'Reward Seeker', 'Social Lubricant'
+        ]
+      };
+
+      console.log(`📊 CentralizedStats: Generating features from onboarding data for ${this.userId}:`, {
+        triggers,
+        dailyPatterns,
+        copingStrategies
+      });
+
+      // Generate features based on triggers
+      if (triggers.includes('Stress/anxiety')) features.push('Stress Vaper');
+      if (triggers.includes('Social situations')) features.push('Social Smoker');
+      if (triggers.includes('Boredom')) features.push('Boredom Fighter');
+      if (triggers.includes('After meals')) features.push('Coffee Companion');
+      if (triggers.includes('Work breaks')) features.push('Work Breaker');
+
+      // Generate features based on daily patterns
+      if (dailyPatterns.includes('Evening wind-down')) features.push('Night Owl');
+      if (dailyPatterns.includes('Morning routine')) features.push('Morning Struggler');
+      if (dailyPatterns.includes('Social events')) features.push('Party Animal');
+      if (dailyPatterns.includes('Work breaks')) features.push('Work Breaker');
+
+      // Generate features based on coping strategies
+      if (copingStrategies.includes('Breathing exercises')) features.push('Stress Reliever');
+      if (copingStrategies.includes('Exercise/physical activity')) features.push('Health Seeker');
+      if (copingStrategies.includes('Nicotine replacement therapy')) features.push('Veteran Quitter');
+      if (copingStrategies.includes('Nothing - this is new to me')) features.push('First Timer');
+
+      console.log(`📊 CentralizedStats: Generated ${features.length} personalized features:`, features);
+
+      // Ensure we have at least 4 features, add generic ones if needed
+      const genericFeatures = ['Freedom Chaser', 'Nicotine Fighter', 'Health Seeker', 'Willpower Warrior'];
+      while (features.length < 4) {
+        const randomGeneric = genericFeatures[Math.floor(Math.random() * genericFeatures.length)];
+        if (!features.includes(randomGeneric)) {
+          features.push(randomGeneric);
+        }
+      }
+
+      // Limit to 4 features
+      const finalFeatures = features.slice(0, 4);
+
+      // Store in Firebase for future use
+      await set(ref(this.db, `users/${this.userId}/specialFeatures`), finalFeatures);
+      
+      console.log(`📊 CentralizedStats: Generated and stored Special Features for ${this.userId}:`, finalFeatures);
+      return finalFeatures;
+
+    } catch (error) {
+      console.error(`❌ CentralizedStats: Error generating Special Features for ${this.userId}:`, error);
+      // Return default features
+      return ['Freedom Chaser', 'Nicotine Fighter', 'Health Seeker', 'Willpower Warrior'];
     }
   }
 
