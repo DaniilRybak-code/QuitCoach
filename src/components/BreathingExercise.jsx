@@ -16,12 +16,20 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
   const [isActive, setIsActive] = useState(false);
   const [progress, setProgress] = useState(MIN_SCALE); // Start from center
   const [showConfirmPopup, setShowConfirmPopup] = useState(false);
+  const [exerciseCompleted, setExerciseCompleted] = useState(false);
   
   const animationRef = useRef(null);
   const timerRef = useRef(null);
   // phaseTimerRef is no longer needed
 
-  // Remove the useEffect from here - will add it after function definitions
+  // Handle exercise completion
+  useEffect(() => {
+    if (timeRemaining === 0 && isActive && !exerciseCompleted) {
+      console.log('🎯 Exercise completed, calling onComplete');
+      setExerciseCompleted(true);
+      onComplete();
+    }
+  }, [timeRemaining, isActive, exerciseCompleted, onComplete]);
 
   const startMainTimer = () => {
     console.log(`⏰ Starting main timer for ${duration} minutes`);
@@ -38,7 +46,7 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
           console.log(`⏰ Main exercise timer completed! Total duration: ${duration} minutes`);
           clearInterval(timerRef.current);
           timerRef.current = null;
-          onComplete();
+          // Don't call onComplete here - let useEffect handle it
           return 0;
         }
         const newTime = prev - 1;
@@ -324,8 +332,8 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
 
       {/* Instructions */}
       <div className="p-6 text-center">
-        <div className="flex items-center justify-center mb-4">
-          <span className="text-white text-lg">{getInstruction()}</span>
+        <div className="flex items-center justify-center mb-4 h-16">
+          <span className="text-white text-lg leading-tight">{getInstruction()}</span>
         </div>
         
         {/* Phase Timer */}

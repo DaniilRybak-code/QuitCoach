@@ -203,6 +203,11 @@ async function syncOfflineActions() {
 
 // Handle messages from main app
 self.addEventListener('message', (event) => {
+  // Check if event.data exists and has the expected structure
+  if (!event.data || typeof event.data !== 'object') {
+    return; // Silently ignore malformed messages
+  }
+  
   const { type, data } = event.data;
   
   switch (type) {
@@ -219,7 +224,10 @@ self.addEventListener('message', (event) => {
       break;
       
     default:
-      console.log('📨 Unknown message type:', type);
+      // Only log if type is defined but unknown
+      if (type !== undefined) {
+        console.log('📨 Unknown message type:', type);
+      }
   }
 });
 

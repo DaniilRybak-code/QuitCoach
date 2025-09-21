@@ -4,7 +4,7 @@ import BreathingRateSelector from './BreathingRateSelector';
 import DurationPicker from './DurationPicker';
 import BreathingExercise from './BreathingExercise';
 
-const BreathingModal = ({ isOpen, onClose, onNavigateToCravingSupport }) => {
+const BreathingModal = ({ isOpen, onClose, onNavigateToCravingSupport, onComplete }) => {
   const [modalStep, setModalStep] = useState('setup');
   const [selectedRate, setSelectedRate] = useState({
     name: 'INTERMEDIATE',
@@ -40,6 +40,12 @@ const BreathingModal = ({ isOpen, onClose, onNavigateToCravingSupport }) => {
   const handleExerciseComplete = () => {
     setIsExerciseActive(false);
     setModalStep('setup');
+    
+    // Call the onComplete callback if provided
+    if (onComplete) {
+      onComplete();
+    }
+    
     onClose();
   };
 
