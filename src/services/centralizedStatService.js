@@ -34,8 +34,8 @@ class CentralizedStatService {
           // Calculate effective quit date (considering relapses)
           const effectiveQuitDate = this.calculateEffectiveQuitDate(profileData);
           
-          // Calculate streak based on effective quit date
-          const streakData = this.calculateStreak(effectiveQuitDate);
+          // Calculate streak based on LATEST RELAPSE DATE (not quit date)
+          const streakData = this.calculateStreakFromRelapse(profileData);
           
           // Calculate cravings resisted
           const cravingsResisted = await this.calculateCravingsResisted();
@@ -43,8 +43,8 @@ class CentralizedStatService {
           // Calculate addiction level (with decay and relapse penalties)
           const addictionLevel = await this.calculateAddictionLevel(profileData, effectiveQuitDate);
           
-          // Check and apply milestone bonuses
-          const milestoneUpdates = await this.checkMilestones(effectiveQuitDate, currentStats);
+          // Check and apply milestone bonuses (use relapse-based streak for milestones)
+          const milestoneUpdates = await this.checkMilestonesFromRelapse(profileData, currentStats);
           
           // Generate Special Features based on onboarding data
           const specialFeatures = await this.generateSpecialFeatures(profileData);
@@ -124,6 +124,52 @@ class CentralizedStatService {
         value: diffHours,
         unit: 'hours',
         displayText: `${diffHours} hour${diffHours === 1 ? '' : 's'}`
+      };
+    }
+  }
+
+  /**
+   * Calculate streak from LATEST RELAPSE DATE
+   * First 24 hours shown in hours, then in days
+   */
+  calculateStreakFromRelapse(profileData) {
+    const now = new Date();
+    
+    // Get the latest relapse date
+    const lastRelapseDate = profileData.lastRelapseDate;
+    
+    if (!lastRelapseDate) {
+      // If no relapse date, use quit date as fallback
+      const quitDate = profileData.quitDate || new Date().toISOString();
+      console.log(`📊 CentralizedStats: No relapse date found for ${this.userId}, using quit date: ${quitDate}`);
+      return this.calculateStreak(quitDate);
+    }
+    
+    const relapseDate = new Date(lastRelapseDate);
+    const diffMs = now - relapseDate;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    console.log(`📊 CentralizedStats: Streak calculation for ${this.userId}:`);
+    console.log(`  - Last relapse: ${lastRelapseDate}`);
+    console.log(`  - Current time: ${now.toISOString()}`);
+    console.log(`  - Hours since relapse: ${diffHours}`);
+    console.log(`  - Days since relapse: ${diffDays}`);
+
+    // First 24 hours shown in hours, then in days
+    if (diffHours < 24) {
+      return {
+        value: diffHours,
+        unit: 'hours',
+        displayText: `${diffHours} hour${diffHours === 1 ? '' : 's'}`,
+        streakDays: 0
+      };
+    } else {
+      return {
+        value: diffDays,
+        unit: 'days',
+        displayText: `${diffDays} day${diffDays === 1 ? '' : 's'}`,
+        streakDays: diffDays
       };
     }
   }
@@ -284,6 +330,75 @@ class CentralizedStatService {
       
     } catch (error) {
       console.error(`❌ CentralizedStats: Error checking milestones for ${this.userId}:`, error);
+      return {};
+    }
+  }
+
+  /**
+   * Check and apply milestone bonuses based on relapse date
+   */
+  async checkMilestonesFromRelapse(profileData, currentStats) {
+    try {
+      const now = new Date();
+      
+      // Get the latest relapse date
+      const lastRelapseDate = profileData.lastRelapseDate;
+      
+      if (!lastRelapseDate) {
+        console.log(`📊 CentralizedStats: No relapse date found for ${this.userId}, skipping milestones`);
+        return {};
+      }
+      
+      const relapseDate = new Date(lastRelapseDate);
+      const cleanDays = Math.floor((now - relapseDate) / (1000 * 60 * 60 * 24));
+      
+      console.log(`📊 CentralizedStats: Checking milestones for ${this.userId}, clean days since relapse: ${cleanDays}`);
+      
+      // Define milestone requirements
+      const milestones = [
+        { days: 7, bonus: 5, name: 'First week', key: 'milestone_7' },
+        { days: 30, bonus: 10, name: 'First month', key: 'milestone_30' },
+        { days: 90, bonus: 15, name: 'Three months', key: 'milestone_90' }
+      ];
+
+      let statUpdates = {};
+      let milestoneAchieved = false;
+
+      for (const milestone of milestones) {
+        if (cleanDays >= milestone.days) {
+          // Check if this milestone has already been awarded
+          const milestoneRef = ref(this.db, `users/${this.userId}/profile/milestones/${milestone.key}`);
+          const milestoneSnapshot = await get(milestoneRef);
+          
+          if (!milestoneSnapshot.exists()) {
+            // Award milestone bonus
+            const newMentalStrength = Math.min(100, (currentStats.mentalStrength || 50) + milestone.bonus);
+            statUpdates.mentalStrength = newMentalStrength;
+            milestoneAchieved = true;
+            
+            // Mark milestone as achieved
+            await set(milestoneRef, {
+              achieved: true,
+              achievedDate: new Date().toISOString(),
+              bonus: milestone.bonus,
+              cleanDaysAtAchievement: cleanDays
+            });
+            
+            console.log(`🎉 CentralizedStats: Milestone achieved for ${this.userId}! ${milestone.name} (+${milestone.bonus} Mental Strength)`);
+            
+            // Show milestone achievement notification
+            this.showMilestoneNotification(milestone, cleanDays);
+            
+            // Only award the highest milestone reached to avoid multiple bonuses in one update
+            break;
+          }
+        }
+      }
+
+      return statUpdates;
+      
+    } catch (error) {
+      console.error(`❌ CentralizedStats: Error checking milestones from relapse for ${this.userId}:`, error);
       return {};
     }
   }

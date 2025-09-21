@@ -493,4 +493,129 @@ input[type="range"]::-ms-thumb {
   border: none;
 }
 
+/* Mobile Layout Fixes - Ensure responsive classes work */
+@media (max-width: 1023px) {
+  .battle-cards-container {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+  
+  .battle-card {
+    width: 18rem !important; /* 288px */
+    max-width: 18rem !important;
+  }
+  
+  .vs-section {
+    flex-direction: row !important;
+    gap: 1rem !important;
+  }
+  
+  .vs-icon {
+    width: 4rem !important;
+    height: 4rem !important;
+  }
+  
+  .vs-text {
+    font-size: 1.125rem !important; /* text-lg */
+  }
+}
+
+@media (min-width: 1024px) {
+  .battle-cards-container {
+    flex-direction: row !important;
+    gap: 3rem !important;
+  }
+  
+  .battle-card {
+    width: 20rem !important; /* 320px */
+    max-width: 20rem !important;
+  }
+  
+  .vs-section {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+  
+  .vs-icon {
+    width: 6rem !important;
+    height: 6rem !important;
+  }
+  
+  .vs-text {
+    font-size: 1.5rem !important; /* text-2xl */
+  }
+}
+
+/* Force responsive behavior */
+.battle-cards-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  margin-bottom: 2rem !important;
+}
+
+.battle-card {
+  flex-shrink: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 1rem !important;
+}
+
+.vs-section {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+/* Critical mobile layout enforcement */
+@media (max-width: 1023px) {
+  .battle-cards-container {
+    flex-direction: column !important;
+    gap: 1rem !important;
+    align-items: center !important;
+  }
+  
+  .battle-card {
+    width: 18rem !important;
+    max-width: 18rem !important;
+    margin: 0 auto !important;
+  }
+  
+  .vs-section {
+    flex-direction: row !important;
+    gap: 1rem !important;
+    margin: 1rem 0 !important;
+  }
+  
+  /* Prevent horizontal overflow */
+  body {
+    overflow-x: hidden !important;
+  }
+  
+  #root {
+    overflow-x: hidden !important;
+  }
+}
+
+/* Desktop layout enforcement */
+@media (min-width: 1024px) {
+  .battle-cards-container {
+    flex-direction: row !important;
+    gap: 3rem !important;
+  }
+  
+  .battle-card {
+    width: 20rem !important;
+    max-width: 20rem !important;
+  }
+  
+  .vs-section {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+}
+
 

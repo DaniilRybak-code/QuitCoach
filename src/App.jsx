@@ -1741,6 +1741,50 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
 
   const [showBattleInfo, setShowBattleInfo] = useState(false);
   const [statManager, setStatManager] = useState(null);
+  const [centralizedStatService, setCentralizedStatService] = useState(null);
+  
+  // Mobile layout fix - ensure responsive behavior works
+  useEffect(() => {
+    const fixMobileLayout = () => {
+      const battleContainer = document.querySelector('.battle-cards-container');
+      if (battleContainer) {
+        // Force mobile layout on small screens
+        if (window.innerWidth < 1024) {
+          battleContainer.style.flexDirection = 'column';
+          battleContainer.style.gap = '1rem';
+        } else {
+          battleContainer.style.flexDirection = 'row';
+          battleContainer.style.gap = '3rem';
+        }
+      }
+    };
+    
+    // Run on mount and resize
+    fixMobileLayout();
+    window.addEventListener('resize', fixMobileLayout);
+    
+    return () => window.removeEventListener('resize', fixMobileLayout);
+  }, []);
+
+  // Ensure stats are refreshed on every page load (including soft refresh)
+  useEffect(() => {
+    const refreshStatsOnLoad = async () => {
+      if (centralizedStatService && user) {
+        try {
+          console.log('🔄 App: Refreshing stats on page load for user:', user.uid);
+          await centralizedStatService.refreshAllStats();
+          console.log('✅ App: Stats refreshed on page load');
+        } catch (error) {
+          console.error('❌ App: Error refreshing stats on page load:', error);
+        }
+      }
+    };
+
+    // Run when centralizedStatService and user are available
+    if (centralizedStatService && user) {
+      refreshStatsOnLoad();
+    }
+  }, [centralizedStatService, user]);
   
 
 
@@ -2246,10 +2290,23 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                 streakUnit: updatedBuddyStats.streakUnit
               }));
             } else {
-              setRealTimeNemesisStats(prevStats => ({
-                ...prevStats,
-                ...updatedBuddyStats
-              }));
+              // For other users: Preserve locally calculated streak and only update other stats
+              setRealTimeNemesisStats(prevStats => {
+                // Preserve the locally calculated streak if it exists
+                const preservedStreak = prevStats.streakDisplayText ? {
+                  streakDisplayText: prevStats.streakDisplayText,
+                  streakDays: prevStats.streakDays,
+                  streakUnit: prevStats.streakUnit
+                } : {};
+                
+                console.log('🔄 Arena: Preserving locally calculated buddy streak:', preservedStreak);
+                
+                return {
+                  ...prevStats,
+                  ...updatedBuddyStats,
+                  ...preservedStreak // Override with preserved streak data
+                };
+              });
             }
           }
         }, (error) => {
@@ -2292,7 +2349,23 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                 }
                 
                 console.log('🔄 Arena: Preserved real buddy stats during profile update:', updatedStats);
-                setRealTimeNemesisStats(updatedStats);
+                
+                // Preserve locally calculated streak during profile update
+                setRealTimeNemesisStats(prevStats => {
+                  const preservedStreak = prevStats.streakDisplayText ? {
+                    streakDisplayText: prevStats.streakDisplayText,
+                    streakDays: prevStats.streakDays,
+                    streakUnit: prevStats.streakUnit
+                  } : {};
+                  
+                  console.log('🔄 Arena: Preserving locally calculated streak during profile update:', preservedStreak);
+                  
+                  return {
+                    ...prevStats,
+                    ...updatedStats,
+                    ...preservedStreak // Override with preserved streak data
+                  };
+                });
               } else {
                 console.log('🔄 Arena: Skipping profile update - waiting for real stats to load first');
               }
@@ -2353,7 +2426,23 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
         // Store just the calculated stats, not the merged object
         // console.log('🔄 Arena: Calculated nemesis stats:', nemesisStats);
         // console.log('🔄 Arena: About to setRealTimeNemesisStats with:', nemesisStats);
-        setRealTimeNemesisStats(nemesisStats);
+        
+        // Preserve locally calculated streak during stats calculation
+        setRealTimeNemesisStats(prevStats => {
+          const preservedStreak = prevStats.streakDisplayText ? {
+            streakDisplayText: prevStats.streakDisplayText,
+            streakDays: prevStats.streakDays,
+            streakUnit: prevStats.streakUnit
+          } : {};
+          
+          console.log('🔄 Arena: Preserving locally calculated streak during stats calculation:', preservedStreak);
+          
+          return {
+            ...prevStats,
+            ...nemesisStats,
+            ...preservedStreak // Override with preserved streak data
+          };
+        });
       }
     }
   };
@@ -2743,8 +2832,8 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
         </div>
         
         {/* Enhanced Battle Cards */}
-        <div className="flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-12 mb-8 w-full">
-          <div className="flex flex-col items-center space-y-4 flex-shrink-0">
+        <div className="battle-cards-container flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-12 mb-8 w-full">
+          <div className="battle-card flex flex-col items-center space-y-4 flex-shrink-0">
             {(() => {
               // Only render if we have both user and realTimeUserStats
               if (!user || !realTimeUserStats) {
@@ -2784,16 +2873,16 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             })()}
           </div>
           
-          <div className="flex flex-row lg:flex-col items-center justify-center space-x-4 lg:space-x-0 space-y-0 lg:space-y-4 flex-shrink-0">
-            <div className="w-16 h-16 lg:w-24 lg:h-24 bg-gradient-to-br from-red-500 to-purple-600 rounded-full flex items-center justify-center shadow-xl animate-pulse">
+          <div className="vs-section flex flex-row lg:flex-col items-center justify-center space-x-4 lg:space-x-0 space-y-0 lg:space-y-4 flex-shrink-0">
+            <div className="vs-icon w-16 h-16 lg:w-24 lg:h-24 bg-gradient-to-br from-red-500 to-purple-600 rounded-full flex items-center justify-center shadow-xl animate-pulse">
               <Sword className="w-8 h-8 lg:w-12 lg:h-12 text-white" />
             </div>
             <div className="bg-red-600 px-4 py-2 lg:px-8 lg:py-3 rounded-full">
-              <p className="text-white font-bold text-lg lg:text-2xl">VS</p>
+              <p className="vs-text text-white font-bold text-lg lg:text-2xl">VS</p>
             </div>
           </div>
           
-          <div className="flex flex-col items-center space-y-4 flex-shrink-0">
+          <div className="battle-card flex flex-col items-center space-y-4 flex-shrink-0">
             {(() => {
               // Only render if we have both nemesis and realTimeNemesisStats
               if (!nemesis || !realTimeNemesisStats) {
@@ -2813,6 +2902,12 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                   ...realTimeNemesisStats         // Override with calculated real-time stats
                 }
               };
+              
+              console.log('🎯 TradingCard: Buddy streak debug:', {
+                realTimeNemesisStats: realTimeNemesisStats,
+                mergedNemesisStats: mergedNemesisStats.stats,
+                buddyStreak: mergedNemesisStats.stats?.streakDisplayText
+              });
               
               // Debug logging for buddy stats (removed to reduce console noise)
               // console.log('🔍 Buddy TradingCard: Nemesis stats source:', {
@@ -7690,15 +7785,65 @@ const App = () => {
         // Read centralized stats for ALL buddies (universal system)
         console.log(`🔄 Firestore: Reading centralized buddy stats for ${buddyUserId} (read-only)`);
         try {
-          // Just read the stats from Firebase - don't try to write them
-          const { ref: statsRef, get } = await import('firebase/database');
-          const buddyStatsSnapshot = await get(statsRef(db, `users/${buddyUserId}/stats`));
-          if (buddyStatsSnapshot.exists()) {
-            const buddyStats = buddyStatsSnapshot.val();
-            console.log('🔄 Firestore: Using centralized buddy stats (read-only):', buddyStats);
-            setRealTimeNemesisStatsFn(buddyStats);
-          } else {
-            console.log('⚠️ Firestore: No centralized stats found for buddy, using fallback calculation');
+          // Read buddy's stats and calculate streak locally (read-only approach)
+          try {
+            const { ref: statsRef, get } = await import('firebase/database');
+            const buddyStatsSnapshot = await get(statsRef(db, `users/${buddyUserId}/stats`));
+            
+            if (buddyStatsSnapshot.exists()) {
+              const buddyStats = buddyStatsSnapshot.val();
+              
+              // Calculate streak locally using buddy's relapse date
+              const now = new Date();
+              const lastRelapseDate = transformedBuddy.lastRelapseDate;
+              
+              if (lastRelapseDate) {
+                const relapseDate = new Date(lastRelapseDate);
+                const diffMs = now - relapseDate;
+                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                const diffDays = Math.floor(diffHours / 24);
+                
+                // Update streak in the stats object
+                let streakDisplayText;
+                let streakDays;
+                
+                if (diffHours < 24) {
+                  streakDisplayText = `${diffHours} hour${diffHours === 1 ? '' : 's'}`;
+                  streakDays = 0;
+                } else {
+                  streakDisplayText = `${diffDays} day${diffDays === 1 ? '' : 's'}`;
+                  streakDays = diffDays;
+                }
+                
+                console.log(`🔄 Firestore: Calculated buddy streak locally: ${streakDisplayText} (${diffHours} hours since relapse)`);
+                
+                // Update the stats with calculated streak
+                const updatedBuddyStats = {
+                  ...buddyStats,
+                  streakDays: streakDays,
+                  streakUnit: diffHours < 24 ? 'hours' : 'days',
+                  streakDisplayText: streakDisplayText
+                };
+                
+                console.log('🔄 Firestore: Using buddy stats with locally calculated streak:', updatedBuddyStats);
+                console.log('🔄 Firestore: Buddy streak fields:', {
+                  streakDays: updatedBuddyStats.streakDays,
+                  streakUnit: updatedBuddyStats.streakUnit,
+                  streakDisplayText: updatedBuddyStats.streakDisplayText
+                });
+                setRealTimeNemesisStatsFn(updatedBuddyStats);
+              } else {
+                console.log('🔄 Firestore: No relapse date found for buddy, using existing stats');
+                setRealTimeNemesisStatsFn(buddyStats);
+              }
+            } else {
+              console.log('⚠️ Firestore: No centralized stats found for buddy, using fallback calculation');
+              const calculatedStats = await calculateRealTimeStatsFn(transformedBuddy);
+              setRealTimeNemesisStatsFn(calculatedStats);
+            }
+          } catch (error) {
+            console.error('❌ Error reading buddy stats:', error);
+            // Fallback to calculated method
             const calculatedStats = await calculateRealTimeStatsFn(transformedBuddy);
             setRealTimeNemesisStatsFn(calculatedStats);
           }
