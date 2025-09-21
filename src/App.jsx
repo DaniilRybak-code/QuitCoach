@@ -1768,11 +1768,12 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         stats.streakDays = streakData.value;
         stats.streakUnit = streakData.unit;
         stats.streakDisplayText = streakData.displayText;
-        console.log('🔄 Arena: Calculated buddy streak from quit date:', streakData.displayText);
+        // console.log('🔄 Arena: Calculated buddy streak from quit date:', streakData.displayText);
       }
       
       // Try to get cravings resisted count (if readable)
       try {
+        const { ref, get } = await import('firebase/database');
         const cravingsRef = ref(db, `users/${user.uid}/cravings`);
         const cravingsSnapshot = await get(cravingsRef);
         let totalResisted = 0;
@@ -1788,7 +1789,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
           console.log('🔄 Arena: Got buddy cravings resisted:', totalResisted);
         }
       } catch (cravingsError) {
-        console.log('⚠️ Arena: Could not read buddy cravings (permission), using default');
+        console.log('⚠️ Arena: Could not read buddy cravings, using default');
         stats.cravingsResisted = 0;
       }
       
@@ -1869,7 +1870,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
         }
         
         stats.cravingsResisted = totalResisted;
-        console.log(`💪 Arena: Calculated TOTAL cravings resisted for ${user.heroName}: ${totalResisted} (all time)`);
+        // console.log(`💪 Arena: Calculated TOTAL cravings resisted for ${user.heroName}: ${totalResisted} (all time)`);
         
         // Also check the profile field as a backup
         const profileCravingsRef = ref(db, `users/${user.uid}/profile/cravingsResisted`);
@@ -2024,7 +2025,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
           const updatedStatsSnapshot = await get(dbRef(db, `users/${user.uid}/stats`));
           if (updatedStatsSnapshot.exists()) {
             const updatedStats = updatedStatsSnapshot.val();
-            console.log('🔄 Arena: Reading stats after addiction decay:', updatedStats);
+            // console.log('🔄 Arena: Reading stats after addiction decay:', updatedStats);
             Object.assign(stats, updatedStats);
             
             // TEMPORARY FIX: Apply streak calculation for User 3 and User 2
@@ -2034,7 +2035,7 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
               stats.streakDays = streakData.value;
               stats.streakUnit = streakData.unit;
               stats.streakDisplayText = streakData.displayText;
-              console.log('🔧 TEMPORARY FIX: Applied streak calculation for User 3:', streakData.displayText);
+              console.log('🔄 Arena: Applied streak calculation for User 3:', streakData.displayText);
             }
             
             if (user.uid === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2' && user.quitDate) {
@@ -2043,10 +2044,10 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
               stats.streakDays = streakData.value;
               stats.streakUnit = streakData.unit;
               stats.streakDisplayText = streakData.displayText;
-              console.log('🔧 TEMPORARY FIX: Applied streak calculation for User 2:', streakData.displayText);
+              console.log('🔄 Arena: Applied streak calculation for User 2:', streakData.displayText);
             }
             
-            console.log('🔄 Arena: Final stats after decay:', stats);
+            // console.log('🔄 Arena: Final stats after decay:', stats);
           }
         }
         
@@ -6424,7 +6425,7 @@ const App = () => {
       
         // TEMPORARY FIX: Restore correct quit date for User 3 (created on 18/09)
         if (userUID === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1' && (!validatedUserData.quitDate || new Date(validatedUserData.quitDate) > new Date('2025-09-19'))) {
-          console.log('🔧 TEMPORARY FIX: Restoring correct quit date for User 3 (created 18/09)');
+              console.log('🔄 Arena: Restoring correct quit date for User 3 (created 18/09)');
           validatedUserData.quitDate = '2025-09-18T13:56:46.584Z'; // Original creation time from lastActivity
         }
         
@@ -6897,7 +6898,7 @@ const App = () => {
               
               // TEMPORARY FIX: Restore correct quit date for User 3 (created on 18/09)
               if (firebaseUser.uid === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1' && (!userData.quitDate || new Date(userData.quitDate) > new Date('2025-09-19'))) {
-                console.log('🔧 TEMPORARY FIX: Restoring correct quit date for User 3 in auto-login (created 18/09)');
+                console.log('🔄 Arena: Restoring correct quit date for User 3 in auto-login (created 18/09)');
                 userData.quitDate = '2025-09-18T13:56:46.584Z'; // Original creation time
               }
               
@@ -7349,7 +7350,7 @@ const App = () => {
               
               // TEMPORARY FIX: Restore correct quit date for User 2 (created on 18/09)
               if (buddyUserId === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2') {
-                console.log('🔧 TEMPORARY FIX: Restoring correct quit date for User 2 buddy (created 18/09)');
+                console.log('🔄 Arena: Restoring correct quit date for User 2 buddy (created 18/09)');
                 buddyQuitDate = '2025-09-18T13:56:46.584Z'; // Original creation time
               }
             }

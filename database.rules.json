@@ -2,7 +2,7 @@
   "rules": {
     "users": {
       "$uid": {
-        ".read": "$uid === auth.uid",
+        ".read": "$uid === auth.uid || auth != null",
         ".write": "$uid === auth.uid",
         "avatar": {
           ".read": "auth != null"
@@ -22,31 +22,32 @@
         "stats": {
           ".read": "auth != null"
         },
-                "profile": {
-                  ".read": "auth != null",
-                  "quitDate": {
-                    ".read": "auth != null"
-                  },
-                  "relapseDate": {
-                    ".read": "auth != null"
-                  },
-                  "avatar": {
-                    ".read": "auth != null"
-                  },
-                  "avatarSeed": {
-                    ".read": "auth != null"
-                  },
-                  "archetype": {
-                    ".read": "auth != null"
-                  },
-                  "heroName": {
-                    ".read": "auth != null"
-                  }
-                },
-                "cravings": {
-                  ".read": "auth != null",
-                  ".write": "$uid === auth.uid"
-                }
+        "profile": {
+          ".read": "auth != null",
+          ".write": "$uid === auth.uid",
+          "quitDate": {
+            ".read": "auth != null"
+          },
+          "relapseDate": {
+            ".read": "auth != null"
+          },
+          "avatar": {
+            ".read": "auth != null"
+          },
+          "avatarSeed": {
+            ".read": "auth != null"
+          },
+          "archetype": {
+            ".read": "auth != null"
+          },
+          "heroName": {
+            ".read": "auth != null"
+          }
+        },
+        "cravings": {
+          ".read": "auth != null",
+          ".write": "$uid === auth.uid"
+        }
       }
     },
     "matchingPool": {
