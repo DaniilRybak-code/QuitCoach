@@ -31,32 +31,36 @@ class CentralizedStatService {
       const profileData = profileSnapshot.exists() ? profileSnapshot.val() : {};
       const currentStats = statsSnapshot.exists() ? statsSnapshot.val() : this.getDefaultStats();
 
-      // Calculate effective quit date (considering relapses)
-      const effectiveQuitDate = this.calculateEffectiveQuitDate(profileData);
+          // Calculate effective quit date (considering relapses)
+          const effectiveQuitDate = this.calculateEffectiveQuitDate(profileData);
+          
+          // Calculate streak based on effective quit date
+          const streakData = this.calculateStreak(effectiveQuitDate);
+          
+          // Calculate cravings resisted
+          const cravingsResisted = await this.calculateCravingsResisted();
+          
+          // Calculate addiction level (with decay and relapse penalties)
+          const addictionLevel = await this.calculateAddictionLevel(profileData, effectiveQuitDate);
+          
+          // Check and apply milestone bonuses
+          const milestoneUpdates = await this.checkMilestones(effectiveQuitDate, currentStats);
+          
+          // Generate Special Features based on onboarding data
+          const specialFeatures = await this.generateSpecialFeatures(profileData);
       
-      // Calculate streak based on effective quit date
-      const streakData = this.calculateStreak(effectiveQuitDate);
-      
-      // Calculate cravings resisted
-      const cravingsResisted = await this.calculateCravingsResisted();
-      
-      // Calculate addiction level (with decay and relapse penalties)
-      const addictionLevel = await this.calculateAddictionLevel(profileData, effectiveQuitDate);
-      
-      // Generate Special Features based on onboarding data
-      const specialFeatures = await this.generateSpecialFeatures(profileData);
-      
-      // Build final stats object
-      const updatedStats = {
-        ...currentStats,
-        streakDays: streakData.value,
-        streakUnit: streakData.unit,
-        streakDisplayText: streakData.displayText,
-        cravingsResisted: cravingsResisted,
-        addictionLevel: addictionLevel,
-        specialFeatures: specialFeatures, // Add Special Features to centralized stats
-        lastUpdated: new Date().toISOString()
-      };
+          // Build final stats object
+          const updatedStats = {
+            ...currentStats,
+            ...milestoneUpdates, // Apply any milestone bonuses
+            streakDays: streakData.value,
+            streakUnit: streakData.unit,
+            streakDisplayText: streakData.displayText,
+            cravingsResisted: cravingsResisted,
+            addictionLevel: addictionLevel,
+            specialFeatures: specialFeatures, // Add Special Features to centralized stats
+            lastUpdated: new Date().toISOString()
+          };
 
       // Write to Firebase (single source of truth)
       await set(this.statsRef, updatedStats);
@@ -225,6 +229,66 @@ class CentralizedStatService {
   }
 
   /**
+   * Check and apply milestone bonuses for clean time achievements
+   */
+  async checkMilestones(effectiveQuitDate, currentStats) {
+    try {
+      const now = new Date();
+      const quitDate = new Date(effectiveQuitDate);
+      const cleanDays = Math.floor((now - quitDate) / (1000 * 60 * 60 * 24));
+      
+      console.log(`📊 CentralizedStats: Checking milestones for ${this.userId}, clean days: ${cleanDays}`);
+      
+      // Define milestone requirements
+      const milestones = [
+        { days: 7, bonus: 5, name: 'First week', key: 'milestone_7' },
+        { days: 30, bonus: 10, name: 'First month', key: 'milestone_30' },
+        { days: 90, bonus: 15, name: 'Three months', key: 'milestone_90' }
+      ];
+
+      let statUpdates = {};
+      let milestoneAchieved = false;
+
+      for (const milestone of milestones) {
+        if (cleanDays >= milestone.days) {
+          // Check if this milestone has already been awarded
+          const milestoneRef = ref(this.db, `users/${this.userId}/profile/milestones/${milestone.key}`);
+          const milestoneSnapshot = await get(milestoneRef);
+          
+          if (!milestoneSnapshot.exists()) {
+            // Award milestone bonus
+            const newMentalStrength = Math.min(100, (currentStats.mentalStrength || 50) + milestone.bonus);
+            statUpdates.mentalStrength = newMentalStrength;
+            milestoneAchieved = true;
+            
+            // Mark milestone as achieved
+            await set(milestoneRef, {
+              achieved: true,
+              achievedDate: new Date().toISOString(),
+              bonus: milestone.bonus,
+              cleanDaysAtAchievement: cleanDays
+            });
+            
+            console.log(`🎉 CentralizedStats: Milestone achieved for ${this.userId}! ${milestone.name} (+${milestone.bonus} Mental Strength)`);
+            
+            // Show milestone achievement notification
+            this.showMilestoneNotification(milestone, cleanDays);
+            
+            // Only award the highest milestone reached to avoid multiple bonuses in one update
+            break;
+          }
+        }
+      }
+
+      return statUpdates;
+      
+    } catch (error) {
+      console.error(`❌ CentralizedStats: Error checking milestones for ${this.userId}:`, error);
+      return {};
+    }
+  }
+
+  /**
    * Generate Special Features based on user's onboarding data
    */
   async generateSpecialFeatures(profileData) {
@@ -371,6 +435,59 @@ class CentralizedStatService {
   }
 
   /**
+   * Show milestone achievement notification
+   */
+  showMilestoneNotification(milestone, cleanDays) {
+    try {
+      // Try to access the global showQuickActionPopup function
+      if (typeof window !== 'undefined' && window.showQuickActionPopup) {
+        const messages = {
+          7: {
+            title: '🎉 First Week Milestone!',
+            message: `Congratulations! You've been clean for 7 days!\n\n🧠 Mental Strength: +${milestone.bonus} points\n\nYou're building incredible willpower! Keep going! 💪`
+          },
+          30: {
+            title: '🏆 One Month Champion!',
+            message: `Amazing! You've reached 30 days clean!\n\n🧠 Mental Strength: +${milestone.bonus} points\n\nYou're proving your strength every day! 🌟`
+          },
+          90: {
+            title: '👑 Three Month Legend!',
+            message: `Incredible! You've achieved 90 days clean!\n\n🧠 Mental Strength: +${milestone.bonus} points\n\nYou're a true inspiration! 🎯✨`
+          }
+        };
+
+        const notification = messages[milestone.days] || {
+          title: '🎉 Milestone Achieved!',
+          message: `You've reached ${cleanDays} days clean!\n\n🧠 Mental Strength: +${milestone.bonus} points`
+        };
+
+        window.showQuickActionPopup(notification.title, notification.message, 'success');
+      } else {
+        console.log(`🎉 Milestone achieved: ${milestone.name} (+${milestone.bonus} Mental Strength)`);
+      }
+    } catch (error) {
+      console.error('Error showing milestone notification:', error);
+    }
+  }
+
+  /**
+   * Reset all milestones (called when user relapses)
+   */
+  async resetMilestones() {
+    try {
+      console.log(`🔄 CentralizedStats: Resetting milestones for ${this.userId} after relapse`);
+      
+      const milestonesRef = ref(this.db, `users/${this.userId}/profile/milestones`);
+      await set(milestonesRef, null); // Remove all milestone achievements
+      
+      console.log(`✅ CentralizedStats: Milestones reset for ${this.userId} - can be earned again`);
+      
+    } catch (error) {
+      console.error(`❌ CentralizedStats: Error resetting milestones for ${this.userId}:`, error);
+    }
+  }
+
+  /**
    * Clean up listeners
    */
   cleanup() {
@@ -446,6 +563,9 @@ class CentralizedStatService {
         set(ref(this.db, `users/${this.userId}/profile/lastRelapseDate`), nowISO),
         set(ref(this.db, `users/${this.userId}/profile/relapseDate`), nowISO),
         set(ref(this.db, `users/${this.userId}/profile/relapseEscalationLevel`), escalationLevel),
+        
+        // Reset milestones (user can earn them again after relapse)
+        this.resetMilestones(),
         
         // Update stats with relapse penalties
         set(this.statsRef, {

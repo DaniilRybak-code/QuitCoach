@@ -1142,25 +1142,25 @@ const StatBar = ({ label, value, max, color, statType, onInfoClick }) => {
   const cappedValue = Math.min(value, max);
   
   return (
-    <div className="mb-2">
+    <div className="mb-1 sm:mb-2">
       <div className="flex justify-between text-white text-xs mb-1">
         <div className="flex items-center gap-1">
-          <span>{label}</span>
+          <span className="text-xs sm:text-xs">{label}</span>
           {statType && onInfoClick && (
             <button
               onClick={() => onInfoClick(statType)}
-              className="w-4 h-4 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
+              className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
               title={`Learn about ${label}`}
             >
               i
             </button>
           )}
         </div>
-        <span>{cappedValue}/{max}</span>
+        <span className="text-xs">{cappedValue}/{max}</span>
       </div>
-      <div className="w-full bg-gray-700 rounded-full h-2">
+      <div className="w-full bg-gray-700 rounded-full h-1.5 sm:h-2">
         <div 
-          className={`${color} h-2 rounded-full transition-all duration-500`} 
+          className={`${color} h-1.5 sm:h-2 rounded-full transition-all duration-500`} 
           style={{ width: `${(cappedValue / max) * 100}%` }}
         />
       </div>
@@ -1503,16 +1503,16 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
   return (
     <>
       <div 
-        className={`relative w-80 h-[520px] rounded-xl ${rarity.color} border-4 ${rarity.glow} bg-gradient-to-br from-slate-800 to-slate-900 p-4 transform transition-all duration-300 hover:scale-105 mx-auto overflow-hidden`}
+        className={`relative w-72 sm:w-80 h-[480px] sm:h-[520px] rounded-xl ${rarity.color} border-4 ${rarity.glow} bg-gradient-to-br from-slate-800 to-slate-900 p-3 sm:p-4 transform transition-all duration-300 hover:scale-105 mx-auto overflow-hidden`}
       >
         
         <div className="text-center mb-3">
-          <h3 className="text-white font-bold text-lg leading-tight break-words px-1">{user.heroName}</h3>
-          <p className="text-gray-300 text-base">{archetype.name}</p>
+          <h3 className="text-white font-bold text-sm sm:text-lg leading-tight break-words px-1">{user.heroName}</h3>
+          <p className="text-gray-300 text-xs sm:text-base">{archetype.name}</p>
         </div>
         
-        {/* Increased avatar size */}
-        <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden bg-slate-700 flex items-center justify-center ring-2 ring-blue-400/50">
+        {/* Responsive avatar size */}
+        <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-3 sm:mb-4 rounded-full overflow-hidden bg-slate-700 flex items-center justify-center ring-2 ring-blue-400/50">
           {user.avatar ? (
             <img 
               src={user.avatar} 
@@ -1530,7 +1530,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
         </div>
         
         {/* Core Stats with Info Buttons (only for player card) */}
-        <div className="space-y-2 mb-4">
+        <div className="space-y-1 sm:space-y-2 mb-3 sm:mb-4">
           <StatBar 
             label="Addiction" 
             value={addictionLevel} 
@@ -1597,8 +1597,8 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
         </div>
         
         {/* Battle Info - Only Streak and Cravings Resisted */}
-        <div className="bg-black/30 rounded-lg p-3 space-y-2 mb-3 backdrop-blur-sm">
-          <div className="flex justify-between text-white text-sm">
+        <div className="bg-black/30 rounded-lg p-2 sm:p-3 space-y-1 sm:space-y-2 mb-2 sm:mb-3 backdrop-blur-sm">
+          <div className="flex justify-between text-white text-xs sm:text-sm">
             <span className="text-gray-300">Streak:</span>
             <span className="font-bold text-green-400 flex items-center gap-1">
               {(() => {
@@ -1612,7 +1612,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
               {user.stats.streakDays > 0 && <span className="text-xs">🔥</span>}
             </span>
           </div>
-          <div className="flex justify-between text-white text-sm">
+          <div className="flex justify-between text-white text-xs sm:text-sm">
             <span className="text-gray-300">Cravings Resisted:</span>
             <span className="font-bold text-blue-400 flex items-center gap-1">
               {(() => {
@@ -1632,13 +1632,13 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
             {user.achievements.slice(0, 4).map((achievement, index) => {
               const AchIcon = ACHIEVEMENTS[achievement]?.icon || Star;
               return (
-                <div key={index} className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg" title={ACHIEVEMENTS[achievement]?.description}>
-                  <AchIcon className="w-3 h-3 text-white" />
+                <div key={index} className="w-5 h-5 sm:w-6 sm:h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg" title={ACHIEVEMENTS[achievement]?.description}>
+                  <AchIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                 </div>
               );
             })}
             {user.achievements.length > 4 && (
-              <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gray-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
                 +{user.achievements.length - 4}
               </div>
             )}
@@ -2610,8 +2610,8 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
   const recommendations = calculateRecommendations() || [];
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8 pb-20">
-      <div className="max-w-7xl mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-4 pb-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Back to Login Button */}
 
         
@@ -2619,8 +2619,8 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
         
         {/* Centralized Battle Status with Info Button */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-4">
-            <div className={`inline-flex items-center px-6 py-3 rounded-full font-bold text-lg shadow-xl ${
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
+            <div className={`inline-flex items-center px-4 py-2 sm:px-6 sm:py-3 rounded-full font-bold text-sm sm:text-lg shadow-xl ${
               battleStatus === 'WINNING' ? 'bg-green-600' : 
               battleStatus === 'TIED' ? 'bg-yellow-600' : 'bg-red-600'
             } text-white`}>
@@ -2637,19 +2637,19 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             {/* Info Button */}
             <button
               onClick={() => setShowBattleInfo(true)}
-              className="w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+              className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
               title="Battle Algorithm Info"
             >
-              <span className="text-lg font-bold">i</span>
+              <span className="text-sm sm:text-lg font-bold">i</span>
             </button>
             
             {/* Refresh Stats Button */}
             <button
               onClick={refreshStats}
-              className="w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+              className="w-8 h-8 sm:w-10 sm:h-10 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
               title="Refresh Stats"
             >
-              <span className="text-lg font-bold">🔄</span>
+              <span className="text-sm sm:text-lg font-bold">🔄</span>
             </button>
             
                     {/* Debug Stats Display */}
@@ -2743,14 +2743,14 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
         </div>
         
         {/* Enhanced Battle Cards */}
-        <div className="flex flex-row items-start justify-center gap-12 mb-8 w-full max-w-7xl mx-auto">
+        <div className="flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-12 mb-8 w-full">
           <div className="flex flex-col items-center space-y-4 flex-shrink-0">
             {(() => {
               // Only render if we have both user and realTimeUserStats
               if (!user || !realTimeUserStats) {
                 console.log('🎯 TradingCard: Missing data, not rendering user card');
                 return (
-                  <div className="w-80 h-[520px] bg-slate-800 rounded-xl border-2 border-slate-600 p-4 text-white text-center mx-auto flex items-center justify-center">
+                  <div className="w-72 sm:w-80 h-[480px] sm:h-[520px] bg-slate-800 rounded-xl border-2 border-slate-600 p-4 text-white text-center mx-auto flex items-center justify-center">
                     <div className="animate-pulse">Loading User...</div>
                   </div>
                 );
@@ -2784,12 +2784,12 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             })()}
           </div>
           
-          <div className="flex flex-col items-center space-y-4 flex-shrink-0">
-            <div className="w-24 h-24 bg-gradient-to-br from-red-500 to-purple-600 rounded-full flex items-center justify-center shadow-xl animate-pulse">
-              <Sword className="w-12 h-12 text-white" />
+          <div className="flex flex-row lg:flex-col items-center justify-center space-x-4 lg:space-x-0 space-y-0 lg:space-y-4 flex-shrink-0">
+            <div className="w-16 h-16 lg:w-24 lg:h-24 bg-gradient-to-br from-red-500 to-purple-600 rounded-full flex items-center justify-center shadow-xl animate-pulse">
+              <Sword className="w-8 h-8 lg:w-12 lg:h-12 text-white" />
             </div>
-            <div className="bg-red-600 px-8 py-3 rounded-full">
-              <p className="text-white font-bold text-2xl">VS</p>
+            <div className="bg-red-600 px-4 py-2 lg:px-8 lg:py-3 rounded-full">
+              <p className="text-white font-bold text-lg lg:text-2xl">VS</p>
             </div>
           </div>
           
@@ -2799,7 +2799,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
               if (!nemesis || !realTimeNemesisStats) {
                 console.log('🎯 TradingCard: Missing data, not rendering nemesis card');
                 return (
-                  <div className="w-80 h-[520px] bg-slate-800 rounded-xl border-2 border-slate-600 p-4 text-white text-center mx-auto flex items-center justify-center">
+                  <div className="w-72 sm:w-80 h-[480px] sm:h-[520px] bg-slate-800 rounded-xl border-2 border-slate-600 p-4 text-white text-center mx-auto flex items-center justify-center">
                     <div className="animate-pulse">Loading Nemesis...</div>
                   </div>
                 );
@@ -2842,12 +2842,12 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
         </div>
         {/* Battle Recommendations Section - Only show when losing */}
         {battleStatus === 'LOSING' && recommendations && recommendations.length > 0 && (
-          <div className="max-w-4xl mx-auto bg-slate-800/50 rounded-xl p-6 border border-slate-700">
+          <div className="w-full max-w-4xl mx-auto bg-slate-800/50 rounded-xl p-4 sm:p-6 border border-slate-700">
             <h3 className="text-xl font-bold text-white mb-4 text-center">🎯 Quick Win Strategy</h3>
             <div className="space-y-4">
               {recommendations.slice(0, 3).map((rec, index) => (
-                <div key={index} className="bg-slate-700/50 rounded-lg p-4 border-l-4 border-blue-500">
-                  <div className="flex items-center justify-between">
+                <div key={index} className="bg-slate-700/50 rounded-lg p-3 sm:p-4 border-l-4 border-blue-500">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                     <div className="flex-1">
                       <h4 className="text-white font-semibold mb-2">
                         {rec.isReduction ? (
@@ -2864,7 +2864,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                         💡 {rec.action}
                       </p>
                     </div>
-                    <div className={`font-bold text-2xl ml-4 ${
+                    <div className={`font-bold text-xl sm:text-2xl sm:ml-4 ${
                       rec.isReduction ? 'text-green-400' : 
                       rec.isCombination ? 'text-purple-400' : 
                       rec.isMajor ? 'text-orange-400' : 
@@ -3341,6 +3341,19 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
     setPopupData({ title, message, type });
     setShowCustomPopup(true);
   };
+
+  // Make showQuickActionPopup globally accessible for milestone notifications
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.showQuickActionPopup = showQuickActionPopup;
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete window.showQuickActionPopup;
+      }
+    };
+  }, []);
 
   // Initialize StatManager and load cravings resisted
   useEffect(() => {
