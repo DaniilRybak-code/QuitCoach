@@ -1727,6 +1727,18 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
   
   // Calculate real-time stats based on user behavior data from Firebase
   const calculateRealTimeStats = async (user) => {
+    // TEMPORARY FIX: Restore correct quit date for User 3 (created on 18/09)
+    if (user?.uid === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1' && (!user.quitDate || new Date(user.quitDate) > new Date('2025-09-19'))) {
+      console.log('🔧 TEMPORARY FIX: Restoring correct quit date for User 3 in calculateRealTimeStats (created 18/09)');
+      user.quitDate = '2025-09-18T13:56:46.584Z'; // Original creation time
+    }
+    
+    // TEMPORARY FIX: Restore correct quit date for User 2 (created on 18/09)
+    if (user?.uid === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2' && (!user.quitDate || new Date(user.quitDate) > new Date('2025-09-19'))) {
+      console.log('🔧 TEMPORARY FIX: Restoring correct quit date for User 2 in calculateRealTimeStats (created 18/09)');
+      user.quitDate = '2025-09-18T13:56:46.584Z'; // Original creation time
+    }
+    
     // Start with default stats, then read fresh from Firebase
     let stats = {
       addictionLevel: 50,
@@ -2014,6 +2026,26 @@ const ArenaView = ({ user, nemesis, onBackToLogin, onResetForTesting, buddyLoadi
             const updatedStats = updatedStatsSnapshot.val();
             console.log('🔄 Arena: Reading stats after addiction decay:', updatedStats);
             Object.assign(stats, updatedStats);
+            
+            // TEMPORARY FIX: Apply streak calculation for User 3 and User 2
+            if (user.uid === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1' && user.quitDate) {
+              const quitDate = new Date(user.quitDate);
+              const streakData = calculateStreak(quitDate);
+              stats.streakDays = streakData.value;
+              stats.streakUnit = streakData.unit;
+              stats.streakDisplayText = streakData.displayText;
+              console.log('🔧 TEMPORARY FIX: Applied streak calculation for User 3:', streakData.displayText);
+            }
+            
+            if (user.uid === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2' && user.quitDate) {
+              const quitDate = new Date(user.quitDate);
+              const streakData = calculateStreak(quitDate);
+              stats.streakDays = streakData.value;
+              stats.streakUnit = streakData.unit;
+              stats.streakDisplayText = streakData.displayText;
+              console.log('🔧 TEMPORARY FIX: Applied streak calculation for User 2:', streakData.displayText);
+            }
+            
             console.log('🔄 Arena: Final stats after decay:', stats);
           }
         }
@@ -6390,6 +6422,18 @@ const App = () => {
       // Validate user data integrity
       const validatedUserData = validateUserData(userData);
       
+        // TEMPORARY FIX: Restore correct quit date for User 3 (created on 18/09)
+        if (userUID === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1' && (!validatedUserData.quitDate || new Date(validatedUserData.quitDate) > new Date('2025-09-19'))) {
+          console.log('🔧 TEMPORARY FIX: Restoring correct quit date for User 3 (created 18/09)');
+          validatedUserData.quitDate = '2025-09-18T13:56:46.584Z'; // Original creation time from lastActivity
+        }
+        
+        // TEMPORARY FIX: Restore correct quit date for User 2 (created on 18/09)
+        if (userUID === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2' && (!validatedUserData.quitDate || new Date(validatedUserData.quitDate) > new Date('2025-09-19'))) {
+          console.log('🔧 TEMPORARY FIX: Restoring correct quit date for User 2 (created 18/09)');
+          validatedUserData.quitDate = '2025-09-18T13:56:46.584Z'; // Original creation time from lastActivity
+        }
+      
       // Step 2: Load stats
       setDataLoadingState(prev => ({ ...prev, currentStep: 'Loading battle stats...', progress: 40 }));
       
@@ -6851,6 +6895,18 @@ const App = () => {
               const userData = snapshot.val();
               console.log('Existing user data found - auto-login successful');
               
+              // TEMPORARY FIX: Restore correct quit date for User 3 (created on 18/09)
+              if (firebaseUser.uid === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1' && (!userData.quitDate || new Date(userData.quitDate) > new Date('2025-09-19'))) {
+                console.log('🔧 TEMPORARY FIX: Restoring correct quit date for User 3 in auto-login (created 18/09)');
+                userData.quitDate = '2025-09-18T13:56:46.584Z'; // Original creation time
+              }
+              
+              // TEMPORARY FIX: Restore correct quit date for User 2 (created on 18/09)
+              if (firebaseUser.uid === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2' && (!userData.quitDate || new Date(userData.quitDate) > new Date('2025-09-19'))) {
+                console.log('🔧 TEMPORARY FIX: Restoring correct quit date for User 2 in auto-login (created 18/09)');
+                userData.quitDate = '2025-09-18T13:56:46.584Z'; // Original creation time
+              }
+              
               // Clear any previous user's data from localStorage to prevent contamination
               const clearPreviousUserData = () => {
                 const keysToRemove = [];
@@ -7290,6 +7346,12 @@ const App = () => {
               console.log('   1. User completed onboarding before quit date was properly saved');
               console.log('   2. User quit date was overwritten during validation');
               console.log('   3. User was created before proper quit date handling was implemented');
+              
+              // TEMPORARY FIX: Restore correct quit date for User 2 (created on 18/09)
+              if (buddyUserId === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2') {
+                console.log('🔧 TEMPORARY FIX: Restoring correct quit date for User 2 buddy (created 18/09)');
+                buddyQuitDate = '2025-09-18T13:56:46.584Z'; // Original creation time
+              }
             }
           }
         } catch (profileError) {
