@@ -6,9 +6,6 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
-    hmr: {
-      port: 3001,
-      host: 'localhost'
-    }
+    hmr: false // Temporarily disable HMR to fix constant reloading
   }
 })
