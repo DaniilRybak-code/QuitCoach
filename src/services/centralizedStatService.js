@@ -78,32 +78,25 @@ class CentralizedStatService {
   }
 
   /**
-   * Calculate effective quit date considering relapses
+   * Calculate effective quit date considering relapses (universal for all users)
    */
   calculateEffectiveQuitDate(profileData) {
-    // Handle special cases for User 2 and User 3
-    let baseQuitDate = '2025-09-18T13:56:46.584Z'; // Default for User 2 and 3
+    // Use user's actual quit date, or current time if not set
+    const baseQuitDate = profileData.quitDate || new Date().toISOString();
     
-    if (this.userId === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1') {
-      // User 3
-      if (profileData.lastRelapseDate) {
-        const relapseDate = new Date(profileData.lastRelapseDate);
-        const originalDate = new Date(baseQuitDate);
-        return relapseDate > originalDate ? profileData.lastRelapseDate : baseQuitDate;
-      }
-      return baseQuitDate;
-    } else if (this.userId === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2') {
-      // User 2
-      if (profileData.lastRelapseDate) {
-        const relapseDate = new Date(profileData.lastRelapseDate);
-        const originalDate = new Date(baseQuitDate);
-        return relapseDate > originalDate ? profileData.lastRelapseDate : baseQuitDate;
-      }
-      return baseQuitDate;
-    } else {
-      // Other users - use their actual quit date
-      return profileData.quitDate || new Date().toISOString();
+    // If user has relapsed, use the most recent date (original quit date or last relapse)
+    if (profileData.lastRelapseDate) {
+      const relapseDate = new Date(profileData.lastRelapseDate);
+      const originalDate = new Date(baseQuitDate);
+      
+      // Use the more recent date as the effective quit date
+      const effectiveDate = relapseDate > originalDate ? profileData.lastRelapseDate : baseQuitDate;
+      console.log(`📊 CentralizedStats: Effective quit date for ${this.userId}: ${effectiveDate} (original: ${baseQuitDate}, lastRelapse: ${profileData.lastRelapseDate})`);
+      return effectiveDate;
     }
+    
+    console.log(`📊 CentralizedStats: Using base quit date for ${this.userId}: ${baseQuitDate}`);
+    return baseQuitDate;
   }
 
   /**
@@ -170,15 +163,63 @@ class CentralizedStatService {
    * Calculate addiction level with decay and relapse penalties
    */
   async calculateAddictionLevel(profileData, effectiveQuitDate) {
-    // This would integrate with StatManager logic
-    // For now, return current value or default
     try {
-      const statsSnapshot = await get(this.statsRef);
+      // Get current stats and relapse data
+      const [statsSnapshot, relapseSnapshot, escalationSnapshot] = await Promise.all([
+        get(this.statsRef),
+        get(ref(this.db, `users/${this.userId}/profile/lastRelapseDate`)),
+        get(ref(this.db, `users/${this.userId}/profile/relapseEscalationLevel`))
+      ]);
+
+      // Start with current addiction level or default
+      let baseAddictionLevel = 50;
       if (statsSnapshot.exists()) {
-        return statsSnapshot.val().addictionLevel || 50;
+        baseAddictionLevel = statsSnapshot.val().addictionLevel || 50;
       }
-      return 50;
+
+      // If no relapse data exists, return current level
+      if (!relapseSnapshot.exists()) {
+        console.log(`📊 CentralizedStats: No relapses found, returning base addiction: ${baseAddictionLevel}`);
+        return baseAddictionLevel;
+      }
+
+      // Calculate relapse penalties using same logic as StatManager
+      const lastRelapseDate = new Date(relapseSnapshot.val());
+      const now = new Date();
+      const daysSinceLastRelapse = Math.floor((now - lastRelapseDate) / (1000 * 60 * 60 * 24));
+      
+      // Get current escalation level
+      const currentEscalationLevel = escalationSnapshot.exists() ? escalationSnapshot.val() : 1;
+      
+      console.log(`📊 CentralizedStats: Last relapse: ${lastRelapseDate.toISOString()}`);
+      console.log(`📊 CentralizedStats: Days since last relapse: ${daysSinceLastRelapse}`);
+      console.log(`📊 CentralizedStats: Current escalation level: ${currentEscalationLevel}`);
+
+      // Determine current escalation level based on timing
+      let escalationLevel = 1;
+      if (daysSinceLastRelapse >= 7) {
+        // Reset escalation level after 7+ days clean
+        escalationLevel = 1;
+        // Update escalation level in Firebase
+        await set(ref(this.db, `users/${this.userId}/profile/relapseEscalationLevel`), 1);
+      } else {
+        // Use current escalation level (will be incremented on next relapse)
+        escalationLevel = currentEscalationLevel;
+      }
+
+      // Apply weekly decay (-2 points per week clean)
+      const weeksClean = Math.floor(daysSinceLastRelapse / 7);
+      const decayAmount = weeksClean * 2;
+      
+      // Calculate final addiction level with decay
+      let finalAddictionLevel = Math.max(30, baseAddictionLevel - decayAmount);
+      
+      console.log(`📊 CentralizedStats: Base addiction: ${baseAddictionLevel}, Weeks clean: ${weeksClean}, Decay: -${decayAmount}, Final: ${finalAddictionLevel}`);
+      
+      return finalAddictionLevel;
+      
     } catch (error) {
+      console.error(`❌ CentralizedStats: Error calculating addiction level:`, error);
       return 50;
     }
   }
@@ -344,15 +385,79 @@ class CentralizedStatService {
     try {
       console.log(`🔄 CentralizedStats: Handling relapse for ${this.userId}`);
       
-      // Update relapse date in profile
-      const now = new Date().toISOString();
-      await set(ref(this.db, `users/${this.userId}/profile/lastRelapseDate`), now);
-      await set(ref(this.db, `users/${this.userId}/profile/relapseDate`), now);
+      const now = new Date();
+      const nowISO = now.toISOString();
       
-      // Refresh all stats based on new relapse
-      await this.refreshAllStats();
+      // Get current relapse data to determine escalation level
+      const [lastRelapseSnapshot, escalationSnapshot, statsSnapshot] = await Promise.all([
+        get(ref(this.db, `users/${this.userId}/profile/lastRelapseDate`)),
+        get(ref(this.db, `users/${this.userId}/profile/relapseEscalationLevel`)),
+        get(this.statsRef)
+      ]);
+
+      let escalationLevel = 1; // Default for first relapse
       
-      console.log(`✅ CentralizedStats: Relapse handled and stats updated for ${this.userId}`);
+      if (lastRelapseSnapshot.exists()) {
+        const lastRelapse = new Date(lastRelapseSnapshot.val());
+        const daysSinceLastRelapse = Math.floor((now - lastRelapse) / (1000 * 60 * 60 * 24));
+        
+        // Get current escalation level
+        const currentEscalationLevel = escalationSnapshot.exists() ? escalationSnapshot.val() : 1;
+        console.log(`🔄 CentralizedStats: Current escalation level: ${currentEscalationLevel}`);
+        console.log(`🔄 CentralizedStats: Days since last relapse: ${daysSinceLastRelapse}`);
+        
+        // Determine escalation level based on timing
+        if (daysSinceLastRelapse >= 7) {
+          // First relapse after clean period (7+ days) - reset to 1
+          escalationLevel = 1;
+          console.log(`🔄 CentralizedStats: After 7+ days clean → escalation level reset to: ${escalationLevel}`);
+        } else {
+          // Relapse within 7 days - increment from current level
+          escalationLevel = currentEscalationLevel + 1;
+          console.log(`🔄 CentralizedStats: Within ${daysSinceLastRelapse} days → escalation level: ${currentEscalationLevel} + 1 = ${escalationLevel}`);
+        }
+      }
+
+      // Apply addiction penalty based on escalation level
+      let addictionIncrease = 0;
+      switch (escalationLevel) {
+        case 1: addictionIncrease = 4; break;  // 1st relapse = +4 points
+        case 2: addictionIncrease = 6; break;  // 2nd relapse within 7 days = +6 points
+        default: addictionIncrease = 8; break; // 3rd+ relapse = +8 points
+      }
+
+      console.log(`🔄 CentralizedStats: Escalation level ${escalationLevel} → addiction increase: +${addictionIncrease}`);
+
+      // Get current stats
+      const currentStats = statsSnapshot.exists() ? statsSnapshot.val() : this.getDefaultStats();
+      
+      // Calculate new stat values
+      const newAddictionLevel = Math.max(0, Math.min(100, (currentStats.addictionLevel || 50) + addictionIncrease));
+      const newMentalStrength = Math.max(0, Math.min(100, (currentStats.mentalStrength || 50) - 3));
+      const newTriggerDefense = Math.max(0, Math.min(100, (currentStats.triggerDefense || 30) - 3));
+      
+      console.log(`🔄 CentralizedStats: addictionLevel change: ${currentStats.addictionLevel} → ${newAddictionLevel} (+${addictionIncrease})`);
+      console.log(`🔄 CentralizedStats: mentalStrength change: ${currentStats.mentalStrength} → ${newMentalStrength} (-3)`);
+      console.log(`🔄 CentralizedStats: triggerDefense change: ${currentStats.triggerDefense} → ${newTriggerDefense} (-3)`);
+
+      // Update all data in parallel
+      await Promise.all([
+        // Update relapse tracking data
+        set(ref(this.db, `users/${this.userId}/profile/lastRelapseDate`), nowISO),
+        set(ref(this.db, `users/${this.userId}/profile/relapseDate`), nowISO),
+        set(ref(this.db, `users/${this.userId}/profile/relapseEscalationLevel`), escalationLevel),
+        
+        // Update stats with relapse penalties
+        set(this.statsRef, {
+          ...currentStats,
+          addictionLevel: newAddictionLevel,
+          mentalStrength: newMentalStrength,
+          triggerDefense: newTriggerDefense,
+          lastUpdated: nowISO
+        })
+      ]);
+      
+      console.log(`✅ CentralizedStats: Relapse handled with escalation level ${escalationLevel}, addiction +${addictionIncrease} for ${this.userId}`);
       
     } catch (error) {
       console.error(`❌ CentralizedStats: Error handling relapse for ${this.userId}:`, error);
