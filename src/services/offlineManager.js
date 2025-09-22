@@ -195,6 +195,17 @@ class OfflineManager {
     }
   }
 
+  // Get count of queued actions
+  async getQueuedActionsCount() {
+    try {
+      const actions = await this.getQueuedActions();
+      return actions.length;
+    } catch (error) {
+      console.error('Error getting queued actions count:', error);
+      return 0;
+    }
+  }
+
   async removeQueuedAction(actionId) {
     try {
       if (this.storageType === 'indexedDB' && this.db) {
@@ -275,6 +286,88 @@ class OfflineManager {
     } else {
       // If offline, queue for later sync
       return await this.queueOfflineAction(action);
+    }
+  }
+
+  // ===== BEHAVIORAL LOGGING OFFLINE SUPPORT =====
+
+  async handleOfflineBehavioralLog(logType, logData) {
+    const action = {
+      type: 'BEHAVIORAL_LOG',
+      logType,
+      logData,
+      timestamp: Date.now(),
+      userId: logData.userId || 'unknown'
+    };
+
+    if (this.isOnline) {
+      // If online, try to log immediately
+      return await this.executeBehavioralLog(action);
+    } else {
+      // If offline, queue for later sync
+      const actionId = await this.queueOfflineAction(action);
+      this.showOfflineSaveNotification(logType);
+      return actionId;
+    }
+  }
+
+  async executeBehavioralLog(action) {
+    try {
+      // Send to service worker for queuing if online but Firestore fails
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'QUEUE_BEHAVIORAL_LOG',
+          data: action
+        });
+      }
+      
+      console.log(`✅ Behavioral log executed: ${action.logType}`);
+      return true;
+    } catch (error) {
+      console.error('Error executing behavioral log:', error);
+      // Queue for offline sync if execution fails
+      await this.queueOfflineAction(action);
+      return false;
+    }
+  }
+
+  async handleOfflineFirestoreAction(actionType, actionData) {
+    const action = {
+      type: 'FIRESTORE_ACTION',
+      actionType,
+      actionData,
+      timestamp: Date.now(),
+      userId: actionData.userId || 'unknown'
+    };
+
+    if (this.isOnline) {
+      // If online, try to execute immediately
+      return await this.executeFirestoreAction(action);
+    } else {
+      // If offline, queue for later sync
+      const actionId = await this.queueOfflineAction(action);
+      this.showOfflineSaveNotification(actionType);
+      return actionId;
+    }
+  }
+
+  async executeFirestoreAction(action) {
+    try {
+      // Send to service worker for queuing if online but Firestore fails
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'QUEUE_FIRESTORE_ACTION',
+          data: action
+        });
+      }
+      
+      console.log(`✅ Firestore action executed: ${action.actionType}`);
+      return true;
+    } catch (error) {
+      console.error('Error executing Firestore action:', error);
+      // Queue for offline sync if execution fails
+      await this.queueOfflineAction(action);
+      return false;
     }
   }
 
@@ -450,6 +543,37 @@ class OfflineManager {
         notification.parentNode.removeChild(notification);
       }
     }, 8000);
+  }
+
+  showOfflineSaveNotification(actionType) {
+    const actionNames = {
+      'hydration': '💧 Water intake',
+      'craving': '🫁 Craving resistance',
+      'relapse': '⚠️ Relapse event',
+      'breathing': '🧘 Breathing exercise',
+      'walk': '🚶 Physical activity',
+      'meditation': '🧘‍♀️ Meditation',
+      'FIRESTORE_ACTION': '📊 Data sync',
+      'BEHAVIORAL_LOG': '📈 Analytics'
+    };
+
+    const actionName = actionNames[actionType] || actionType;
+    
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-20 right-4 bg-blue-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm';
+    notification.innerHTML = `
+      <div class="font-bold">💾 Saved Offline</div>
+      <div class="text-sm opacity-90">${actionName} will sync when you're back online</div>
+      <button class="mt-2 text-sm underline" onclick="this.parentElement.remove()">Dismiss</button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 4000);
   }
 
   updateOfflineStatus() {

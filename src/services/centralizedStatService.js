@@ -43,6 +43,11 @@ class CentralizedStatService {
           // Calculate addiction level (with decay and relapse penalties)
           const addictionLevel = await this.calculateAddictionLevel(profileData, effectiveQuitDate);
           
+          // Calculate mental strength based on cravings resisted (persistent, not daily reset)
+          const mentalStrengthData = this.calculateMentalStrength(currentStats, cravingsResisted);
+          const mentalStrength = mentalStrengthData.strength;
+          const cravingsApplied = mentalStrengthData.cravingsApplied;
+          
           // Check and apply milestone bonuses (use relapse-based streak for milestones)
           const milestoneUpdates = await this.checkMilestonesFromRelapse(profileData, currentStats);
           
@@ -58,6 +63,8 @@ class CentralizedStatService {
             streakDisplayText: streakData.displayText,
             cravingsResisted: cravingsResisted,
             addictionLevel: addictionLevel,
+            mentalStrength: mentalStrength, // Add mental strength calculation
+            mentalStrengthCravingsApplied: cravingsApplied, // Track how many cravings have been applied to mental strength
             specialFeatures: specialFeatures, // Add Special Features to centralized stats
             lastUpdated: new Date().toISOString()
           };
@@ -69,6 +76,7 @@ class CentralizedStatService {
         streak: streakData.displayText,
         cravingsResisted,
         addictionLevel,
+        mentalStrength,
         specialFeatures: specialFeatures?.length || 0,
         effectiveQuitDate
       });
@@ -140,7 +148,12 @@ class CentralizedStatService {
     
     if (!lastRelapseDate) {
       // If no relapse date, use quit date as fallback
-      const quitDate = profileData.quitDate || new Date().toISOString();
+      // Check multiple possible quit date fields
+      const quitDate = profileData.lastQuitDate || 
+                      profileData.originalQuitDate || 
+                      profileData.quitDate || 
+                      profileData.createdAt || 
+                      new Date().toISOString();
       console.log(`📊 CentralizedStats: No relapse date found for ${this.userId}, using quit date: ${quitDate}`);
       return this.calculateStreak(quitDate);
     }
@@ -206,6 +219,34 @@ class CentralizedStatService {
     } catch (error) {
       console.warn(`⚠️ CentralizedStats: Could not get cravings for ${this.userId}:`, error.message);
       return 0;
+    }
+  }
+
+  /**
+   * Calculate mental strength based on cravings resisted (persistent, not daily reset)
+   * Note: Daily bonus is now handled in handleCravingResisted() to ensure proper capping
+   */
+  calculateMentalStrength(currentStats, cravingsResisted) {
+    try {
+      // Get current mental strength or default to 50 (should be set during onboarding)
+      const currentMentalStrength = currentStats.mentalStrength || 50;
+      const previouslyAppliedCravings = currentStats.mentalStrengthCravingsApplied || 0;
+      
+      console.log(`📊 CentralizedStats: Mental strength calculation for ${this.userId}: ${currentMentalStrength} (cravings applied: ${previouslyAppliedCravings}/3)`);
+      
+      // Return current values without applying daily bonus
+      // Daily bonus is handled separately in handleCravingResisted() to ensure proper capping
+      return {
+        strength: currentMentalStrength,
+        cravingsApplied: previouslyAppliedCravings
+      };
+      
+    } catch (error) {
+      console.warn(`⚠️ CentralizedStats: Could not calculate mental strength for ${this.userId}:`, error.message);
+      return {
+        strength: currentStats.mentalStrength || 50,
+        cravingsApplied: currentStats.mentalStrengthCravingsApplied || 0
+      };
     }
   }
 
@@ -679,6 +720,10 @@ class CentralizedStatService {
         set(ref(this.db, `users/${this.userId}/profile/relapseDate`), nowISO),
         set(ref(this.db, `users/${this.userId}/profile/relapseEscalationLevel`), escalationLevel),
         
+        // Reset quit date to relapse time (user starts new quit journey)
+        set(ref(this.db, `users/${this.userId}/lastQuitDate`), nowISO),
+        set(ref(this.db, `users/${this.userId}/profile/lastQuitDate`), nowISO),
+        
         // Reset milestones (user can earn them again after relapse)
         this.resetMilestones(),
         
@@ -701,13 +746,54 @@ class CentralizedStatService {
   }
 
   /**
+   * Get current stats without refreshing
+   */
+  async getCurrentStats() {
+    try {
+      const statsSnapshot = await get(this.statsRef);
+      return statsSnapshot.exists() ? statsSnapshot.val() : this.getDefaultStats();
+    } catch (error) {
+      console.error(`❌ CentralizedStats: Error getting current stats for ${this.userId}:`, error);
+      return this.getDefaultStats();
+    }
+  }
+
+  /**
    * Handle craving resisted - update stats immediately
    */
   async handleCravingResisted() {
     try {
       console.log(`🔄 CentralizedStats: Handling craving resisted for ${this.userId}`);
       
-      // Refresh all stats to update cravings count
+      // Check if we need to reset daily counter
+      await this.checkAndResetDailyCounter();
+      
+      // Get current stats to check daily limit
+      const currentStats = await this.getCurrentStats();
+      const previouslyAppliedCravings = currentStats.mentalStrengthCravingsApplied || 0;
+      
+      console.log(`🔄 CentralizedStats: Current mental strength cravings applied: ${previouslyAppliedCravings}`);
+      
+      // Check if we can still apply mental strength bonus (max 3 per day)
+      if (previouslyAppliedCravings < 3) {
+        // Apply +1 mental strength for this craving
+        const newMentalStrength = Math.min(100, (currentStats.mentalStrength || 50) + 1);
+        const newCravingsApplied = previouslyAppliedCravings + 1;
+        
+        // Update stats with new mental strength and cravings applied count
+        await set(this.statsRef, {
+          ...currentStats,
+          mentalStrength: newMentalStrength,
+          mentalStrengthCravingsApplied: newCravingsApplied,
+          lastUpdated: new Date().toISOString()
+        });
+        
+        console.log(`✅ CentralizedStats: Applied +1 mental strength (${currentStats.mentalStrength} → ${newMentalStrength}), cravings applied: ${newCravingsApplied}/3`);
+      } else {
+        console.log(`📊 CentralizedStats: Daily mental strength limit reached (${previouslyAppliedCravings}/3), no bonus applied`);
+      }
+      
+      // Refresh all other stats (streak, addiction level, etc.)
       await this.refreshAllStats();
       
       console.log(`✅ CentralizedStats: Craving resistance updated for ${this.userId}`);
@@ -715,6 +801,37 @@ class CentralizedStatService {
     } catch (error) {
       console.error(`❌ CentralizedStats: Error handling craving resistance for ${this.userId}:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Check if daily counter needs to be reset (new day)
+   */
+  async checkAndResetDailyCounter() {
+    try {
+      const currentStats = await this.getCurrentStats();
+      const lastUpdated = currentStats.lastUpdated;
+      
+      if (lastUpdated) {
+        const lastUpdateDate = new Date(lastUpdated);
+        const today = new Date();
+        
+        // Check if it's a new day
+        if (lastUpdateDate.toDateString() !== today.toDateString()) {
+          console.log(`🔄 CentralizedStats: New day detected, resetting daily mental strength counter for ${this.userId}`);
+          
+          // Reset daily counter
+          await set(this.statsRef, {
+            ...currentStats,
+            mentalStrengthCravingsApplied: 0,
+            lastUpdated: new Date().toISOString()
+          });
+          
+          console.log(`✅ CentralizedStats: Daily mental strength counter reset for ${this.userId}`);
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ CentralizedStats: Could not check/reset daily counter for ${this.userId}:`, error.message);
     }
   }
 }

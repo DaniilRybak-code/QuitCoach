@@ -2170,6 +2170,14 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
     return defaultStats;
   });
 
+  // Sync realTimeUserStats with userStats when userStats changes
+  useEffect(() => {
+    if (userStats && Object.keys(userStats).length > 0) {
+      console.log('🔄 Arena: Syncing realTimeUserStats with userStats:', userStats);
+      setRealTimeUserStats(userStats);
+    }
+  }, [userStats]);
+
   // Store buddy streak separately to prevent it from being reset during tab switches
   const [buddyStreakData, setBuddyStreakData] = useState({
     streakDisplayText: null,
@@ -2257,18 +2265,35 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             console.log('🔄 Arena: Buddy stats updated in real-time:', updatedBuddyStats);
             console.log('🔍 Arena: Buddy streak display info - streakDays:', updatedBuddyStats.streakDays, 'streakUnit:', updatedBuddyStats.streakUnit, 'streakDisplayText:', updatedBuddyStats.streakDisplayText);
             
-            // All users: Always recalculate streak from actual quit date, ignoring centralized streak data
-            // Use the original quit date from the buddy's profile, or fall back to last relapse date
-            let buddyQuitDate = realBuddy?.originalQuitDate || nemesis?.originalQuitDate;
-            
-            // If no quit date, use the last relapse date for streak calculation
-            if (!buddyQuitDate) {
-              buddyQuitDate = realBuddy?.lastRelapseDate || nemesis?.lastRelapseDate;
-              console.log('🔍 Arena: No quit date found, using last relapse date for streak calculation:', buddyQuitDate);
-            }
-            
-            console.log('🔍 Arena: Recalculating streak from actual quit date:', buddyQuitDate);
-            if (buddyQuitDate) {
+            // Use centralized stats streak if available, otherwise recalculate from quit date
+            if (updatedBuddyStats.streakDisplayText && updatedBuddyStats.streakUnit) {
+              console.log('🔍 Arena: Using centralized stats streak:', updatedBuddyStats.streakDisplayText);
+              
+              // Store the centralized streak in our separate state
+              const centralizedStreakData = {
+                streakDays: updatedBuddyStats.streakDays || 0,
+                streakUnit: updatedBuddyStats.streakUnit,
+                streakDisplayText: updatedBuddyStats.streakDisplayText
+              };
+              
+              setBuddyStreakData(centralizedStreakData);
+              console.log('🔄 Arena: Updated buddy streak from centralized stats:', centralizedStreakData.streakDisplayText);
+            } else {
+              // Fallback: Recalculate streak from actual quit date
+              // Use the original quit date from the buddy's profile, or fall back to last relapse date
+              let buddyQuitDate = realBuddy?.originalQuitDate || nemesis?.originalQuitDate;
+              
+              // Debug logging to see what data we have
+              console.log('🔍 Arena: Real-time listener debug - realBuddy:', realBuddy?.originalQuitDate, 'nemesis:', nemesis?.originalQuitDate);
+              
+              // If no quit date, use the last relapse date for streak calculation
+              if (!buddyQuitDate) {
+                buddyQuitDate = realBuddy?.lastRelapseDate || nemesis?.lastRelapseDate;
+                console.log('🔍 Arena: No quit date found, using last relapse date for streak calculation:', buddyQuitDate);
+              }
+              
+              console.log('🔍 Arena: Recalculating streak from actual quit date:', buddyQuitDate);
+              if (buddyQuitDate) {
               const quitDate = new Date(buddyQuitDate);
               const streakData = calculateStreak(quitDate);
               
@@ -2287,10 +2312,12 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
               console.log('🔄 Arena: Applied local streak calculation to buddy stats:', streakData.displayText);
             } else {
               console.log('⚠️ Arena: Cannot calculate buddy streak - no quit date or relapse date available');
-              // Set default display text for buddy
-              updatedBuddyStats.streakUnit = 'days';
-              updatedBuddyStats.streakDisplayText = `${updatedBuddyStats.streakDays || 0} day${updatedBuddyStats.streakDays === 1 ? '' : 's'}`;
-              console.log('🔄 Arena: Set default buddy streak display:', updatedBuddyStats.streakDisplayText);
+              // Set default display text for buddy - use hours for new users (when no quit date exists)
+              // Since no quit date exists, this is likely a new user who should show hours
+              updatedBuddyStats.streakUnit = 'hours';
+              updatedBuddyStats.streakDisplayText = '0 hours';
+              console.log('🔄 Arena: Set default buddy streak display for new user:', updatedBuddyStats.streakDisplayText);
+            }
             }
             
             // Update the nemesis stats in real-time with calculated streak
@@ -3424,8 +3451,10 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
   const [successMessage, setSuccessMessage] = useState('');
 
   const showQuickActionPopup = (title, message, type = 'info') => {
+    console.log('🔄 showQuickActionPopup called:', { title, message, type });
     setPopupData({ title, message, type });
     setShowCustomPopup(true);
+    console.log('✅ showQuickActionPopup: Popup data set and showCustomPopup set to true');
   };
 
   // Make showQuickActionPopup globally accessible for milestone notifications
@@ -3730,7 +3759,20 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
             console.log('✅ Hydration also logged to Firestore for analytics');
           } catch (firestoreError) {
             console.warn('⚠️ Could not log hydration to Firestore:', firestoreError.message);
+            // Queue for offline sync if Firestore fails
+            await handleOfflineBehavioralLog('hydration', {
+              glassesConsumed: newWaterCount,
+              targetGlasses: 6,
+              currentStreak: await statManager.checkHydrationStreak()
+            });
           }
+        } else {
+          // Queue for offline sync if behavioral service not available
+          await handleOfflineBehavioralLog('hydration', {
+            glassesConsumed: newWaterCount,
+            targetGlasses: 6,
+            currentStreak: await statManager.checkHydrationStreak()
+          });
         }
         
         // If we just reached 6 glasses, check for mental strength bonus
@@ -3873,6 +3915,19 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
             console.log('✅ Craving also logged to Firestore for analytics');
           } catch (firestoreError) {
             console.warn('⚠️ Could not log craving to Firestore:', firestoreError.message);
+            // Queue for offline sync if Firestore fails
+            await handleOfflineBehavioralLog('craving', {
+              outcome: 'resisted',
+              strength: cravingData.strength,
+              duration: cravingData.duration,
+              context: 'detailed_assessment',
+              triggers: cravingData.triggers || [],
+              mood: cravingData.mood,
+              stressLevel: cravingData.stressLevel,
+              copingStrategiesUsed: cravingData.copingStrategies || [],
+              location: cravingData.location,
+              socialSituation: cravingData.socialSituation
+            });
           }
         }
         
@@ -3930,13 +3985,37 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           
           // Check daily limits before giving resistance bonuses
           let resistanceLimits = null;
-          if (statManager) {
+          let canAwardMentalStrength = true;
+          
+          // Use CentralizedStatService for ALL users (universal system)
+          if (window.centralizedStatService) {
+            console.log('🔄 Detailed Assessment: Using CentralizedStatService...');
+            
+            // Check daily mental strength limit before processing
+            const currentStats = await window.centralizedStatService.getCurrentStats();
+            const dailyMentalStrengthBonus = currentStats?.mentalStrengthCravingsApplied || 0;
+            
+            if (dailyMentalStrengthBonus >= 3) {
+              // User has reached daily limit for mental strength bonus
+              canAwardMentalStrength = false;
+              console.log('🔄 Detailed Assessment: Daily mental strength limit reached');
+            }
+            
+            // Process the craving resistance
+            await window.centralizedStatService.handleCravingResisted();
+            console.log('✅ Detailed Assessment: Stats updated via CentralizedStatService');
+          }
+          // Fallback to StatManager (legacy support)
+          else if (statManager) {
             resistanceLimits = await statManager.checkDailyCravingResistanceLimits(today);
             await statManager.handleCravingResistance();
           }
           
           // Store resistance limits for message display
-          finalCravingData.resistanceLimits = resistanceLimits;
+          finalCravingData.resistanceLimits = {
+            ...resistanceLimits,
+            canAwardMentalStrength
+          };
         } else if (outcome === 'relapsed') {
           newStats.relapses = weeklyStats.relapses + 1;
           
@@ -3965,6 +4044,19 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
                 console.log('✅ Relapse also logged to Firestore for analytics');
               } catch (firestoreError) {
                 console.warn('⚠️ Could not log relapse to Firestore:', firestoreError.message);
+                // Queue for offline sync if Firestore fails (critical data)
+                await handleOfflineBehavioralLog('relapse', {
+                  escalationLevel: await statManager.getCurrentEscalationLevel(),
+                  triggers: cravingData.triggers || [],
+                  mood: cravingData.mood,
+                  stressLevel: cravingData.stressLevel,
+                  location: cravingData.location,
+                  socialSituation: cravingData.socialSituation,
+                  copingAttempts: cravingData.copingStrategies || [],
+                  addictionIncrease: escalationLevel === 1 ? 4 : escalationLevel === 2 ? 6 : 8,
+                  mentalStrengthDecrease: 3,
+                  triggerDefenseDecrease: 3
+                });
               }
             }
           } else {
@@ -4046,12 +4138,23 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
               type: 'info'
             });
           } else {
-            // Both stats awarded
-            setPopupData({
-              title: '🎉 Great Job!',
-              message: 'You successfully resisted that craving!\n\nYour Mental Strength increased by 1 point and Trigger Defense increased by 3 points!\n\nPlus, you earned awareness bonuses for tracking your craving!',
-              type: 'success'
-            });
+            // Both stats awarded - show remaining mental strength points
+            const currentStats = await window.centralizedStatService?.getCurrentStats();
+            const remainingMentalStrength = 3 - ((currentStats?.mentalStrengthCravingsApplied || 0) + 1);
+            
+            if (remainingMentalStrength > 0) {
+              setPopupData({
+                title: '🎉 Great Job!',
+                message: `You successfully resisted that craving!\n\nYour Mental Strength increased by 1 point (${remainingMentalStrength} more today) and Trigger Defense increased by 3 points!\n\nPlus, you earned awareness bonuses for tracking your craving!`,
+                type: 'success'
+              });
+            } else {
+              setPopupData({
+                title: '🎉 Great Job!',
+                message: 'You successfully resisted that craving!\n\nYour Mental Strength increased by 1 point (daily max reached!) and Trigger Defense increased by 3 points!\n\nPlus, you earned awareness bonuses for tracking your craving!',
+                type: 'success'
+              });
+            }
           }
         } else {
           // Fallback message if limits not available
@@ -4153,8 +4256,46 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
         // Use CentralizedStatService for ALL users (universal system)
         if (window.centralizedStatService) {
           console.log('🔄 Quick Resistance: Using CentralizedStatService...');
+          
+          // Check current mental strength bonus before processing
+          const currentStats = await window.centralizedStatService.getCurrentStats();
+          const dailyMentalStrengthBonus = currentStats?.mentalStrengthCravingsApplied || 0;
+          console.log('🔄 Quick Resistance: Current mental strength bonus before processing:', dailyMentalStrengthBonus);
+          
+          // Always process the craving resistance first
           await window.centralizedStatService.handleCravingResisted();
           console.log('✅ Quick Resistance: Stats updated via CentralizedStatService');
+          
+          // Check if we've reached the daily limit AFTER processing
+          if (dailyMentalStrengthBonus >= 3) {
+            // User has reached daily limit for mental strength bonus
+            console.log('🔄 Quick Resistance: Daily limit reached, showing limit message');
+            showQuickActionPopup(
+              'Daily Mental Strength Limit Reached',
+              'You\'ve already earned the maximum 3 mental strength points from craving resistance today. Keep up the great work! Your resistance still counts for your overall progress.',
+              'info'
+            );
+          } else {
+            // Show success message with mental strength info
+            const remainingBonus = 3 - (dailyMentalStrengthBonus + 1);
+            console.log('🔄 Quick Resistance: Showing success message, remaining bonus:', remainingBonus);
+            if (remainingBonus > 0) {
+              showQuickActionPopup(
+                'Craving Resisted! 💪',
+                `Great job! You earned +1 mental strength point. You can still earn ${remainingBonus} more mental strength points from craving resistance today.`,
+                'success'
+              );
+            } else {
+              showQuickActionPopup(
+                'Craving Resisted! 💪',
+                'Excellent! You\'ve reached the daily maximum of 3 mental strength points from craving resistance. Keep resisting!',
+                'success'
+              );
+            }
+          }
+          
+          // Return early to prevent fallback popup messages from overriding the correct ones
+          return;
         } 
         // Fallback to StatManager (legacy support)
         else if (statManager) {
@@ -4291,6 +4432,16 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
               console.log('✅ Quick relapse also logged to Firestore for analytics');
             } catch (firestoreError) {
               console.warn('⚠️ Could not log quick relapse to Firestore:', firestoreError.message);
+              // Queue for offline sync if Firestore fails (critical data)
+              await handleOfflineBehavioralLog('relapse', {
+                escalationLevel: await statManager.getCurrentEscalationLevel(),
+                triggers: user.triggers || [],
+                mood: 'quick',
+                context: 'quick_action',
+                addictionIncrease: escalationLevel === 1 ? 4 : escalationLevel === 2 ? 6 : 8,
+                mentalStrengthDecrease: 3,
+                triggerDefenseDecrease: 3
+              });
             }
           }
           
@@ -4769,6 +4920,14 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
                     console.log('✅ Physical activity (walk) logged to Firestore for analytics');
                   } catch (error) {
                     console.warn('⚠️ Could not log physical activity to Firestore:', error.message);
+                    // Queue for offline sync if Firestore fails
+                    await handleOfflineBehavioralLog('walk', {
+                      type: 'walk',
+                      duration: 5,
+                      intensity: 'moderate',
+                      triggerContext: 'craving-triggered',
+                      location: 'indoor/outdoor'
+                    });
                   }
                 }
               }}
@@ -5590,13 +5749,22 @@ const ProfileView = ({ user, onNavigate }) => {
       await statManager.handleRelapse();
     }
     
-    // Save to Firebase
-    const success = await saveToFirebase('relapseDate', now.toISOString());
+    // Save relapse date and reset quit date to relapse time
+    const relapseTimeString = now.toISOString();
+    const success = await saveToFirebase('relapseDate', relapseTimeString);
+    
+    // Also update the quit date to the relapse time (user starts new quit journey)
+    const quitDateSuccess = await saveToFirebase('lastQuitDate', relapseTimeString);
     
     // Fallback to localStorage if Firebase fails
     if (!success) {
-      localStorage.setItem('quitCoachRelapseDate', now.toISOString());
+      localStorage.setItem('quitCoachRelapseDate', relapseTimeString);
     }
+    if (!quitDateSuccess) {
+      localStorage.setItem('quitCoachLastQuitDate', relapseTimeString);
+    }
+    
+    console.log('🔄 Relapse logged - quit date reset to relapse time:', relapseTimeString);
   };
 
   // Get week days with proper coloring logic (only past days and today)
@@ -6534,6 +6702,14 @@ const App = () => {
             console.log('✅ Breathing exercise also logged to Firestore for analytics');
           } catch (firestoreError) {
             console.warn('⚠️ Could not log breathing exercise to Firestore:', firestoreError.message);
+            // Queue for offline sync if Firestore fails
+            await handleOfflineBehavioralLog('breathing', {
+              duration: 5,
+              completed: true,
+              triggerContext: 'scheduled',
+              currentStreak: breathingStreak,
+              mentalStrengthEarned: breathingStreak >= 3 && (breathingStreak % 3 === 0)
+            });
           }
         }
       } catch (error) {
@@ -6891,6 +7067,32 @@ const App = () => {
     };
     
     return await offlineManager.handleOfflineAction(action);
+  };
+
+  // Handle offline behavioral logging
+  const handleOfflineBehavioralLog = async (logType, logData) => {
+    if (!offlineManager || !authUser?.uid) return false;
+    
+    const enhancedLogData = {
+      ...logData,
+      userId: authUser.uid,
+      timestamp: Date.now()
+    };
+    
+    return await offlineManager.handleOfflineBehavioralLog(logType, enhancedLogData);
+  };
+
+  // Handle offline Firestore actions
+  const handleOfflineFirestoreAction = async (actionType, actionData) => {
+    if (!offlineManager || !authUser?.uid) return false;
+    
+    const enhancedActionData = {
+      ...actionData,
+      userId: authUser.uid,
+      timestamp: Date.now()
+    };
+    
+    return await offlineManager.handleOfflineFirestoreAction(actionType, enhancedActionData);
   };
 
   // Handle offline craving resistance
@@ -7628,12 +7830,23 @@ const App = () => {
             }
             
             if (!buddyQuitDate) {
-              console.log('⚠️ This means the buddy has no quit date stored - streak will be 0');
+              console.log('⚠️ No quit date found, checking for createdAt timestamp...');
               console.log('🔍 Buddy user ID:', buddyUserId);
-              console.log('🔍 This could be because:');
-              console.log('   1. User completed onboarding before quit date was properly saved');
-              console.log('   2. User quit date was overwritten during validation');
-              console.log('   3. User was created before proper quit date handling was implemented');
+              
+              // Fallback to createdAt timestamp if no quit date is found
+              if (profileSnapshot.exists()) {
+                const profileData = profileSnapshot.val();
+                if (profileData.createdAt) {
+                  buddyQuitDate = profileData.createdAt;
+                  console.log('✅ Using buddy createdAt as quit date:', buddyQuitDate);
+                } else {
+                  console.log('⚠️ No createdAt timestamp found either - using current time as fallback');
+                  buddyQuitDate = new Date().toISOString();
+                }
+              } else {
+                console.log('⚠️ No profile data available - using current time as fallback');
+                buddyQuitDate = new Date().toISOString();
+              }
               
               // For centralized users (User 2 & User 3), don't use hardcoded quit dates
               // Their streak is managed by CentralizedStatService
@@ -7668,6 +7881,7 @@ const App = () => {
           uid: buddyUserId,
           stats: buddyStats,
           quitDate: buddyQuitDateForObject,
+          originalQuitDate: buddyQuitDateForObject, // Add for real-time listener compatibility
           lastRelapseDate: buddyLastRelapseDate, // Add relapse date for Arena calculations
           achievements: [],
           archetype: buddyArchetype,
@@ -8388,6 +8602,9 @@ const App = () => {
         onboardingCompleted: true,
         createdAt: now.toISOString(), // Set registration timestamp
         updatedAt: now.getTime(),
+        // Set quit date to onboarding time (user starts their quit journey now)
+        originalQuitDate: now.toISOString(),
+        lastQuitDate: now.toISOString(),
         // Initialize activity tracking
         lastActivity: now.toISOString(),
         // Set initial daily activity for today
@@ -8748,7 +8965,7 @@ const App = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
       {/* Offline Indicator */}
-      <OfflineIndicator />
+      <OfflineIndicator offlineManager={offlineManager} />
             
 
       {/* Onboarding Flow */}
