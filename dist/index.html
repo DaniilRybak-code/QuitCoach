@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>QuitCard Arena - Vaping Cessation App</title>
     
     <!-- PWA Manifest -->
@@ -13,17 +13,55 @@
     <meta name="description" content="Your personal arena for quitting vaping and building a healthier life" />
     <meta name="theme-color" content="#3b82f6" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="QuitCard Arena" />
     
     <!-- Apple Touch Icons -->
-    <link rel="apple-touch-icon" href="/icon-152x152.svg" />
-    <link rel="apple-touch-icon" sizes="152x152" href="/icon-152x152.svg" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/icon-192x192.svg" />
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png" />
     
     <!-- Microsoft Tiles -->
     <meta name="msapplication-TileColor" content="#3b82f6" />
-    <meta name="msapplication-TileImage" content="/icon-144x144.svg" />
+    <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    
+    <!-- Mobile Safe Area CSS -->
+    <style>
+      /* Safe area support for iPhone notch */
+      :root {
+        --safe-area-inset-top: env(safe-area-inset-top);
+        --safe-area-inset-bottom: env(safe-area-inset-bottom);
+        --safe-area-inset-left: env(safe-area-inset-left);
+        --safe-area-inset-right: env(safe-area-inset-right);
+      }
+      
+      /* Prevent horizontal scroll on mobile */
+      body {
+        overflow-x: hidden;
+        padding-left: var(--safe-area-inset-left);
+        padding-right: var(--safe-area-inset-right);
+      }
+      
+      /* Ensure content doesn't get cut off by bottom navigation */
+      #root {
+        padding-bottom: calc(var(--safe-area-inset-bottom) + 80px);
+      }
+      
+      /* Mobile-specific optimizations */
+      @media (max-width: 768px) {
+        * {
+          -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Prevent zoom on input focus */
+        input, select, textarea {
+          font-size: 16px !important;
+        }
+      }
+    </style>
     
     <!-- Critical Resources (no preload to avoid warnings) -->
     
@@ -52,8 +90,8 @@
         });
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-3acc03f8.js"></script>
-    <link rel="stylesheet" href="/assets/index-1ead7036.css">
+    <script type="module" crossorigin src="/assets/index-39f626fa.js"></script>
+    <link rel="stylesheet" href="/assets/index-9ee4a79e.css">
   </head>
   <body>
     <div id="root"></div>

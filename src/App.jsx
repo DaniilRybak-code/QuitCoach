@@ -2167,6 +2167,13 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
     return defaultStats;
   });
 
+  // Store buddy streak separately to prevent it from being reset during tab switches
+  const [buddyStreakData, setBuddyStreakData] = useState({
+    streakDisplayText: null,
+    streakDays: 0,
+    streakUnit: 'hours'
+  });
+
   // Note: Firestore initialization is handled by the parent App component
 
   // Initialize StatManager and load real-time stats (requires user authentication)
@@ -2247,67 +2254,52 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             console.log('🔄 Arena: Buddy stats updated in real-time:', updatedBuddyStats);
             console.log('🔍 Arena: Buddy streak display info - streakDays:', updatedBuddyStats.streakDays, 'streakUnit:', updatedBuddyStats.streakUnit, 'streakDisplayText:', updatedBuddyStats.streakDisplayText);
             
-            // For User 2 and User 3: Use centralized stats directly, don't recalculate
-            const buddyUID = nemesis?.uid || realBuddy?.uid;
-            // Debug logging removed to prevent re-renders
+            // All users: Always recalculate streak from actual quit date, ignoring centralized streak data
+            // Use the original quit date from the buddy's profile, or fall back to last relapse date
+            let buddyQuitDate = realBuddy?.originalQuitDate || nemesis?.originalQuitDate;
             
-            if (buddyUID === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1' || buddyUID === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2') {
-              console.log(`🔄 Arena: Using centralized stats for buddy ${buddyUID} - no local calculation needed`);
-              console.log('🔄 Arena: Centralized buddy streak:', updatedBuddyStats.streakDisplayText);
-              // Don't modify the centralized stats - they're already correct
-            } else {
-              // For other users: Apply streak calculation to buddy stats if they don't have display text
-              let buddyQuitDate = nemesis?.quitDate || realBuddy?.quitDate;
+            // If no quit date, use the last relapse date for streak calculation
+            if (!buddyQuitDate) {
+              buddyQuitDate = realBuddy?.lastRelapseDate || nemesis?.lastRelapseDate;
+              console.log('🔍 Arena: No quit date found, using last relapse date for streak calculation:', buddyQuitDate);
+            }
+            
+            console.log('🔍 Arena: Recalculating streak from actual quit date:', buddyQuitDate);
+            if (buddyQuitDate) {
+              const quitDate = new Date(buddyQuitDate);
+              const streakData = calculateStreak(quitDate);
               
-              console.log('🔍 Arena: Checking if buddy needs streak calculation - hasDisplayText:', !!updatedBuddyStats.streakDisplayText, 'buddyQuitDate:', buddyQuitDate);
-              if (!updatedBuddyStats.streakDisplayText && buddyQuitDate) {
-                const quitDate = new Date(buddyQuitDate);
-                const streakData = calculateStreak(quitDate);
-                updatedBuddyStats.streakDays = streakData.value;
-                updatedBuddyStats.streakUnit = streakData.unit;
-                updatedBuddyStats.streakDisplayText = streakData.displayText;
-                console.log('🔄 Arena: Applied streak calculation to buddy stats:', streakData.displayText);
-              } else if (!updatedBuddyStats.streakDisplayText) {
-                console.log('⚠️ Arena: Cannot calculate buddy streak - no quit date available');
-                // Set default display text for buddy
-                updatedBuddyStats.streakUnit = 'days';
-                updatedBuddyStats.streakDisplayText = `${updatedBuddyStats.streakDays || 0} day${updatedBuddyStats.streakDays === 1 ? '' : 's'}`;
-                console.log('🔄 Arena: Set default buddy streak display:', updatedBuddyStats.streakDisplayText);
-              }
+              // Store the calculated streak in our separate state
+              const calculatedStreakData = {
+                streakDays: streakData.value,
+                streakUnit: streakData.unit,
+                streakDisplayText: streakData.displayText
+              };
+              setBuddyStreakData(calculatedStreakData);
+              
+              // Update the stats with calculated streak
+              updatedBuddyStats.streakDays = streakData.value;
+              updatedBuddyStats.streakUnit = streakData.unit;
+              updatedBuddyStats.streakDisplayText = streakData.displayText;
+              console.log('🔄 Arena: Applied local streak calculation to buddy stats:', streakData.displayText);
+            } else {
+              console.log('⚠️ Arena: Cannot calculate buddy streak - no quit date or relapse date available');
+              // Set default display text for buddy
+              updatedBuddyStats.streakUnit = 'days';
+              updatedBuddyStats.streakDisplayText = `${updatedBuddyStats.streakDays || 0} day${updatedBuddyStats.streakDays === 1 ? '' : 's'}`;
+              console.log('🔄 Arena: Set default buddy streak display:', updatedBuddyStats.streakDisplayText);
             }
             
-            // Update the nemesis stats in real-time
-            // For centralized users, ensure we don't override their centralized stats
-            const currentBuddyUID = nemesis?.uid || realBuddy?.uid;
-            if (currentBuddyUID === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1' || currentBuddyUID === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2') {
-              console.log(`🔄 Arena: Updating centralized buddy stats for ${currentBuddyUID} - preserving streakDisplayText`);
-              setRealTimeNemesisStats(prevStats => ({
+            // Update the nemesis stats in real-time with calculated streak
+            setRealTimeNemesisStats(prevStats => {
+              console.log('🔄 Arena: Updating buddy stats with calculated streak:', updatedBuddyStats.streakDisplayText);
+              
+              return {
                 ...prevStats,
-                ...updatedBuddyStats,
-                // Force preserve the centralized streak data
-                streakDisplayText: updatedBuddyStats.streakDisplayText,
-                streakDays: updatedBuddyStats.streakDays,
-                streakUnit: updatedBuddyStats.streakUnit
-              }));
-            } else {
-              // For other users: Preserve locally calculated streak and only update other stats
-              setRealTimeNemesisStats(prevStats => {
-                // Preserve the locally calculated streak if it exists
-                const preservedStreak = prevStats.streakDisplayText ? {
-                  streakDisplayText: prevStats.streakDisplayText,
-                  streakDays: prevStats.streakDays,
-                  streakUnit: prevStats.streakUnit
-                } : {};
-                
-                console.log('🔄 Arena: Preserving locally calculated buddy streak:', preservedStreak);
-                
-                return {
-                  ...prevStats,
-                  ...updatedBuddyStats,
-                  ...preservedStreak // Override with preserved streak data
-                };
-              });
-            }
+                ...updatedBuddyStats
+                // The streak data is already calculated and set in updatedBuddyStats above
+              };
+            });
           }
         }, (error) => {
           if (error.code !== 'PERMISSION_DENIED') {
@@ -2352,18 +2344,12 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                 
                 // Preserve locally calculated streak during profile update
                 setRealTimeNemesisStats(prevStats => {
-                  const preservedStreak = prevStats.streakDisplayText ? {
-                    streakDisplayText: prevStats.streakDisplayText,
-                    streakDays: prevStats.streakDays,
-                    streakUnit: prevStats.streakUnit
-                  } : {};
-                  
-                  console.log('🔄 Arena: Preserving locally calculated streak during profile update:', preservedStreak);
+                  console.log('🔄 Arena: Preserving locally calculated streak during profile update:', buddyStreakData);
                   
                   return {
                     ...prevStats,
                     ...updatedStats,
-                    ...preservedStreak // Override with preserved streak data
+                    ...buddyStreakData // Override with preserved streak data
                   };
                 });
               } else {
@@ -2429,18 +2415,12 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
         
         // Preserve locally calculated streak during stats calculation
         setRealTimeNemesisStats(prevStats => {
-          const preservedStreak = prevStats.streakDisplayText ? {
-            streakDisplayText: prevStats.streakDisplayText,
-            streakDays: prevStats.streakDays,
-            streakUnit: prevStats.streakUnit
-          } : {};
-          
-          console.log('🔄 Arena: Preserving locally calculated streak during stats calculation:', preservedStreak);
+          console.log('🔄 Arena: Preserving locally calculated streak during stats calculation:', buddyStreakData);
           
           return {
             ...prevStats,
             ...nemesisStats,
-            ...preservedStreak // Override with preserved streak data
+            ...buddyStreakData // Override with preserved streak data
           };
         });
       }
@@ -2484,9 +2464,9 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
   useEffect(() => {
     if (user?.uid && !realBuddy && !buddyLoading && !buddyLoadAttempted) {
       console.log('🔄 Arena: Loading buddy data for user:', user.uid);
-      loadRealBuddy(calculateRealTimeStats, setRealTimeNemesisStats);
+      loadRealBuddy(calculateRealTimeStats, setRealTimeNemesisStats, setBuddyStreakData);
     }
-  }, [user?.uid, realBuddy, buddyLoading, buddyLoadAttempted]);
+  }, [user?.uid, realBuddy, buddyLoading, buddyLoadAttempted, setBuddyStreakData]);
   
   // Handle online/offline state changes - MOVED TO CORRECT LOCATION AFTER STATE DECLARATIONS
   useEffect(() => {
@@ -2774,7 +2754,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             try {
               setBuddyLoadAttempted(false);
               setRealBuddy(null);
-              await loadRealBuddy(calculateRealTimeStats, setRealTimeNemesisStats);
+              await loadRealBuddy(calculateRealTimeStats, setRealTimeNemesisStats, setBuddyStreakData);
               console.log('✅ Manual buddy reload completed');
             } catch (error) {
               console.error('❌ Manual buddy reload failed:', error);
@@ -2903,10 +2883,18 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                 }
               };
               
+              // Override streak data with preserved buddy streak if available
+              if (buddyStreakData.streakDisplayText) {
+                mergedNemesisStats.stats.streakDisplayText = buddyStreakData.streakDisplayText;
+                mergedNemesisStats.stats.streakDays = buddyStreakData.streakDays;
+                mergedNemesisStats.stats.streakUnit = buddyStreakData.streakUnit;
+              }
+              
               console.log('🎯 TradingCard: Buddy streak debug:', {
                 realTimeNemesisStats: realTimeNemesisStats,
                 mergedNemesisStats: mergedNemesisStats.stats,
-                buddyStreak: mergedNemesisStats.stats?.streakDisplayText
+                buddyStreak: mergedNemesisStats.stats?.streakDisplayText,
+                preservedBuddyStreak: buddyStreakData
               });
               
               // Debug logging for buddy stats (removed to reduce console noise)
@@ -5199,51 +5187,110 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
     }
   };
   
-  // Animated glass representation with water pouring effect
+  // Enhanced animated glass representation with realistic water physics
   const renderGlasses = () => {
     return (
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-4 sm:gap-6">
         {[...Array(6)].map((_, index) => {
           const isFilled = index < currentWater;
           const isPouring = index === currentWater - 1 && isLoggingWater;
+          const isCompleted = currentWater === 6 && isFilled;
+          const fillLevel = Math.min(100, (currentWater / 6) * 100);
           
           return (
-            <div key={index} className="relative w-16 h-20">
-              {/* Glass outline */}
-              <div className="absolute inset-0 border-2 border-blue-400 rounded-lg overflow-hidden">
-                {/* Water level */}
+            <div key={index} className="relative w-16 h-20 sm:w-20 sm:h-24 glass-container">
+              {/* Glass outer container with realistic glass properties */}
+              <div className="absolute inset-0 glass-outline overflow-hidden">
+                {/* Glass reflection gradient */}
+                <div className="absolute inset-0 glass-reflection" />
+                
+                {/* Water level with dynamic animation */}
                 {isFilled && (
-                  <div 
-                    className={`w-full bg-gradient-to-b from-blue-400 to-blue-600 ${
-                      isPouring ? 'water-fill' : ''
-                    }`}
-                    style={{ 
-                      height: '100%',
-                      background: 'linear-gradient(to bottom, #60a5fa, #2563eb)'
-                    }}
-                  />
+                  <div className="absolute bottom-0 left-0 right-0 water-container">
+                    {/* Main water body */}
+                    <div 
+                      className={`water-body ${isPouring ? 'water-fill-animation' : ''} ${
+                        isCompleted ? 'water-celebration' : ''
+                      }`}
+                      style={{ 
+                        height: `${Math.min(100, (index + 1) * 16.67)}%`,
+                        background: `linear-gradient(to bottom, 
+                          ${isCompleted ? '#4ade80, #22c55e, #16a34a' : '#60a5fa, #3b82f6, #2563eb'}
+                        )`
+                      }}
+                    >
+                      {/* Water surface with waves */}
+                      <div className={`water-surface ${isPouring ? 'water-surface-pour' : 'water-surface-gentle'}`}>
+                        {/* Wave patterns */}
+                        <div className="water-wave-1"></div>
+                        <div className="water-wave-2"></div>
+                        <div className="water-wave-3"></div>
+                      </div>
+                      
+                      {/* Bubbles in water */}
+                      <div className="water-bubbles">
+                        {[...Array(3 + index)].map((_, bubbleIndex) => (
+                          <div 
+                            key={bubbleIndex}
+                            className={`water-bubble bubble-${bubbleIndex % 3 + 1}`}
+                            style={{
+                              left: `${20 + (bubbleIndex * 15) % 60}%`,
+                              animationDelay: `${bubbleIndex * 0.5}s`
+                            }}
+                          />
+                        ))}
+                      </div>
+                      
+                      {/* Water shine effect */}
+                      <div className="water-shine" />
+                    </div>
+                    
+                    {/* Pouring effect overlay */}
+                    {isPouring && (
+                      <div className="water-pour-overlay">
+                        <div className="water-stream"></div>
+                        <div className="water-splash"></div>
+                      </div>
+                    )}
+                  </div>
                 )}
                 
-                {/* Water surface effect with ripple */}
-                {isFilled && (
-                  <div className={`absolute top-0 left-0 right-0 h-1 bg-blue-300 opacity-60 rounded-t-lg ${
-                    isPouring ? 'water-ripple' : ''
-                  }`} />
-                )}
+                {/* Glass rim with realistic highlight */}
+                <div className="glass-rim">
+                  <div className="glass-rim-highlight" />
+                  <div className="glass-rim-shadow" />
+                </div>
                 
-                {/* Pouring animation overlay */}
-                {isPouring && (
-                  <div className="absolute inset-0 bg-gradient-to-b from-blue-300/50 to-transparent water-pour" />
+                {/* Glass side reflections */}
+                <div className="glass-side-reflection" />
+                
+                {/* Glass base shadow */}
+                <div className="glass-base-shadow" />
+                
+                {/* Completion glow effect */}
+                {isCompleted && (
+                  <div className="glass-completion-glow" />
                 )}
               </div>
               
-              {/* Glass rim highlight */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-blue-200/40 rounded-t-lg" />
-              
-              {/* Water drop animation when filling */}
+              {/* Water drop animation when pouring */}
               {isPouring && (
-                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
-                  <div className="w-2 h-3 bg-blue-400 rounded-full water-pour opacity-80" />
+                <div className="water-drop-container">
+                  <div className="water-drop water-drop-1"></div>
+                  <div className="water-drop water-drop-2"></div>
+                  <div className="water-drop water-drop-3"></div>
+                </div>
+              )}
+              
+              {/* Completion sparkles */}
+              {isCompleted && (
+                <div className="glass-sparkles">
+                  {[...Array(6)].map((_, sparkleIndex) => (
+                    <div 
+                      key={sparkleIndex}
+                      className={`completion-sparkle sparkle-${sparkleIndex + 1}`}
+                    />
+                  ))}
                 </div>
               )}
             </div>
@@ -5294,13 +5341,57 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
           <div className="flex items-center justify-center mb-6 relative">
             {renderGlasses()}
             
-            {/* Celebration sparkles when fully hydrated */}
+            {/* Epic celebration effects when fully hydrated */}
             {showSparkles && (
               <>
-                <div className="absolute -top-4 -left-4 text-2xl animate-bounce">✨</div>
-                <div className="absolute -top-2 -right-2 text-xl animate-bounce" style={{ animationDelay: '0.2s' }}>🌟</div>
-                <div className="absolute -bottom-2 -left-2 text-lg animate-bounce" style={{ animationDelay: '0.4s' }}>💫</div>
-                <div className="absolute -bottom-4 -right-4 text-xl animate-bounce" style={{ animationDelay: '0.6s' }}>⭐</div>
+                {/* Floating sparkles */}
+                <div className="celebration-sparkles">
+                  {[...Array(20)].map((_, index) => (
+                    <div 
+                      key={index}
+                      className={`floating-sparkle sparkle-${index + 1}`}
+                      style={{
+                        animationDelay: `${index * 0.1}s`,
+                        left: `${Math.random() * 100}%`,
+                        top: `${Math.random() * 100}%`
+                      }}
+                    >
+                      {['✨', '🌟', '💫', '⭐', '✨'][index % 5]}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Confetti particles */}
+                <div className="confetti-container">
+                  {[...Array(50)].map((_, index) => (
+                    <div 
+                      key={index}
+                      className={`confetti-piece confetti-${index + 1}`}
+                      style={{
+                        animationDelay: `${index * 0.02}s`,
+                        left: `${Math.random() * 100}%`,
+                        backgroundColor: ['#60a5fa', '#34d399', '#fbbf24', '#f472b6', '#a78bfa'][index % 5]
+                      }}
+                    />
+                  ))}
+                </div>
+                
+                {/* Energy waves */}
+                <div className="energy-waves">
+                  {[...Array(3)].map((_, index) => (
+                    <div 
+                      key={index}
+                      className={`energy-wave wave-${index + 1}`}
+                      style={{ animationDelay: `${index * 0.3}s` }}
+                    />
+                  ))}
+                </div>
+                
+                {/* Celebration text animation */}
+                <div className="celebration-text">
+                  <div className="celebration-main">🎉 LEGEND! 🎉</div>
+                  <div className="celebration-sub">HYDRATION MASTER</div>
+                </div>
               </>
             )}
           </div>
@@ -7473,7 +7564,7 @@ const App = () => {
   const [buddyError, setBuddyError] = useState(null);
   const [buddyLoadAttempted, setBuddyLoadAttempted] = useState(false);
   // Load real buddy data - Simplified to prevent React crashes
-  const loadRealBuddy = async (calculateRealTimeStatsFn, setRealTimeNemesisStatsFn) => {
+  const loadRealBuddy = async (calculateRealTimeStatsFn, setRealTimeNemesisStatsFn, setBuddyStreakDataFn) => {
     if (!user?.uid || buddyLoading) {
       return;
     }
@@ -7817,6 +7908,14 @@ const App = () => {
                 
                 console.log(`🔄 Firestore: Calculated buddy streak locally: ${streakDisplayText} (${diffHours} hours since relapse)`);
                 
+                // Store buddy streak data separately to prevent reset during tab switches
+                const streakData = {
+                  streakDays: streakDays,
+                  streakUnit: diffHours < 24 ? 'hours' : 'days',
+                  streakDisplayText: streakDisplayText
+                };
+                setBuddyStreakDataFn(streakData);
+                
                 // Update the stats with calculated streak
                 const updatedBuddyStats = {
                   ...buddyStats,
@@ -7933,6 +8032,7 @@ const App = () => {
           avatar: buddyData.avatar || generateAvatar(buddyData.heroName || 'buddy', 'adventurer'),
           uid: buddyUserId, // Add uid property for Special Features loading
           userId: buddyUserId,
+          lastRelapseDate: buddyData.lastRelapseDate, // Add relapse date for streak calculations
           isRealBuddy: true,
           pairId: buddyPair.pairId,
           // Include buddy's onboarding data for Special Features generation

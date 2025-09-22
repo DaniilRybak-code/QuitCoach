@@ -1,0 +1,19 @@
+---
+alwaysApply: false
+---
+Apply when working on parts of code related to user's behaviour
+ALL user behaviors and progress MUST be stored in Firestore as the single source of truth. This includes:
+- Hydration tracking (every glass logged)
+- Breathing exercise completions and streaks
+- Walk/exercise activities  
+- Relapse events and timestamps
+- Craving resistance logs and assessments
+- All stat modifications and milestone achievements
+- Clean time calculations and streak data
+
+REQUIREMENTS:
+1. Every user action that affects stats or progress MUST write to Firestore immediately
+2. Local storage (localStorage, IndexedDB, etc.) should ONLY be used as temporary cache when offline
+3. When implementing offline functionality, local data is just a queue - everything must sync to Firestore when online
+4. App state should always reload from Firestore on startup, not from local storage
+5. No behavior or progress data should exist only locally - if it's not in Firestore, it doesn't count
