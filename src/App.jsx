@@ -511,6 +511,7 @@ const OnboardingFlow = ({ onComplete, authUser }) => {
                   }
                 }}
                 placeholder="e.g., FreedomSeeker, HealthGuardian"
+                autoComplete="name"
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -601,6 +602,7 @@ const OnboardingFlow = ({ onComplete, authUser }) => {
                     onChange={handlePhotoCapture}
                     className="hidden"
                     id="photo-upload"
+                    autoComplete="photo"
                   />
                   <label
                     htmlFor="photo-upload"
@@ -931,6 +933,7 @@ const OnboardingFlow = ({ onComplete, authUser }) => {
                   style={{
                     background: `linear-gradient(to right, ${getConfidenceColor(userData.confidence)} 0%, ${getConfidenceColor(userData.confidence)} ${(userData.confidence / 10) * 100}%, #475569 ${(userData.confidence / 10) * 100}%, #475569 100%)`
                   }}
+                  autoComplete="off"
                 />
                 <span className="text-gray-400 text-sm">10</span>
               </div>
@@ -4947,6 +4950,7 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
                         background: `linear-gradient(to right, ${colors.slider} 0%, ${colors.slider} ${(cravingData.strength / 10) * 100}%, #475569 ${(cravingData.strength / 10) * 100}%, #475569 100%)`
                       }}
                       className={`w-full h-4 rounded-lg appearance-none cursor-pointer slider mb-4 ${colors.thumbClass}`}
+                      autoComplete="off"
                     />
                     <div className="flex justify-between text-sm text-gray-400">
                       <span>Not at all</span>
@@ -5110,9 +5114,8 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
   );
 };
 
-// Enhanced Hydration Modal Component with Animated Glasses and Streak Logic
+// Enhanced Hydration Modal Component with New Design
 const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) => {
-  const [showSparkles, setShowSparkles] = useState(false);
   const [hydrationStreak, setHydrationStreak] = useState(0);
   const [mentalStrengthProgress, setMentalStrengthProgress] = useState(0);
   const [isLoggingWater, setIsLoggingWater] = useState(false);
@@ -5187,113 +5190,17 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
     }
   };
   
-  // Enhanced animated glass representation with realistic water physics
+  // Render glasses with new design
   const renderGlasses = () => {
     return (
-      <div className="grid grid-cols-3 gap-4 sm:gap-6">
+      <div className="glasses-visual">
         {[...Array(6)].map((_, index) => {
           const isFilled = index < currentWater;
-          const isPouring = index === currentWater - 1 && isLoggingWater;
-          const isCompleted = currentWater === 6 && isFilled;
-          const fillLevel = Math.min(100, (currentWater / 6) * 100);
-          
           return (
-            <div key={index} className="relative w-16 h-20 sm:w-20 sm:h-24 glass-container">
-              {/* Glass outer container with realistic glass properties */}
-              <div className="absolute inset-0 glass-outline overflow-hidden">
-                {/* Glass reflection gradient */}
-                <div className="absolute inset-0 glass-reflection" />
-                
-                {/* Water level with dynamic animation */}
-                {isFilled && (
-                  <div className="absolute bottom-0 left-0 right-0 water-container">
-                    {/* Main water body */}
-                    <div 
-                      className={`water-body ${isPouring ? 'water-fill-animation' : ''} ${
-                        isCompleted ? 'water-celebration' : ''
-                      }`}
-                      style={{ 
-                        height: `${Math.min(100, (index + 1) * 16.67)}%`,
-                        background: `linear-gradient(to bottom, 
-                          ${isCompleted ? '#4ade80, #22c55e, #16a34a' : '#60a5fa, #3b82f6, #2563eb'}
-                        )`
-                      }}
-                    >
-                      {/* Water surface with waves */}
-                      <div className={`water-surface ${isPouring ? 'water-surface-pour' : 'water-surface-gentle'}`}>
-                        {/* Wave patterns */}
-                        <div className="water-wave-1"></div>
-                        <div className="water-wave-2"></div>
-                        <div className="water-wave-3"></div>
-                      </div>
-                      
-                      {/* Bubbles in water */}
-                      <div className="water-bubbles">
-                        {[...Array(3 + index)].map((_, bubbleIndex) => (
-                          <div 
-                            key={bubbleIndex}
-                            className={`water-bubble bubble-${bubbleIndex % 3 + 1}`}
-                            style={{
-                              left: `${20 + (bubbleIndex * 15) % 60}%`,
-                              animationDelay: `${bubbleIndex * 0.5}s`
-                            }}
-                          />
-                        ))}
-                      </div>
-                      
-                      {/* Water shine effect */}
-                      <div className="water-shine" />
-                    </div>
-                    
-                    {/* Pouring effect overlay */}
-                    {isPouring && (
-                      <div className="water-pour-overlay">
-                        <div className="water-stream"></div>
-                        <div className="water-splash"></div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* Glass rim with realistic highlight */}
-                <div className="glass-rim">
-                  <div className="glass-rim-highlight" />
-                  <div className="glass-rim-shadow" />
-                </div>
-                
-                {/* Glass side reflections */}
-                <div className="glass-side-reflection" />
-                
-                {/* Glass base shadow */}
-                <div className="glass-base-shadow" />
-                
-                {/* Completion glow effect */}
-                {isCompleted && (
-                  <div className="glass-completion-glow" />
-                )}
-              </div>
-              
-              {/* Water drop animation when pouring */}
-              {isPouring && (
-                <div className="water-drop-container">
-                  <div className="water-drop water-drop-1"></div>
-                  <div className="water-drop water-drop-2"></div>
-                  <div className="water-drop water-drop-3"></div>
-                </div>
-              )}
-              
-              {/* Completion sparkles */}
-              {isCompleted && (
-                <div className="glass-sparkles">
-                  {[...Array(6)].map((_, sparkleIndex) => (
-                    <div 
-                      key={sparkleIndex}
-                      className={`completion-sparkle sparkle-${sparkleIndex + 1}`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+            <div 
+              key={index} 
+              className={`glass ${isFilled ? 'filled' : ''}`}
+            />
           );
         })}
       </div>
@@ -5311,15 +5218,8 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
     // Wait for the water to be logged, then refresh our data
     setTimeout(async () => {
       setIsLoggingWater(false);
-      
       // Refresh hydration data after logging
       await loadHydrationData();
-      
-      // Show celebration if we just reached 6 glasses
-      if (currentWater + 1 >= 6) {
-        setShowSparkles(true);
-        setTimeout(() => setShowSparkles(false), 3000);
-      }
     }, 1000);
   };
 
@@ -5327,170 +5227,74 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-slate-600/50 relative overflow-hidden">
-        {/* Celebration background */}
-        {showSparkles && (
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-blue-500/10 pointer-events-none animate-pulse" />
-        )}
-        
-        {/* Simple background */}
-        <div className="absolute inset-0 bg-blue-500/5 pointer-events-none"></div>
-        
-        <div className="relative z-10">
-          {/* Animated Glasses Grid */}
-          <div className="flex items-center justify-center mb-6 relative">
-            {renderGlasses()}
-            
-            {/* Epic celebration effects when fully hydrated */}
-            {showSparkles && (
-              <>
-                {/* Floating sparkles */}
-                <div className="celebration-sparkles">
-                  {[...Array(20)].map((_, index) => (
-                    <div 
-                      key={index}
-                      className={`floating-sparkle sparkle-${index + 1}`}
-                      style={{
-                        animationDelay: `${index * 0.1}s`,
-                        left: `${Math.random() * 100}%`,
-                        top: `${Math.random() * 100}%`
-                      }}
-                    >
-                      {['✨', '🌟', '💫', '⭐', '✨'][index % 5]}
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Confetti particles */}
-                <div className="confetti-container">
-                  {[...Array(50)].map((_, index) => (
-                    <div 
-                      key={index}
-                      className={`confetti-piece confetti-${index + 1}`}
-                      style={{
-                        animationDelay: `${index * 0.02}s`,
-                        left: `${Math.random() * 100}%`,
-                        backgroundColor: ['#60a5fa', '#34d399', '#fbbf24', '#f472b6', '#a78bfa'][index % 5]
-                      }}
-                    />
-                  ))}
-                </div>
-                
-                {/* Energy waves */}
-                <div className="energy-waves">
-                  {[...Array(3)].map((_, index) => (
-                    <div 
-                      key={index}
-                      className={`energy-wave wave-${index + 1}`}
-                      style={{ animationDelay: `${index * 0.3}s` }}
-                    />
-                  ))}
-                </div>
-                
-                {/* Celebration text animation */}
-                <div className="celebration-text">
-                  <div className="celebration-main">🎉 LEGEND! 🎉</div>
-                  <div className="celebration-sub">HYDRATION MASTER</div>
-                </div>
-              </>
-            )}
+      <div className="hydration-module">
+        {/* Module Header */}
+        <div className="module-header">
+          <div className="module-title">
+            <div className="water-icon">💧</div>
+            Hydration Tracker
           </div>
-          
-          {/* Enhanced Water Count Display */}
-          <div className="text-center mb-6">
-            <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30 rounded-2xl p-6">
-              <p className="text-gray-300 text-lg mb-3">Glasses today</p>
-              <p className="text-6xl font-black text-blue-400 mb-2">
-                {currentWater}/6
-              </p>
-              <p className="text-blue-200 text-sm font-medium">
-                {currentWater === 6 ? '🎉 You are a legend of hydration!' :
-                 `${currentWater} of 6 glasses completed`}
-              </p>
-            </div>
-          </div>
-          
-          {/* Screen reader announcement for water logging */}
-          <div aria-live="polite" className="sr-only">
-            {currentWater === 6 ? 'You are a legend of hydration for today' : `${currentWater} of 6 glasses completed today`}
-          </div>
-          
-          {/* Progress Sections - Side by Side */}
-          <div className="grid grid-cols-2 gap-4 mb-8">
-            {/* Hydration Streak Display */}
-            <div className="text-center">
-              <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-2xl px-4 py-3 h-24 flex flex-col justify-center">
-                <span className="text-xl mb-1">🔥</span>
-                <div>
-                  <p className="text-orange-200 text-xs font-medium">Hydration Streak</p>
-                  <p className="text-lg font-bold text-orange-300">{hydrationStreak} days</p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Mental Strength Progress Indicator */}
-            <div className="text-center">
-              <div className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 border border-purple-500/30 rounded-2xl px-4 py-3 h-24 flex flex-col justify-center">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <p className="text-purple-200 text-xs font-medium">Mental Strength</p>
-                  <button
-                    onClick={() => setShowMentalStrengthInfo(!showMentalStrengthInfo)}
-                    className="text-purple-300 hover:text-purple-200 transition-colors"
-                    title="Learn more about Mental Strength"
-                  >
-                    ℹ️
-                  </button>
-                </div>
-                
-                {/* Info tooltip */}
-                {showMentalStrengthInfo && (
-                  <div className="bg-slate-700/90 border border-purple-400/30 rounded-lg p-2 mb-2 text-xs text-purple-100">
-                    Staying hydrated for 3 days straight adds 1 point to Mental Strength stat
-                  </div>
-                )}
-                
-                <div className="flex justify-center items-center gap-1 mb-1">
-                  {[...Array(3)].map((_, index) => (
-                    <div
-                      key={index}
-                      className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                        index < mentalStrengthProgress 
-                          ? 'bg-purple-400 shadow-lg shadow-purple-400/50' 
-                          : 'bg-slate-600 border border-slate-500'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <p className="text-purple-200 text-xs">
-                  {mentalStrengthProgress}/3 days
-                </p>
-              </div>
-            </div>
-          </div>
-          
+          <p className="subtitle">Stay hydrated, stay strong</p>
+        </div>
 
+        {/* Progress Container */}
+        <div className="progress-container">
+          <div className="progress-header">
+            <span className="progress-text">Today's Progress</span>
+            <span className="progress-fraction">{currentWater}/6</span>
+          </div>
           
-          {/* Enhanced Button Layout */}
-          <div className="flex flex-col gap-4">
-            {/* Log Water Button - Primary Action */}
-            <button
-              onClick={handleLogWater}
-              disabled={currentWater >= 6 || isLoggingWater}
-              className="w-full py-4 px-6 rounded-2xl font-bold text-lg bg-blue-500 hover:bg-blue-600 text-white transition-all duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed"
-            >
-              {currentWater >= 6 ? '🎉 You are a legend of hydration!' : 
-               isLoggingWater ? '💧 Logging...' : '💧 Log Water'}
-            </button>
-            
-            {/* Done Button - Secondary Action */}
-            <button
-              onClick={onClose}
-              className="bg-slate-600/50 hover:bg-slate-600 text-gray-300 hover:text-white font-medium py-3 px-6 rounded-xl transition-all duration-300"
-            >
-              Done
-            </button>
+          {/* Glasses Visual */}
+          {renderGlasses()}
+          
+          {/* Progress Bar */}
+          <div className="progress-bar">
+            <div 
+              className="progress-fill" 
+              style={{ width: `${(currentWater / 6) * 100}%` }}
+            />
+          </div>
+          <div className="progress-percentage">
+            {Math.round((currentWater / 6) * 100)}% Complete
           </div>
         </div>
+
+        {/* Streak Section */}
+        <div className="streak-section">
+          <div className="streak-card">
+            <span className="streak-icon">🔥</span>
+            <div className="streak-label">Hydration Streak</div>
+            <div className="streak-value">{hydrationStreak} days</div>
+          </div>
+          
+          <div className="streak-card">
+            <span className="streak-icon">💪</span>
+            <div className="streak-label">Mental Strength</div>
+            <div className="streak-value">{mentalStrengthProgress}/3</div>
+          </div>
+        </div>
+
+        {/* Completion Message */}
+        {currentWater === 6 && (
+          <div className="completion-message">
+            🎉 Congratulations! You've completed your daily hydration goal!
+          </div>
+        )}
+
+        {/* Log Button */}
+        <button
+          onClick={handleLogWater}
+          disabled={currentWater >= 6 || isLoggingWater}
+          className="log-button"
+        >
+          {currentWater >= 6 ? '🎉 Goal Complete!' : 
+           isLoggingWater ? '💧 Logging...' : '💧 Log Water'}
+        </button>
+
+        {/* Done Button */}
+        <button onClick={onClose} className="done-button">
+          Done
+        </button>
       </div>
     </div>
   );
@@ -6191,6 +5995,7 @@ const WaterModal = ({ isOpen, onClose, onConfirm, currentWater }) => {
             onChange={(e) => setWaterInput(parseInt(e.target.value) || 0)}
             className="w-full bg-slate-700 text-white text-center text-2xl font-bold py-4 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
             placeholder="0"
+            autoComplete="off"
           />
           <p className="text-gray-400 text-sm text-center mt-2">0-20 glasses</p>
         </div>
@@ -6324,6 +6129,7 @@ const TriggerModal = ({ isOpen, onClose, onSchedule, scheduledTriggers }) => {
               value={selectedTime}
               onChange={(e) => setSelectedTime(e.target.value)}
               className="w-full bg-slate-700 text-white p-3 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+              autoComplete="off"
             />
           </div>
         </div>
@@ -7184,6 +6990,18 @@ const App = () => {
         return;
       }
       
+      // Filter out browser extension deref errors
+      if (error.message && error.message.includes('deref')) {
+        console.warn('Browser extension deref error (ignored):', error.message);
+        return;
+      }
+      
+      // Filter out chrome-extension URL errors
+      if (error.message && error.message.includes('chrome-extension://')) {
+        console.warn('Chrome extension URL error (ignored):', error.message);
+        return;
+      }
+      
       console.error('Global error caught:', error);
     };
 
@@ -7197,6 +7015,18 @@ const App = () => {
       // Filter out background frame errors
       if (event.reason && event.reason.message && (event.reason.message.includes('FrameDoesNotExistError') || event.reason.message.includes('background.js'))) {
         console.warn('Background frame promise rejection (ignored):', event.reason.message);
+        return;
+      }
+      
+      // Filter out browser extension deref errors
+      if (event.reason && event.reason.message && event.reason.message.includes('deref')) {
+        console.warn('Browser extension deref promise rejection (ignored):', event.reason.message);
+        return;
+      }
+      
+      // Filter out chrome-extension URL errors
+      if (event.reason && event.reason.message && event.reason.message.includes('chrome-extension://')) {
+        console.warn('Chrome extension URL promise rejection (ignored):', event.reason.message);
         return;
       }
       

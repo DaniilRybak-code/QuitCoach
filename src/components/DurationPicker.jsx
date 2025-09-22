@@ -71,6 +71,7 @@ const DurationPicker = ({ selectedDuration, onSelect, onBack }) => {
             background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((currentDuration - minDuration) / (maxDuration - minDuration)) * 100}%, #475569 ${((currentDuration - minDuration) / (maxDuration - minDuration)) * 100}%, #475569 100%)`
           }}
           className="w-full h-4 rounded-lg appearance-none cursor-pointer slider mb-4"
+          autoComplete="off"
         />
       </div>
 
