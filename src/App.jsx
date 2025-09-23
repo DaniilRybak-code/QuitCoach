@@ -2265,94 +2265,35 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             console.log('🔄 Arena: Buddy stats updated in real-time:', updatedBuddyStats);
             console.log('🔍 Arena: Buddy streak display info - streakDays:', updatedBuddyStats.streakDays, 'streakUnit:', updatedBuddyStats.streakUnit, 'streakDisplayText:', updatedBuddyStats.streakDisplayText);
             
-            // Use centralized stats streak if available, otherwise recalculate from quit date
+            // Prefer centralized streak if present
             if (updatedBuddyStats.streakDisplayText && updatedBuddyStats.streakUnit) {
-              console.log('🔍 Arena: Using centralized stats streak:', updatedBuddyStats.streakDisplayText);
-              
-              // Store the centralized streak in our separate state
-              let centralizedStreakData = {
+              const centralizedStreakData = {
                 streakDays: updatedBuddyStats.streakDays || 0,
                 streakUnit: updatedBuddyStats.streakUnit,
                 streakDisplayText: updatedBuddyStats.streakDisplayText
               };
-
-              // If centralized streak is effectively "0 hours", try local fallbacks to compute a better value
-              const looksZero = (!centralizedStreakData.streakDays || centralizedStreakData.streakDays === 0) && 
-                                (centralizedStreakData.streakDisplayText === '0 hours' || centralizedStreakData.streakDisplayText == null);
-              if (looksZero) {
-                // Prefer independent buddy sources: lastRelapseDate -> lastActivity -> finalQuitDate (if not just seeded)
-                let fallbackDate = realBuddy?.lastRelapseDate || nemesis?.lastRelapseDate || realBuddy?.lastActivity || nemesis?.lastActivity || realBuddy?.finalQuitDate || nemesis?.finalQuitDate;
-                // If using finalQuitDate, ignore if it's too recent (likely a seed)
-                if (!fallbackDate && (realBuddy?.finalQuitDate || nemesis?.finalQuitDate)) {
-                  const fq = realBuddy?.finalQuitDate || nemesis?.finalQuitDate;
-                  if (fq) {
-                    const fqTime = new Date(fq).getTime();
-                    const nowTime = Date.now();
-                    const tooRecent = Math.abs(nowTime - fqTime) < 2 * 60 * 1000;
-                    if (!tooRecent) fallbackDate = fq;
-                  }
-                }
-                if (fallbackDate) {
-                  const fallback = calculateStreak(new Date(fallbackDate));
-                  updatedBuddyStats.streakDays = fallback.value;
-                  updatedBuddyStats.streakUnit = fallback.unit;
-                  updatedBuddyStats.streakDisplayText = fallback.displayText;
-                  centralizedStreakData = {
-                    streakDays: fallback.value,
-                    streakUnit: fallback.unit,
-                    streakDisplayText: fallback.displayText
-                  };
-                  console.log('🔄 Arena: Overrode centralized 0-hour buddy streak via fallback date:', fallback.displayText);
-                  // Prevent subsequent centralized 0-hour updates from overriding this non-zero value
-                  // by keeping buddyStreakData populated
-                  setBuddyStreakData(centralizedStreakData);
-                } else {
-                  console.log('⚠️ Arena: No fallback date available to override centralized 0-hour buddy streak');
-                }
-              }
-              
               setBuddyStreakData(centralizedStreakData);
-              console.log('🔄 Arena: Updated buddy streak from centralized stats:', centralizedStreakData.streakDisplayText);
+              console.log('🔍 Arena: Using centralized stats streak:', centralizedStreakData.streakDisplayText);
             } else {
-              // Fallback: Recalculate streak from actual quit date
-              // Use the original quit date from the buddy's profile, or fall back to last relapse date
-              let buddyQuitDate = realBuddy?.originalQuitDate || nemesis?.originalQuitDate;
-              
-              // Debug logging to see what data we have
-              console.log('🔍 Arena: Real-time listener debug - realBuddy:', realBuddy?.originalQuitDate, 'nemesis:', nemesis?.originalQuitDate);
-              
-              // If no quit date, use the last relapse date for streak calculation
-              if (!buddyQuitDate) {
-                buddyQuitDate = realBuddy?.lastRelapseDate || nemesis?.lastRelapseDate;
-                console.log('🔍 Arena: No quit date found, using last relapse date for streak calculation:', buddyQuitDate);
+              // Compute from buddy's own timestamps only when centralized values are missing
+              let dateSource = realBuddy?.lastRelapseDate || nemesis?.lastRelapseDate || realBuddy?.originalQuitDate || nemesis?.originalQuitDate || realBuddy?.lastActivity || nemesis?.lastActivity || null;
+              if (dateSource) {
+                const streakData = calculateStreak(new Date(dateSource));
+                const calculatedStreakData = {
+                  streakDays: streakData.value,
+                  streakUnit: streakData.unit,
+                  streakDisplayText: streakData.displayText
+                };
+                setBuddyStreakData(calculatedStreakData);
+                updatedBuddyStats.streakDays = streakData.value;
+                updatedBuddyStats.streakUnit = streakData.unit;
+                updatedBuddyStats.streakDisplayText = streakData.displayText;
+                console.log('🔄 Arena: Calculated buddy streak from timestamps (no centralized):', streakData.displayText);
+              } else {
+                // Final default when nothing available
+                updatedBuddyStats.streakUnit = 'hours';
+                updatedBuddyStats.streakDisplayText = '0 hours';
               }
-              
-              console.log('🔍 Arena: Recalculating streak from actual quit date:', buddyQuitDate);
-              if (buddyQuitDate) {
-              const quitDate = new Date(buddyQuitDate);
-              const streakData = calculateStreak(quitDate);
-              
-              // Store the calculated streak in our separate state
-              const calculatedStreakData = {
-                streakDays: streakData.value,
-                streakUnit: streakData.unit,
-                streakDisplayText: streakData.displayText
-              };
-              setBuddyStreakData(calculatedStreakData);
-              
-              // Update the stats with calculated streak
-              updatedBuddyStats.streakDays = streakData.value;
-              updatedBuddyStats.streakUnit = streakData.unit;
-              updatedBuddyStats.streakDisplayText = streakData.displayText;
-              console.log('🔄 Arena: Applied local streak calculation to buddy stats:', streakData.displayText);
-            } else {
-              console.log('⚠️ Arena: Cannot calculate buddy streak - no quit date or relapse date available');
-              // Set default display text for buddy - use hours for new users (when no quit date exists)
-              // Since no quit date exists, this is likely a new user who should show hours
-              updatedBuddyStats.streakUnit = 'hours';
-              updatedBuddyStats.streakDisplayText = '0 hours';
-              console.log('🔄 Arena: Set default buddy streak display for new user:', updatedBuddyStats.streakDisplayText);
-            }
             }
             
             // Update the nemesis stats in real-time with calculated streak
@@ -2474,7 +2415,28 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
         }
       });
     };
+  // Periodically refresh buddy streak so it progresses even when buddy isn't logged in
   }, [nemesis?.uid, nemesis?.isRealBuddy, realBuddy?.quitDate]);
+  useEffect(() => {
+    if (!nemesis?.uid || !nemesis?.isRealBuddy) return;
+    const intervalId = setInterval(() => {
+      const dateSource = realBuddy?.lastRelapseDate || nemesis?.lastRelapseDate || realBuddy?.originalQuitDate || nemesis?.originalQuitDate || realBuddy?.lastActivity || nemesis?.lastActivity || null;
+      if (!dateSource) return;
+      const streakData = calculateStreak(new Date(dateSource));
+      setBuddyStreakData({
+        streakDays: streakData.value,
+        streakUnit: streakData.unit,
+        streakDisplayText: streakData.displayText
+      });
+      setRealTimeNemesisStats(prev => ({
+        ...prev,
+        streakDays: streakData.value,
+        streakUnit: streakData.unit,
+        streakDisplayText: streakData.displayText
+      }));
+    }, 60 * 1000);
+    return () => clearInterval(intervalId);
+  }, [nemesis?.uid, nemesis?.isRealBuddy, realBuddy?.lastRelapseDate, realBuddy?.originalQuitDate, realBuddy?.lastActivity]);
 
   // Add a refresh function for real-time stats
   const refreshStats = async () => {
@@ -8015,13 +7977,17 @@ const App = () => {
               streakUnit: streak.unit,
               streakDisplayText: streak.displayText
             };
-            setBuddyStreakData(primedStreak);
-            setRealTimeNemesisStats(prev => ({
-              ...prev,
-              streakDays: primedStreak.streakDays,
-              streakUnit: primedStreak.streakUnit,
-              streakDisplayText: primedStreak.streakDisplayText
-            }));
+            if (typeof setBuddyStreakData === 'function') {
+              setBuddyStreakData(primedStreak);
+            }
+            if (typeof setRealTimeNemesisStats === 'function') {
+              setRealTimeNemesisStats(prev => ({
+                ...prev,
+                streakDays: primedStreak.streakDays,
+                streakUnit: primedStreak.streakUnit,
+                streakDisplayText: primedStreak.streakDisplayText
+              }));
+            }
             console.log('🔄 Arena: Primed buddy streak from loaded data:', primedStreak.streakDisplayText);
           }
         } catch (primeErr) {
