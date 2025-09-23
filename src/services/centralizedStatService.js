@@ -790,7 +790,7 @@ class CentralizedStatService {
     try {
       console.log(`🔄 CentralizedStats: Handling craving resisted for ${this.userId}`);
       
-      // Check if we need to reset daily counter
+      // Check if we need to reset daily counter (use dedicated daily date, not global lastUpdated)
       await this.checkAndResetDailyCounter();
       
       // Get current stats to check daily limit
@@ -810,18 +810,23 @@ class CentralizedStatService {
           ...currentStats,
           mentalStrength: newMentalStrength,
           mentalStrengthCravingsApplied: newCravingsApplied,
+          // Track the date for the daily counter separately from lastUpdated
+          mentalStrengthCravingsAppliedDate: new Date().toISOString(),
           lastUpdated: new Date().toISOString()
         });
         
         console.log(`✅ CentralizedStats: Applied +1 mental strength (${currentStats.mentalStrength} → ${newMentalStrength}), cravings applied: ${newCravingsApplied}/3`);
+        // Refresh all other stats (streak, addiction level, etc.)
+        await this.refreshAllStats();
+        console.log(`✅ CentralizedStats: Craving resistance updated for ${this.userId}`);
+        return { applied: true, cravingsApplied: newCravingsApplied, limitReached: newCravingsApplied >= 3 };
       } else {
         console.log(`📊 CentralizedStats: Daily mental strength limit reached (${previouslyAppliedCravings}/3), no bonus applied`);
+        // Still refresh to keep other stats in sync
+        await this.refreshAllStats();
+        console.log(`✅ CentralizedStats: Craving resistance updated for ${this.userId}`);
+        return { applied: false, cravingsApplied: previouslyAppliedCravings, limitReached: true };
       }
-      
-      // Refresh all other stats (streak, addiction level, etc.)
-      await this.refreshAllStats();
-      
-      console.log(`✅ CentralizedStats: Craving resistance updated for ${this.userId}`);
       
     } catch (error) {
       console.error(`❌ CentralizedStats: Error handling craving resistance for ${this.userId}:`, error);
@@ -835,25 +840,33 @@ class CentralizedStatService {
   async checkAndResetDailyCounter() {
     try {
       const currentStats = await this.getCurrentStats();
-      const lastUpdated = currentStats.lastUpdated;
+      const appliedDate = currentStats.mentalStrengthCravingsAppliedDate;
+      const today = new Date();
+      const todayKey = today.toDateString();
       
-      if (lastUpdated) {
-        const lastUpdateDate = new Date(lastUpdated);
-        const today = new Date();
-        
-        // Check if it's a new day
-        if (lastUpdateDate.toDateString() !== today.toDateString()) {
-          console.log(`🔄 CentralizedStats: New day detected, resetting daily mental strength counter for ${this.userId}`);
-          
-          // Reset daily counter
-          await set(this.statsRef, {
-            ...currentStats,
-            mentalStrengthCravingsApplied: 0,
-            lastUpdated: new Date().toISOString()
-          });
-          
-          console.log(`✅ CentralizedStats: Daily mental strength counter reset for ${this.userId}`);
-        }
+      if (!appliedDate) {
+        // If we don't have a daily stamp, this is the first check today.
+        // Reset the counter to 0 and stamp today to avoid carrying over previous days' counts.
+        await set(this.statsRef, {
+          ...currentStats,
+          mentalStrengthCravingsApplied: 0,
+          mentalStrengthCravingsAppliedDate: today.toISOString(),
+          lastUpdated: new Date().toISOString()
+        });
+        console.log(`✅ CentralizedStats: Initialized daily counter for ${this.userId} (reset to 0)`);
+        return;
+      }
+      
+      const lastAppliedDate = new Date(appliedDate);
+      if (lastAppliedDate.toDateString() !== todayKey) {
+        console.log(`🔄 CentralizedStats: New day detected, resetting daily mental strength counter for ${this.userId}`);
+        await set(this.statsRef, {
+          ...currentStats,
+          mentalStrengthCravingsApplied: 0,
+          mentalStrengthCravingsAppliedDate: today.toISOString(),
+          lastUpdated: new Date().toISOString()
+        });
+        console.log(`✅ CentralizedStats: Daily mental strength counter reset for ${this.userId}`);
       }
     } catch (error) {
       console.warn(`⚠️ CentralizedStats: Could not check/reset daily counter for ${this.userId}:`, error.message);

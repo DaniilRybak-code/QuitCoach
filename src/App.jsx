@@ -4285,36 +4285,34 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           const dailyMentalStrengthBonus = currentStats?.mentalStrengthCravingsApplied || 0;
           console.log('🔄 Quick Resistance: Current mental strength bonus before processing:', dailyMentalStrengthBonus);
           
-          // Always process the craving resistance first
-          await window.centralizedStatService.handleCravingResisted();
+          // Always process the craving resistance first and use the result
+          const result = await window.centralizedStatService.handleCravingResisted();
           console.log('✅ Quick Resistance: Stats updated via CentralizedStatService');
           
-          // Check if we've reached the daily limit AFTER processing
-          if (dailyMentalStrengthBonus >= 3) {
-            // User has reached daily limit for mental strength bonus
+          if (result && result.applied) {
+            const newBonus = (dailyMentalStrengthBonus || 0) + 1;
+            const remaining = Math.max(0, 3 - newBonus);
+            console.log('🔄 Quick Resistance: Bonus applied, remaining:', remaining);
+            if (remaining > 0) {
+              showQuickActionPopup(
+                'Craving Resisted! 💪',
+                `Great job! You earned +1 mental strength point. You can still earn ${remaining} more today.`,
+                'success'
+              );
+            } else {
+              showQuickActionPopup(
+                'Craving Resisted! 💪',
+                'Excellent! You\'ve reached the daily maximum of 3 mental strength points from craving resistance.',
+                'success'
+              );
+            }
+          } else {
             console.log('🔄 Quick Resistance: Daily limit reached, showing limit message');
             showQuickActionPopup(
               'Daily Mental Strength Limit Reached',
               'You\'ve already earned the maximum 3 mental strength points from craving resistance today. Keep up the great work! Your resistance still counts for your overall progress.',
               'info'
             );
-          } else {
-            // Show success message with mental strength info
-            const remainingBonus = 3 - (dailyMentalStrengthBonus + 1);
-            console.log('🔄 Quick Resistance: Showing success message, remaining bonus:', remainingBonus);
-            if (remainingBonus > 0) {
-              showQuickActionPopup(
-                'Craving Resisted! 💪',
-                `Great job! You earned +1 mental strength point. You can still earn ${remainingBonus} more mental strength points from craving resistance today.`,
-                'success'
-              );
-            } else {
-              showQuickActionPopup(
-                'Craving Resisted! 💪',
-                'Excellent! You\'ve reached the daily maximum of 3 mental strength points from craving resistance. Keep resisting!',
-                'success'
-              );
-            }
           }
           
           // Return early to prevent fallback popup messages from overriding the correct ones
