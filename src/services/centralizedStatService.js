@@ -23,25 +23,46 @@ class CentralizedStatService {
       console.log(`📊 CentralizedStats: Refreshing all stats for user ${this.userId}`);
       
       // Get current user data
-      const [profileSnapshot, statsSnapshot] = await Promise.all([
+      const [profileSnapshot, statsSnapshot, userRootSnapshot] = await Promise.all([
         get(this.profileRef),
-        get(this.statsRef)
+        get(this.statsRef),
+        get(ref(this.db, `users/${this.userId}`))
       ]);
 
+      // Merge profile data with fallbacks from root user object to ensure quit date sources exist
       const profileData = profileSnapshot.exists() ? profileSnapshot.val() : {};
+      const userRootData = userRootSnapshot.exists() ? userRootSnapshot.val() : {};
+      const mergedProfile = {
+        ...profileData,
+        createdAt: profileData.createdAt || userRootData.createdAt || null,
+        quitDate: profileData.quitDate || userRootData.quitDate || userRootData.quitStartDate || null,
+        lastQuitDate: profileData.lastQuitDate || userRootData.lastQuitDate || null
+      };
+
+      // If the user has no relapse and no quit dates anywhere, seed profile/quitDate with createdAt for a sensible baseline
+      if (!mergedProfile.lastRelapseDate && !mergedProfile.quitDate && mergedProfile.createdAt) {
+        try {
+          await set(ref(this.db, `users/${this.userId}/profile/quitDate`), mergedProfile.createdAt);
+          mergedProfile.quitDate = mergedProfile.createdAt;
+          console.log(`📊 CentralizedStats: Seeded missing quitDate with createdAt for ${this.userId}: ${mergedProfile.createdAt}`);
+        } catch (seedErr) {
+          console.warn(`⚠️ CentralizedStats: Could not seed quitDate for ${this.userId}:`, seedErr.message);
+        }
+      }
+
       const currentStats = statsSnapshot.exists() ? statsSnapshot.val() : this.getDefaultStats();
 
           // Calculate effective quit date (considering relapses)
-          const effectiveQuitDate = this.calculateEffectiveQuitDate(profileData);
+          const effectiveQuitDate = this.calculateEffectiveQuitDate(mergedProfile);
           
           // Calculate streak based on LATEST RELAPSE DATE (not quit date)
-          const streakData = this.calculateStreakFromRelapse(profileData);
+          const streakData = this.calculateStreakFromRelapse(mergedProfile);
           
           // Calculate cravings resisted
           const cravingsResisted = await this.calculateCravingsResisted();
           
           // Calculate addiction level (with decay and relapse penalties)
-          const addictionLevel = await this.calculateAddictionLevel(profileData, effectiveQuitDate);
+          const addictionLevel = await this.calculateAddictionLevel(mergedProfile, effectiveQuitDate);
           
           // Calculate mental strength based on cravings resisted (persistent, not daily reset)
           const mentalStrengthData = this.calculateMentalStrength(currentStats, cravingsResisted);
@@ -49,10 +70,10 @@ class CentralizedStatService {
           const cravingsApplied = mentalStrengthData.cravingsApplied;
           
           // Check and apply milestone bonuses (use relapse-based streak for milestones)
-          const milestoneUpdates = await this.checkMilestonesFromRelapse(profileData, currentStats);
+          const milestoneUpdates = await this.checkMilestonesFromRelapse(mergedProfile, currentStats);
           
           // Generate Special Features based on onboarding data
-          const specialFeatures = await this.generateSpecialFeatures(profileData);
+          const specialFeatures = await this.generateSpecialFeatures(mergedProfile);
       
           // Build final stats object
           const updatedStats = {
@@ -94,7 +115,7 @@ class CentralizedStatService {
    */
   calculateEffectiveQuitDate(profileData) {
     // Use user's actual quit date, or current time if not set
-    const baseQuitDate = profileData.quitDate || new Date().toISOString();
+    const baseQuitDate = profileData.quitDate || null;
     
     // If user has relapsed, use the most recent date (original quit date or last relapse)
     if (profileData.lastRelapseDate) {
@@ -153,9 +174,13 @@ class CentralizedStatService {
                       profileData.originalQuitDate || 
                       profileData.quitDate || 
                       profileData.createdAt || 
-                      new Date().toISOString();
+                      null;
       console.log(`📊 CentralizedStats: No relapse date found for ${this.userId}, using quit date: ${quitDate}`);
-      return this.calculateStreak(quitDate);
+      if (quitDate) {
+        return this.calculateStreak(quitDate);
+      }
+      // No dates at all – return neutral display without inventing a timestamp
+      return { value: 0, unit: 'hours', displayText: '0 hours', streakDays: 0 };
     }
     
     const relapseDate = new Date(lastRelapseDate);

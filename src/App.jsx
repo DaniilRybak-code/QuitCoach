@@ -2270,11 +2270,46 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
               console.log('🔍 Arena: Using centralized stats streak:', updatedBuddyStats.streakDisplayText);
               
               // Store the centralized streak in our separate state
-              const centralizedStreakData = {
+              let centralizedStreakData = {
                 streakDays: updatedBuddyStats.streakDays || 0,
                 streakUnit: updatedBuddyStats.streakUnit,
                 streakDisplayText: updatedBuddyStats.streakDisplayText
               };
+
+              // If centralized streak is effectively "0 hours", try local fallbacks to compute a better value
+              const looksZero = (!centralizedStreakData.streakDays || centralizedStreakData.streakDays === 0) && 
+                                (centralizedStreakData.streakDisplayText === '0 hours' || centralizedStreakData.streakDisplayText == null);
+              if (looksZero) {
+                // Prefer independent buddy sources: lastRelapseDate -> lastActivity -> finalQuitDate (if not just seeded)
+                let fallbackDate = realBuddy?.lastRelapseDate || nemesis?.lastRelapseDate || realBuddy?.lastActivity || nemesis?.lastActivity || realBuddy?.finalQuitDate || nemesis?.finalQuitDate;
+                // If using finalQuitDate, ignore if it's too recent (likely a seed)
+                if (!fallbackDate && (realBuddy?.finalQuitDate || nemesis?.finalQuitDate)) {
+                  const fq = realBuddy?.finalQuitDate || nemesis?.finalQuitDate;
+                  if (fq) {
+                    const fqTime = new Date(fq).getTime();
+                    const nowTime = Date.now();
+                    const tooRecent = Math.abs(nowTime - fqTime) < 2 * 60 * 1000;
+                    if (!tooRecent) fallbackDate = fq;
+                  }
+                }
+                if (fallbackDate) {
+                  const fallback = calculateStreak(new Date(fallbackDate));
+                  updatedBuddyStats.streakDays = fallback.value;
+                  updatedBuddyStats.streakUnit = fallback.unit;
+                  updatedBuddyStats.streakDisplayText = fallback.displayText;
+                  centralizedStreakData = {
+                    streakDays: fallback.value,
+                    streakUnit: fallback.unit,
+                    streakDisplayText: fallback.displayText
+                  };
+                  console.log('🔄 Arena: Overrode centralized 0-hour buddy streak via fallback date:', fallback.displayText);
+                  // Prevent subsequent centralized 0-hour updates from overriding this non-zero value
+                  // by keeping buddyStreakData populated
+                  setBuddyStreakData(centralizedStreakData);
+                } else {
+                  console.log('⚠️ Arena: No fallback date available to override centralized 0-hour buddy streak');
+                }
+              }
               
               setBuddyStreakData(centralizedStreakData);
               console.log('🔄 Arena: Updated buddy streak from centralized stats:', centralizedStreakData.streakDisplayText);
@@ -2368,6 +2403,32 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                   updatedStats.streakUnit = streakData.unit;
                   updatedStats.streakDisplayText = streakData.displayText;
                   console.log('🔄 Arena: Updated buddy streak from profile change:', streakData.displayText);
+                } else if (profileData.lastRelapseDate || profileData.relapseDate) {
+                  // Fallback: use last relapse date when available to compute streak
+                  const relapseDate = new Date(profileData.lastRelapseDate || profileData.relapseDate);
+                  const relapseStreak = calculateStreak(relapseDate);
+                  updatedStats.streakDays = relapseStreak.value;
+                  updatedStats.streakUnit = relapseStreak.unit;
+                  updatedStats.streakDisplayText = relapseStreak.displayText;
+                  setBuddyStreakData({
+                    streakDays: relapseStreak.value,
+                    streakUnit: relapseStreak.unit,
+                    streakDisplayText: relapseStreak.displayText
+                  });
+                  console.log('🔄 Arena: Updated buddy streak from last relapse date:', relapseStreak.displayText);
+                } else if (nemesis?.finalQuitDate || realBuddy?.finalQuitDate) {
+                  // Last resort: use computed finalQuitDate (e.g., seeded or fallback)
+                  const fallbackQuit = new Date(nemesis?.finalQuitDate || realBuddy?.finalQuitDate);
+                  const fallbackStreak = calculateStreak(fallbackQuit);
+                  updatedStats.streakDays = fallbackStreak.value;
+                  updatedStats.streakUnit = fallbackStreak.unit;
+                  updatedStats.streakDisplayText = fallbackStreak.displayText;
+                  setBuddyStreakData({
+                    streakDays: fallbackStreak.value,
+                    streakUnit: fallbackStreak.unit,
+                    streakDisplayText: fallbackStreak.displayText
+                  });
+                  console.log('🔄 Arena: Updated buddy streak from finalQuitDate fallback:', fallbackStreak.displayText);
                 }
                 
                 console.log('🔄 Arena: Preserved real buddy stats during profile update:', updatedStats);
@@ -7750,6 +7811,7 @@ const App = () => {
         // Also try to get buddy's quit date and avatar for better display
         let buddyQuitDate = null;
         let buddyLastRelapseDate = null; // For relapse-aware streak calculation
+        let buddyProfileLastActivity = null; // Onboarding-time fallback when no relapse logged
         let buddyAvatar = generateAvatar('buddy', 'adventurer'); // Default fallback
         let buddyArchetype = 'DETERMINED'; // Default fallback
         
@@ -7818,6 +7880,12 @@ const App = () => {
               } else {
                 console.log('⚠️ Profile exists but has no quit date field');
               }
+
+              // Capture lastActivity as a reliable onboarding timestamp fallback
+              if (profileData && profileData.lastActivity) {
+                buddyProfileLastActivity = profileData.lastActivity;
+                console.log('🔍 Captured buddy lastActivity for fallback:', buddyProfileLastActivity);
+              }
             } else {
               console.log('⚠️ No profile data available at all');
             }
@@ -7840,12 +7908,12 @@ const App = () => {
                   buddyQuitDate = profileData.createdAt;
                   console.log('✅ Using buddy createdAt as quit date:', buddyQuitDate);
                 } else {
-                  console.log('⚠️ No createdAt timestamp found either - using current time as fallback');
-                  buddyQuitDate = new Date().toISOString();
+                  console.log('⚠️ No createdAt timestamp found either - not assigning fallback quit date');
+                  buddyQuitDate = undefined;
                 }
               } else {
-                console.log('⚠️ No profile data available - using current time as fallback');
-                buddyQuitDate = new Date().toISOString();
+                console.log('⚠️ No profile data available - not assigning fallback quit date');
+                buddyQuitDate = undefined;
               }
               
               // For centralized users (User 2 & User 3), don't use hardcoded quit dates
@@ -7866,8 +7934,10 @@ const App = () => {
           console.log('🔍 Current user can read own profile, but not buddy profile');
         }
 
-        // Use default quit date if none was found
-        const finalBuddyQuitDate = buddyQuitDate || new Date().toISOString();
+        // Use best-available fallback when no explicit quit date found
+        // Priority: explicit quitDate -> profile.lastActivity
+        // IMPORTANT: never seed with 'now' as it renders as 0 hours and pollutes UI
+        const finalBuddyQuitDate = buddyQuitDate || buddyProfileLastActivity || null;
 
         // For centralized users, don't set quit date that could be used for calculations
         let buddyQuitDateForObject = finalBuddyQuitDate;
@@ -7882,6 +7952,8 @@ const App = () => {
           stats: buddyStats,
           quitDate: buddyQuitDateForObject,
           originalQuitDate: buddyQuitDateForObject, // Add for real-time listener compatibility
+          finalQuitDate: finalBuddyQuitDate, // Always include for UI fallbacks (read-only)
+          lastActivity: buddyProfileLastActivity || null,
           lastRelapseDate: buddyLastRelapseDate, // Add relapse date for Arena calculations
           achievements: [],
           archetype: buddyArchetype,
@@ -7916,6 +7988,45 @@ const App = () => {
           hasCopingStrategies: !!transformedBuddy.copingStrategies?.length,
           uid: transformedBuddy.uid
         });
+
+        // Prime buddy streak immediately to avoid race with centralized real-time 0-hour values
+        try {
+          // Do not use finalQuitDate if it's null or within the last 2 minutes (likely a seed),
+          // prefer lastRelapseDate, then lastActivity
+          let streakSource = transformedBuddy.lastRelapseDate || null;
+          if (!streakSource) {
+            const fq = transformedBuddy.finalQuitDate;
+            if (fq) {
+              const fqTime = new Date(fq).getTime();
+              const nowTime = Date.now();
+              const tooRecent = Math.abs(nowTime - fqTime) < 2 * 60 * 1000; // 2 minutes
+              if (!tooRecent) {
+                streakSource = fq;
+              }
+            }
+          }
+          if (!streakSource && transformedBuddy.lastActivity) {
+            streakSource = transformedBuddy.lastActivity;
+          }
+          if (streakSource) {
+            const streak = calculateStreak(new Date(streakSource));
+            const primedStreak = {
+              streakDays: streak.value,
+              streakUnit: streak.unit,
+              streakDisplayText: streak.displayText
+            };
+            setBuddyStreakData(primedStreak);
+            setRealTimeNemesisStats(prev => ({
+              ...prev,
+              streakDays: primedStreak.streakDays,
+              streakUnit: primedStreak.streakUnit,
+              streakDisplayText: primedStreak.streakDisplayText
+            }));
+            console.log('🔄 Arena: Primed buddy streak from loaded data:', primedStreak.streakDisplayText);
+          }
+        } catch (primeErr) {
+          console.log('⚠️ Arena: Could not prime buddy streak:', primeErr?.message);
+        }
         
         // Read centralized stats for ALL buddies (universal system)
         console.log(`🔄 Firestore: Reading centralized buddy stats for ${buddyUserId} (read-only)`);
@@ -8605,6 +8716,8 @@ const App = () => {
         // Set quit date to onboarding time (user starts their quit journey now)
         originalQuitDate: now.toISOString(),
         lastQuitDate: now.toISOString(),
+        // Per streak rules: last relapse is onboarding time until a real relapse is logged
+        lastRelapseDate: now.toISOString(),
         // Initialize activity tracking
         lastActivity: now.toISOString(),
         // Set initial daily activity for today
@@ -8723,6 +8836,7 @@ const App = () => {
         quitDate: now,
         createdAt: now.toISOString(), // Set registration timestamp
         lastActivity: now.toISOString(), // Set initial activity timestamp
+        lastRelapseDate: now.toISOString(),
         uid: authUser?.uid,
         email: authUser?.email,
         onboardingCompleted: true
