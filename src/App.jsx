@@ -468,6 +468,17 @@ const OnboardingFlow = ({ onComplete, authUser }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
       <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 max-w-md w-full shadow-2xl border border-slate-700">
+        {pwaInstallAvailable && (
+          <div className="mb-4 p-3 rounded-lg border border-blue-600 bg-blue-900/40 text-blue-100 flex items-center justify-between">
+            <div className="mr-3">Install QuitArena for a faster, full-screen experience.</div>
+            <button
+              onClick={promptInstall}
+              className="px-3 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold"
+            >
+              Install
+            </button>
+          </div>
+        )}
         {/* Progress Bar */}
         <div className="flex justify-between items-center mb-8 overflow-x-auto">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((stepNumber) => (
@@ -6567,6 +6578,8 @@ const App = () => {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  // PWA install prompt state
+  const [pwaInstallAvailable, setPwaInstallAvailable] = useState(false);
 
   // ===== COMPREHENSIVE DATA LOADING SYSTEM =====
   
@@ -6593,6 +6606,48 @@ const App = () => {
   
   // StatManager instance
   const [statManager, setStatManager] = useState(null);
+
+  // ===== PWA INSTALL HANDLERS =====
+  useEffect(() => {
+    const handleBIP = (e) => {
+      // Stash the event globally for manual trigger
+      window.deferredPrompt = e;
+      setPwaInstallAvailable(true);
+      console.log('📲 PWA: beforeinstallprompt captured (App state set)');
+    };
+    const handleInstalled = () => {
+      setPwaInstallAvailable(false);
+      console.log('✅ PWA installed (App state cleared)');
+    };
+    window.addEventListener('beforeinstallprompt', handleBIP);
+    window.addEventListener('appinstalled', handleInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBIP);
+      window.removeEventListener('appinstalled', handleInstalled);
+    };
+  }, []);
+
+  const promptInstall = async () => {
+    try {
+      if (window.promptPWAInstall) {
+        const choice = await window.promptPWAInstall();
+        if (choice && choice.outcome === 'accepted') {
+          setPwaInstallAvailable(false);
+        }
+        return;
+      }
+      const deferred = window.deferredPrompt;
+      if (!deferred) return;
+      deferred.prompt();
+      const choice = await deferred.userChoice;
+      window.deferredPrompt = null;
+      if (choice.outcome === 'accepted') {
+        setPwaInstallAvailable(false);
+      }
+    } catch (err) {
+      console.warn('PWA install prompt failed:', err?.message);
+    }
+  };
 
   // Initialize FirestoreBuddyService
   const initializeFirestoreBuddyService = async () => {

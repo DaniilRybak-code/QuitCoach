@@ -176,6 +176,10 @@ self.addEventListener('sync', (event) => {
   
   if (event.tag === 'offline-actions') {
     event.waitUntil(syncOfflineActions());
+  } else if (event.tag === 'firestore-sync') {
+    event.waitUntil(syncFirestoreActions());
+  } else if (event.tag === 'behavioral-logging') {
+    event.waitUntil(syncBehavioralLogs());
   }
 });
 
@@ -221,6 +225,14 @@ self.addEventListener('message', (event) => {
       
     case 'GET_CACHED_DATA':
       getCachedAppData(event.source);
+      break;
+      
+    case 'QUEUE_FIRESTORE_ACTION':
+      queueFirestoreAction(data);
+      break;
+      
+    case 'QUEUE_BEHAVIORAL_LOG':
+      queueBehavioralLog(data);
       break;
       
     default:
@@ -314,5 +326,199 @@ self.addEventListener('notificationclick', (event) => {
     );
   }
 });
+
+// ===== OFFLINE LOGGING FUNCTIONS =====
+
+// Queue Firestore actions for offline sync
+async function queueFirestoreAction(actionData) {
+  try {
+    const cache = await caches.open(DYNAMIC_CACHE);
+    const response = new Response(JSON.stringify(actionData), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const actionId = `firestore_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    await cache.put(`/api/offline-actions/${actionId}`, response);
+    
+    console.log('✅ Firestore action queued for offline sync:', actionData.type);
+    
+    // Register for background sync
+    if (self.registration && self.registration.sync) {
+      await self.registration.sync.register('firestore-sync');
+    }
+  } catch (error) {
+    console.error('❌ Error queuing Firestore action:', error);
+  }
+}
+
+// Queue behavioral logs for offline sync
+async function queueBehavioralLog(logData) {
+  try {
+    const cache = await caches.open(DYNAMIC_CACHE);
+    const response = new Response(JSON.stringify(logData), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const logId = `behavioral_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    await cache.put(`/api/behavioral-logs/${logId}`, response);
+    
+    console.log('✅ Behavioral log queued for offline sync:', logData.type);
+    
+    // Register for background sync
+    if (self.registration && self.registration.sync) {
+      await self.registration.sync.register('behavioral-logging');
+    }
+  } catch (error) {
+    console.error('❌ Error queuing behavioral log:', error);
+  }
+}
+
+// Sync Firestore actions when online
+async function syncFirestoreActions() {
+  try {
+    console.log('🔄 Syncing Firestore actions...');
+    
+    const cache = await caches.open(DYNAMIC_CACHE);
+    const keys = await cache.keys();
+    const firestoreActions = keys.filter(key => key.url.includes('/api/offline-actions/'));
+    
+    let successCount = 0;
+    let failureCount = 0;
+    
+    for (const key of firestoreActions) {
+      try {
+        const response = await cache.match(key);
+        const actionData = await response.json();
+        
+        // Attempt to sync the action
+        const success = await syncSingleFirestoreAction(actionData);
+        
+        if (success) {
+          await cache.delete(key);
+          successCount++;
+          console.log('✅ Firestore action synced:', actionData.type);
+        } else {
+          failureCount++;
+          console.warn('⚠️ Failed to sync Firestore action:', actionData.type);
+        }
+      } catch (error) {
+        console.error('❌ Error syncing Firestore action:', error);
+        failureCount++;
+      }
+    }
+    
+    console.log(`🔄 Firestore sync complete: ${successCount} successful, ${failureCount} failed`);
+    
+    // Notify main app about sync results
+    const clients = await self.clients.matchAll();
+    clients.forEach((client) => {
+      client.postMessage({
+        type: 'FIRESTORE_SYNC_RESULT',
+        successCount,
+        failureCount,
+        timestamp: Date.now()
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error in Firestore sync:', error);
+  }
+}
+
+// Sync behavioral logs when online
+async function syncBehavioralLogs() {
+  try {
+    console.log('🔄 Syncing behavioral logs...');
+    
+    const cache = await caches.open(DYNAMIC_CACHE);
+    const keys = await cache.keys();
+    const behavioralLogs = keys.filter(key => key.url.includes('/api/behavioral-logs/'));
+    
+    let successCount = 0;
+    let failureCount = 0;
+    
+    for (const key of behavioralLogs) {
+      try {
+        const response = await cache.match(key);
+        const logData = await response.json();
+        
+        // Attempt to sync the log
+        const success = await syncSingleBehavioralLog(logData);
+        
+        if (success) {
+          await cache.delete(key);
+          successCount++;
+          console.log('✅ Behavioral log synced:', logData.type);
+        } else {
+          failureCount++;
+          console.warn('⚠️ Failed to sync behavioral log:', logData.type);
+        }
+      } catch (error) {
+        console.error('❌ Error syncing behavioral log:', error);
+        failureCount++;
+      }
+    }
+    
+    console.log(`🔄 Behavioral sync complete: ${successCount} successful, ${failureCount} failed`);
+    
+    // Notify main app about sync results
+    const clients = await self.clients.matchAll();
+    clients.forEach((client) => {
+      client.postMessage({
+        type: 'BEHAVIORAL_SYNC_RESULT',
+        successCount,
+        failureCount,
+        timestamp: Date.now()
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error in behavioral sync:', error);
+  }
+}
+
+// Sync a single Firestore action
+async function syncSingleFirestoreAction(actionData) {
+  try {
+    // This would typically make a fetch request to your Firestore API
+    // For now, we'll simulate success and let the main app handle the actual sync
+    console.log('📤 Syncing Firestore action:', actionData.type, actionData);
+    
+    // Notify main app to handle the sync
+    const clients = await self.clients.matchAll();
+    clients.forEach((client) => {
+      client.postMessage({
+        type: 'SYNC_FIRESTORE_ACTION',
+        actionData
+      });
+    });
+    
+    return true; // Assume success for now
+  } catch (error) {
+    console.error('❌ Error syncing single Firestore action:', error);
+    return false;
+  }
+}
+
+// Sync a single behavioral log
+async function syncSingleBehavioralLog(logData) {
+  try {
+    // This would typically make a fetch request to your Firestore API
+    // For now, we'll simulate success and let the main app handle the actual sync
+    console.log('📤 Syncing behavioral log:', logData.type, logData);
+    
+    // Notify main app to handle the sync
+    const clients = await self.clients.matchAll();
+    clients.forEach((client) => {
+      client.postMessage({
+        type: 'SYNC_BEHAVIORAL_LOG',
+        logData
+      });
+    });
+    
+    return true; // Assume success for now
+  } catch (error) {
+    console.error('❌ Error syncing single behavioral log:', error);
+    return false;
+  }
+}
 
 console.log('🔄 Service Worker loaded successfully');
