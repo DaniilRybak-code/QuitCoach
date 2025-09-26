@@ -263,14 +263,14 @@ const AuthScreen = ({ onAuthSuccess, isNewUser }) => {
                   setError('');
                   setSuccess('');
                 }}
-                className="flex-1 px-4 py-2 border border-gray-600 rounded-md text-gray-300 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                className="flex-1 px-4 py-3 border border-gray-600 rounded-md text-gray-300 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 min-h-[44px]"
               >
                 Back to Login
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 px-4 py-2 bg-blue-600 border border-transparent rounded-md text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                className="flex-1 px-4 py-3 bg-blue-600 border border-transparent rounded-md text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 min-h-[44px]"
               >
                 {loading ? 'Sending...' : 'Send Reset Link'}
               </button>
@@ -361,7 +361,7 @@ const AuthScreen = ({ onAuthSuccess, isNewUser }) => {
                     console.error('❌ Error testing Firestore:', error);
                   }
                 }}
-                className="w-full flex items-center justify-center px-3 py-2 border border-yellow-600 rounded-md text-yellow-300 bg-yellow-900/20 hover:bg-yellow-800/30 focus:outline-none focus:ring-2 focus:ring-yellow-500 text-sm"
+                className="w-full flex items-center justify-center px-3 py-3 border border-yellow-600 rounded-md text-yellow-300 bg-yellow-900/20 hover:bg-yellow-800/30 focus:outline-none focus:ring-2 focus:ring-yellow-500 text-sm min-h-[44px]"
               >
                 🧪 Test Firestore Service
               </button>
@@ -376,7 +376,7 @@ const AuthScreen = ({ onAuthSuccess, isNewUser }) => {
                 <button
                   onClick={handleGoogleSignIn}
                   disabled={loading}
-                  className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md transition-colors disabled:opacity-50"
+                  className="w-full px-3 py-3 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md transition-colors disabled:opacity-50 min-h-[44px]"
                 >
                   {loading ? 'Retrying...' : 'Try Google Sign-in Again'}
                 </button>
@@ -401,7 +401,7 @@ const AuthScreen = ({ onAuthSuccess, isNewUser }) => {
               setActiveTab('signin');
               clearForm();
             }}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+            className={`flex-1 py-3 px-4 rounded-md text-sm font-medium transition-colors min-h-[44px] ${
               activeTab === 'signin'
                 ? 'bg-blue-600 text-white'
                 : 'text-gray-400 hover:text-white'
@@ -414,7 +414,7 @@ const AuthScreen = ({ onAuthSuccess, isNewUser }) => {
               setActiveTab('signup');
               clearForm();
             }}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+            className={`flex-1 py-3 px-4 rounded-md text-sm font-medium transition-colors min-h-[44px] ${
               activeTab === 'signup'
                 ? 'bg-blue-600 text-white'
                 : 'text-gray-400 hover:text-white'
@@ -463,7 +463,7 @@ const AuthScreen = ({ onAuthSuccess, isNewUser }) => {
               <button
                 type="button"
                 onClick={() => setShowForgotPassword(true)}
-                className="text-sm text-blue-400 hover:text-blue-300"
+                className="text-sm text-blue-400 hover:text-blue-300 py-2 px-2 min-h-[44px] min-w-[44px]"
               >
                 Forgot your password?
               </button>
@@ -476,7 +476,7 @@ const AuthScreen = ({ onAuthSuccess, isNewUser }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 min-h-[44px]"
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
@@ -545,7 +545,7 @@ const AuthScreen = ({ onAuthSuccess, isNewUser }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 min-h-[44px]"
             >
               {loading ? 'Creating account...' : 'Create Account'}
             </button>

@@ -473,7 +473,7 @@ const OnboardingFlow = ({ onComplete, authUser }) => {
             <div className="mr-3">Install QuitArena for a faster, full-screen experience.</div>
             <button
               onClick={promptInstall}
-              className="px-3 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold"
+              className="px-4 py-3 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold min-h-[44px] min-w-[44px]"
             >
               Install
             </button>
@@ -996,6 +996,7 @@ const OnboardingFlow = ({ onComplete, authUser }) => {
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
+        </div>
       </div>
     </div>
   );
@@ -1163,7 +1164,7 @@ const StatBar = ({ label, value, max, color, statType, onInfoClick }) => {
           {statType && onInfoClick && (
             <button
               onClick={() => onInfoClick(statType)}
-              className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
+              className="w-11 h-11 sm:w-12 sm:h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors min-h-[44px] min-w-[44px]"
               title={`Learn about ${label}`}
             >
               i
@@ -1696,7 +1697,7 @@ const BottomNavigation = ({ activeTab, onTabChange, dataLoadingState, onRefreshD
               <button 
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`flex flex-col items-center transition-colors ${
+                className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${
                   isActive ? 'text-blue-400' : 'text-gray-400 hover:text-blue-300'
                 }`}
               >
@@ -2770,7 +2771,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             {/* Info Button */}
             <button
               onClick={() => setShowBattleInfo(true)}
-              className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+              className="w-11 h-11 sm:w-12 sm:h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg min-h-[44px] min-w-[44px]"
               title="Battle Algorithm Info"
             >
               <span className="text-sm sm:text-lg font-bold">i</span>
@@ -2779,7 +2780,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             {/* Refresh Stats Button */}
             <button
               onClick={refreshStats}
-              className="w-8 h-8 sm:w-10 sm:h-10 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+              className="w-11 h-11 sm:w-12 sm:h-12 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg min-h-[44px] min-w-[44px]"
               title="Refresh Stats"
             >
               <span className="text-sm sm:text-lg font-bold">🔄</span>
@@ -2794,7 +2795,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
         {/* Manual Refresh Button */}
         <button 
           onClick={refreshStats}
-          className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          className="mt-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors min-h-[44px]"
         >
           🔄 Refresh Stats
         </button>
@@ -2808,7 +2809,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
               console.error('❌ Manual buddy matching failed:', error);
             }
           }}
-          className="mt-2 ml-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+          className="mt-2 ml-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors min-h-[44px]"
         >
           🔗 Test Matching
         </button>
@@ -2824,7 +2825,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
               console.error('❌ Manual buddy reload failed:', error);
             }
           }}
-          className="mt-2 ml-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          className="mt-2 ml-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors min-h-[44px]"
         >
           👥 Reload Buddy
         </button>
@@ -2868,7 +2869,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
               console.error('❌ Reset failed:', error);
             }
           }}
-          className="mt-2 ml-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          className="mt-2 ml-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors min-h-[44px]"
         >
           🔄 Reset Matching
         </button>
@@ -3034,21 +3035,22 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
       
       {/* Battle Algorithm Info Modal */}
       {showBattleInfo && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-xl p-6 max-w-md w-full border border-slate-600">
+        <div className="modal-backdrop">
+          <div className="modal-container">
+            <div className="modal-content bg-slate-800 border-slate-600 p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-white">Battle Algorithm</h3>
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleAchievementShare}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-sm transition-colors"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg text-sm transition-colors min-h-[44px] min-w-[44px]"
                   title="Share achievement for Motivation bonus"
                 >
                   📤 Share
                 </button>
                 <button
                   onClick={() => setShowBattleInfo(false)}
-                  className="text-gray-400 hover:text-white text-2xl"
+                  className="text-gray-400 hover:text-white text-2xl w-11 h-11 flex items-center justify-center min-h-[44px] min-w-[44px]"
                 >
                   ×
                 </button>
@@ -3086,6 +3088,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                 </p>
               </div>
             </div>
+            </div>
           </div>
         </div>
       )}
@@ -3121,8 +3124,9 @@ const CustomPopup = ({ isOpen, onClose, title, message, type = 'info' }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-600 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+    <div className="modal-backdrop">
+      <div className="modal-container">
+        <div className="modal-content bg-slate-800 border-slate-600 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
         <div className="text-center">
           <div className="w-16 h-16 bg-gradient-to-br from-slate-600 to-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">{getIcon()}</span>
@@ -3137,6 +3141,8 @@ const CustomPopup = ({ isOpen, onClose, title, message, type = 'info' }) => {
           >
             Got it
           </button>
+        </div>
+        </div>
         </div>
       </div>
     </div>
@@ -3343,7 +3349,7 @@ const GameModal = ({ gameType, onClose }) => {
                 key={lvl}
                 onClick={() => setLevel(lvl)}
                 className={`
-                  px-4 py-2 text-sm font-mono border-2 border-green-500 transition-all
+                  px-4 py-3 text-sm font-mono border-2 border-green-500 transition-all min-h-[44px]
                   ${level === lvl 
                     ? 'bg-green-500 text-black' 
                     : 'bg-green-900 text-green-400'
@@ -3386,7 +3392,7 @@ const GameModal = ({ gameType, onClose }) => {
                   setSnakeScore(0);
                   setLevel(1);
                 }}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded text-sm min-h-[44px]"
               >
                 Restart Game
               </button>
@@ -3412,7 +3418,7 @@ const GameModal = ({ gameType, onClose }) => {
           <p className="text-sm">Something went wrong loading the game.</p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+            className="mt-2 bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded text-sm min-h-[44px]"
           >
             Reload Game
           </button>
@@ -3422,8 +3428,10 @@ const GameModal = ({ gameType, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="modal-backdrop">
+      <div className="modal-container">
+        <div className="modal-content bg-white max-w-4xl">
+          <div className="modal-scrollable">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800">
             🐍 Snake Game
@@ -3431,7 +3439,7 @@ const GameModal = ({ gameType, onClose }) => {
                       <div className="flex items-center gap-4">
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 text-2xl"
+              className="text-gray-500 hover:text-gray-700 text-2xl w-11 h-11 flex items-center justify-center min-h-[44px] min-w-[44px]"
             >
               ×
             </button>
@@ -4843,7 +4851,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           <div className="grid grid-cols-2 gap-6">
             <button
               onClick={handleQuickResistance}
-              className="bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium py-3 px-5 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg border border-slate-500/30 hover:border-slate-400/50"
+              className="bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium py-3 px-5 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg border border-slate-500/30 hover:border-slate-400/50 min-h-[44px]"
             >
               <div className="flex items-center justify-center gap-2">
                 <span className="text-green-400">✅</span>
@@ -4852,7 +4860,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
             </button>
             <button
               onClick={handleQuickRelapse}
-              className="bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium py-3 px-5 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg border border-slate-500/30 hover:border-slate-400/50"
+              className="bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium py-3 px-5 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg border border-slate-500/30 hover:border-slate-400/50 min-h-[44px]"
             >
               <div className="flex items-center justify-center gap-2">
                 <span className="text-red-400">❌</span>
@@ -4886,7 +4894,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
             <div className="flex justify-center">
               <button
                 onClick={handleMiniGame}
-                className="w-full max-w-xs bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 border border-slate-500/20 hover:border-slate-400/40 shadow-lg"
+                className="w-full max-w-xs bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-6 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 border border-slate-500/20 hover:border-slate-400/40 shadow-lg min-h-[44px]"
               >
                 🐍 Play Snake
               </button>
@@ -4901,13 +4909,13 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={testCravingInsights}
-                className="bg-blue-600/30 hover:bg-blue-500/40 text-blue-200 font-medium py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 border border-blue-500/20 hover:border-blue-400/40 shadow-lg"
+                className="bg-blue-600/30 hover:bg-blue-500/40 text-blue-200 font-medium py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 border border-blue-500/20 hover:border-blue-400/40 shadow-lg min-h-[44px]"
               >
                 🔍 View Insights
               </button>
               <button
                 onClick={() => exportCravingData(user?.uid, 'json')}
-                className="bg-green-600/30 hover:bg-green-500/40 text-green-200 font-medium py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 border border-green-500/20 hover:border-green-400/40 shadow-lg"
+                className="bg-green-600/30 hover:bg-green-500/40 text-green-200 font-medium py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 border border-green-500/20 hover:border-green-400/40 shadow-lg min-h-[44px]"
               >
                 📥 Export Data
               </button>
@@ -4921,13 +4929,13 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           <div className="grid grid-cols-2 gap-4">
             <button 
               onClick={() => setShowHydrationModal(true)}
-              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg"
+              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg min-h-[44px]"
             >
               💧 Hydration
             </button>
             <button 
               onClick={() => setShowBreathingModal(true)}
-              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg"
+              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg min-h-[44px]"
             >
               🫁 Breathe
             </button>
@@ -4963,7 +4971,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
                   }
                 }
               }}
-              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg"
+              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg min-h-[44px]"
             >
               🚶‍♂️ Walk
             </button>
@@ -4990,7 +4998,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
                   }
                 }
               }}
-              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg"
+              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg min-h-[44px]"
             >
               🧘‍♀️ Meditate
             </button>
@@ -5162,7 +5170,7 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
                 <button
                   key={mood.id}
                   onClick={() => setCravingData({ ...cravingData, mood: mood.id })}
-                  className={`p-4 rounded-xl border-2 transition-all duration-300 ${
+                  className={`p-4 rounded-xl border-2 transition-all duration-300 min-h-[44px] ${
                     cravingData.mood === mood.id
                       ? 'border-blue-400 bg-blue-500/20'
                       : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
@@ -5184,7 +5192,7 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
                 <button
                   key={context.id}
                   onClick={() => setCravingData({ ...cravingData, context: context.id })}
-                  className={`p-4 rounded-xl border-2 transition-all duration-300 ${
+                  className={`p-4 rounded-xl border-2 transition-all duration-300 min-h-[44px] ${
                     cravingData.context === context.id
                       ? 'border-blue-400 bg-blue-500/20'
                       : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
@@ -5238,9 +5246,10 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-slate-600/50 relative overflow-hidden">
-        <div className="absolute inset-0 bg-orange-500/5 pointer-events-none"></div>
+    <div className="modal-backdrop">
+      <div className="modal-container">
+        <div className="modal-content bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 border-slate-600/50 relative overflow-hidden max-w-lg">
+          <div className="absolute inset-0 bg-orange-500/5 pointer-events-none"></div>
         
         <div className="relative z-10">
           {/* Clean step indicator */}
@@ -5299,6 +5308,7 @@ const CravingAssessmentModal = ({ isOpen, onClose, step, cravingData, setCraving
           >
             ×
           </button>
+        </div>
         </div>
       </div>
     </div>
@@ -5417,8 +5427,10 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
   if (!isOpen || !userId) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="hydration-module">
+    <div className="modal-backdrop">
+      <div className="modal-container">
+        <div className="modal-content">
+          <div className="hydration-module">
         {/* Module Header */}
         <div className="module-header">
           <div className="module-title">
@@ -6214,6 +6226,7 @@ const WaterModal = ({ isOpen, onClose, onConfirm, currentWater }) => {
             Confirm
           </button>
         </div>
+        </div>
       </div>
     </div>
   );
@@ -6352,6 +6365,7 @@ const TriggerModal = ({ isOpen, onClose, onSchedule, scheduledTriggers }) => {
           >
             Schedule
           </button>
+        </div>
         </div>
       </div>
     </div>
@@ -9140,7 +9154,7 @@ const App = () => {
                       <p className="text-gray-300 mb-4">{error.message}</p>
                       <button 
                         onClick={() => window.location.reload()} 
-                        className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700"
+                        className="bg-blue-600 px-4 py-3 rounded hover:bg-blue-700 min-h-[44px]"
                       >
                         Reload App
                       </button>
@@ -9235,7 +9249,7 @@ const App = () => {
                 console.log('Current state:', { hasCompletedOnboarding, user, currentView });
                 console.log('User data:', user);
               }}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="mt-4 px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 min-h-[44px]"
             >
               Debug State
             </button>

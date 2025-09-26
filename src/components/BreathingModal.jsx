@@ -69,20 +69,22 @@ const BreathingModal = ({ isOpen, onClose, onNavigateToCravingSupport, onComplet
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="modal-backdrop">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/80 backdrop-blur-sm"
         onClick={handleClose}
       />
       
-      {/* Modal Content */}
-      <div className="relative w-full max-w-md mx-4 bg-slate-900 rounded-3xl shadow-2xl border border-slate-700/50 overflow-hidden">
+      {/* Modal Container */}
+      <div className="modal-container">
+        {/* Modal Content */}
+        <div className="modal-content bg-slate-900 border-slate-700/50">
         {/* Close Button - Only show when NOT in active exercise */}
         {!(modalStep === 'exercise' && isExerciseActive) && (
           <button
             onClick={handleClose}
-            className="absolute top-4 left-4 z-10 w-8 h-8 flex items-center justify-center text-white hover:text-slate-300 transition-colors"
+            className="absolute top-4 left-4 z-10 w-11 h-11 flex items-center justify-center text-white hover:text-slate-300 transition-colors min-h-[44px] min-w-[44px]"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -126,6 +128,7 @@ const BreathingModal = ({ isOpen, onClose, onNavigateToCravingSupport, onComplet
             onLeave={handleExerciseLeave}
           />
         )}
+        </div>
       </div>
     </div>
   );

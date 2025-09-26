@@ -711,6 +711,222 @@ code {
 
 
 
+/* iOS Modal Compatibility and Safe Area Support */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --ios-viewport-height: 100vh;
+  --ios-viewport-height-fixed: 100dvh;
+}
+
+/* iOS Safari viewport height fix */
+@supports (-webkit-touch-callout: none) {
+  :root {
+    --ios-viewport-height: 100dvh;
+  }
+}
+
+/* Modal backdrop with iOS support */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  /* iOS safe area support */
+  padding-top: var(--safe-area-inset-top);
+  padding-bottom: var(--safe-area-inset-bottom);
+  padding-left: var(--safe-area-inset-left);
+  padding-right: var(--safe-area-inset-right);
+  /* Prevent iOS Safari viewport issues */
+  height: var(--ios-viewport-height);
+  min-height: var(--ios-viewport-height);
+  /* Prevent scroll on iOS */
+  overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Modal container with iOS support */
+.modal-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  /* iOS safe area support */
+  padding-top: max(1rem, var(--safe-area-inset-top));
+  padding-bottom: max(1rem, var(--safe-area-inset-bottom));
+  padding-left: max(1rem, var(--safe-area-inset-left));
+  padding-right: max(1rem, var(--safe-area-inset-right));
+  /* Prevent iOS Safari viewport issues */
+  min-height: var(--ios-viewport-height);
+  box-sizing: border-box;
+}
+
+/* Modal content with iOS support */
+.modal-content {
+  position: relative;
+  width: 100%;
+  max-width: 28rem; /* 448px */
+  max-height: calc(var(--ios-viewport-height) - 2rem);
+  background: #1e293b;
+  border-radius: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid #334155;
+  overflow: hidden;
+  /* iOS Safari fixes */
+  -webkit-overflow-scrolling: touch;
+  transform: translateZ(0);
+  will-change: transform;
+  /* Prevent iOS Safari zoom on focus */
+  font-size: 16px;
+}
+
+/* Modal content scrollable area */
+.modal-scrollable {
+  max-height: calc(var(--ios-viewport-height) - 8rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* iOS Safari scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: #64748b transparent;
+}
+
+.modal-scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-scrollable::-webkit-scrollbar-thumb {
+  background: #64748b;
+  border-radius: 3px;
+}
+
+.modal-scrollable::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* iOS-specific modal animations */
+@supports (-webkit-touch-callout: none) {
+  .modal-content {
+    animation: modalSlideIn 0.3s ease-out;
+  }
+  
+  @keyframes modalSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+}
+
+/* Prevent iOS Safari address bar issues */
+@supports (-webkit-touch-callout: none) {
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Use 100vh for iOS Safari compatibility */
+    height: 100vh;
+    min-height: 100vh;
+  }
+  
+  /* Fix for iOS Safari viewport changes */
+  .modal-container {
+    height: 100vh;
+    min-height: 100vh;
+  }
+}
+
+/* iOS Safari specific fixes */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  .modal-backdrop {
+    /* Prevent iOS Safari zoom */
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  .modal-content {
+    /* Prevent iOS Safari zoom on input focus */
+    font-size: 16px;
+    /* Fix iOS Safari rendering issues */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+}
+
+/* Body scroll lock for modals */
+.modal-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+/* iOS Safari body scroll lock */
+@supports (-webkit-touch-callout: none) {
+  .modal-open {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: none;
+  }
+}
+
+/* Prevent iOS Safari address bar issues with modals */
+@supports (-webkit-touch-callout: none) {
+  .modal-backdrop {
+    /* Force full height on iOS Safari */
+    height: 100vh !important;
+    min-height: 100vh !important;
+    /* Prevent bounce scrolling */
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .modal-container {
+    height: 100vh !important;
+    min-height: 100vh !important;
+    /* Center modal properly on iOS */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Prevent iOS Safari zoom */
+    -webkit-text-size-adjust: 100%;
+  }
+  
+  .modal-content {
+    /* Ensure modal content respects viewport */
+    max-height: calc(100vh - 4rem);
+    /* Fix iOS Safari input zoom */
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
 /* Screen reader only content */
 .sr-only {
   position: absolute;

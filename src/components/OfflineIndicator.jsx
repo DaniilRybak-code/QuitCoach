@@ -113,7 +113,7 @@ const OfflineIndicator = ({ offlineManager }) => {
           </span>
           <button
             onClick={() => setShowOfflineMessage(false)}
-            className="ml-2 text-white hover:text-yellow-200 transition-colors"
+            className="ml-2 text-white hover:text-yellow-200 transition-colors w-11 h-11 flex items-center justify-center min-h-[44px] min-w-[44px]"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

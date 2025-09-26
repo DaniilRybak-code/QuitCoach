@@ -299,7 +299,7 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
         {/* Close Button - Enhanced for better usability */}
         <button
           onClick={handleCloseClick}
-          className="w-11 h-11 flex items-center justify-center text-white hover:text-slate-300 transition-colors bg-slate-800/50 hover:bg-slate-700/50 rounded-lg border border-slate-600/30 hover:border-slate-500/50 z-50"
+          className="w-11 h-11 flex items-center justify-center text-white hover:text-slate-300 transition-colors bg-slate-800/50 hover:bg-slate-700/50 rounded-lg border border-slate-600/30 hover:border-slate-500/50 z-50 min-h-[44px] min-w-[44px]"
           title="End breathing exercise"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -354,8 +354,9 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
 
       {/* Confirmation Popup */}
       {showConfirmPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-800 rounded-2xl p-6 mx-4 max-w-sm w-full border border-slate-600/50">
+        <div className="modal-backdrop">
+          <div className="modal-container">
+            <div className="modal-content bg-slate-800 border-slate-600/50 max-w-sm">
             <div className="text-center mb-6">
               <h3 className="text-white text-xl font-bold mb-2">Want to stop now?</h3>
               <p className="text-slate-300 text-sm leading-relaxed">
@@ -366,16 +367,17 @@ const BreathingExercise = ({ rate, duration, onComplete, onClose, onLeave }) => 
             <div className="flex space-x-3">
               <button
                 onClick={handleConfirmLeave}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded-xl transition-colors"
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded-xl transition-colors min-h-[44px]"
               >
                 Leave
               </button>
               <button
                 onClick={handleStay}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-xl transition-colors"
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-xl transition-colors min-h-[44px]"
               >
                 Stay
               </button>
+            </div>
             </div>
           </div>
         </div>

@@ -36,24 +36,28 @@ const AnalyticsDashboard = ({ user, behavioralService, onClose }) => {
 
   if (!behavioralService) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
+      <div className="modal-backdrop">
+        <div className="modal-container">
+          <div className="modal-content bg-slate-800 p-6">
           <h2 className="text-xl font-bold text-white mb-4">Analytics Dashboard</h2>
           <p className="text-gray-300">Behavioral service not available. Analytics require Firestore connection.</p>
           <button 
             onClick={onClose}
-            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors"
+            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded transition-colors min-h-[44px]"
           >
             Close
           </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="modal-backdrop">
+      <div className="modal-container">
+        <div className="modal-content bg-slate-800 max-w-4xl">
+          <div className="modal-scrollable">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
           <div className="flex items-center gap-3">
@@ -64,7 +68,7 @@ const AnalyticsDashboard = ({ user, behavioralService, onClose }) => {
             <select 
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(parseInt(e.target.value))}
-              className="bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
+              className="bg-slate-700 text-white px-3 py-3 rounded border border-slate-600 min-h-[44px]"
             >
               <option value={7}>Last 7 days</option>
               <option value={30}>Last 30 days</option>
@@ -72,7 +76,7 @@ const AnalyticsDashboard = ({ user, behavioralService, onClose }) => {
             </select>
             <button 
               onClick={onClose}
-              className="text-gray-400 hover:text-white"
+              className="text-gray-400 hover:text-white w-11 h-11 flex items-center justify-center min-h-[44px] min-w-[44px]"
             >
               ✕
             </button>
@@ -256,7 +260,7 @@ const AnalyticsDashboard = ({ user, behavioralService, onClose }) => {
                     a.click();
                     URL.revokeObjectURL(url);
                   }}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition-colors"
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded transition-colors min-h-[44px]"
                 >
                   Export Analytics Data
                 </button>
@@ -268,6 +272,7 @@ const AnalyticsDashboard = ({ user, behavioralService, onClose }) => {
               <p className="text-gray-400 text-sm mt-2">Start tracking activities to see insights!</p>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>
