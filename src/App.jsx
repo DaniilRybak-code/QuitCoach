@@ -996,7 +996,6 @@ const OnboardingFlow = ({ onComplete, authUser }) => {
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
-        </div>
       </div>
     </div>
   );
@@ -3143,7 +3142,6 @@ const CustomPopup = ({ isOpen, onClose, title, message, type = 'info' }) => {
           </button>
         </div>
         </div>
-        </div>
       </div>
     </div>
   );
@@ -3432,25 +3430,25 @@ const GameModal = ({ gameType, onClose }) => {
       <div className="modal-container">
         <div className="modal-content bg-white max-w-4xl">
           <div className="modal-scrollable">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-gray-800">
-            🐍 Snake Game
-          </h3>
-                      <div className="flex items-center gap-4">
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 text-2xl w-11 h-11 flex items-center justify-center min-h-[44px] min-w-[44px]"
-            >
-              ×
-            </button>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800">
+                🐍 Snake Game
+              </h3>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={onClose}
+                  className="text-gray-500 hover:text-gray-700 text-2xl w-11 h-11 flex items-center justify-center min-h-[44px] min-w-[44px]"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            
+            <div className="bg-gray-100 rounded-lg p-4 min-h-[500px] flex items-center justify-center relative">
+              {renderGame()}
+            </div>
           </div>
         </div>
-        
-        <div className="bg-gray-100 rounded-lg p-4 min-h-[500px] flex items-center justify-center relative">
-          {renderGame()}
-        </div>
-        
-
       </div>
     </div>
   );
@@ -4309,8 +4307,9 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           console.log('✅ Quick Resistance: Stats updated via CentralizedStatService');
           
           if (result && result.applied) {
-            const newBonus = (dailyMentalStrengthBonus || 0) + 1;
-            const remaining = Math.max(0, 3 - newBonus);
+            // Use the actual cravings applied count from the result, not the pre-update value
+            const cravingsApplied = result.cravingsApplied || 0;
+            const remaining = Math.max(0, 3 - cravingsApplied);
             console.log('🔄 Quick Resistance: Bonus applied, remaining:', remaining);
             if (remaining > 0) {
               showQuickActionPopup(
@@ -5498,6 +5497,8 @@ const HydrationModal = ({ isOpen, onClose, onLogWater, currentWater, userId }) =
         <button onClick={onClose} className="done-button">
           Done
         </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -6226,7 +6227,6 @@ const WaterModal = ({ isOpen, onClose, onConfirm, currentWater }) => {
             Confirm
           </button>
         </div>
-        </div>
       </div>
     </div>
   );
@@ -6365,7 +6365,6 @@ const TriggerModal = ({ isOpen, onClose, onSchedule, scheduledTriggers }) => {
           >
             Schedule
           </button>
-        </div>
         </div>
       </div>
     </div>
