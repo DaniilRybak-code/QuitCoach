@@ -1121,8 +1121,9 @@ const InfoModal = ({ isOpen, onClose, statType }) => {
   if (!info) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-700">
+    <div className="modal-backdrop">
+      <div className="modal-container">
+        <div className="modal-content bg-slate-800 border-slate-700">
         <div className="text-center mb-4">
           <h3 className="text-xl font-bold text-white mb-2">{info.title}</h3>
           <p className="text-gray-300 text-sm">{info.description}</p>
@@ -1142,10 +1143,11 @@ const InfoModal = ({ isOpen, onClose, statType }) => {
         
         <button
           onClick={onClose}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all duration-300"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all duration-300 min-h-[44px]"
         >
           Got it
         </button>
+        </div>
       </div>
     </div>
   );
@@ -1164,7 +1166,7 @@ const StatBar = ({ label, value, max, color, statType, onInfoClick }) => {
           {statType && onInfoClick && (
             <button
               onClick={() => onInfoClick(statType)}
-              className="w-0.5 h-0.5 sm:w-1 sm:h-1 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
+              className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
               style={{ fontSize: '6px' }}
               title={`Learn about ${label}`}
             >
@@ -2794,7 +2796,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             {/* Info Button */}
             <button
               onClick={() => setShowBattleInfo(true)}
-              className="w-0.5 h-0.5 sm:w-1 sm:h-1 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+              className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
               style={{ fontSize: '6px' }}
               title="Battle Algorithm Info"
             >
@@ -6412,8 +6414,9 @@ const TriggerModal = ({ isOpen, onClose, onSchedule, scheduledTriggers }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-700">
+    <div className="modal-backdrop">
+      <div className="modal-container">
+        <div className="modal-content bg-slate-800 border-slate-700">
         <div className="text-center mb-6">
           <h3 className="text-xl font-bold text-white mb-2">🛡️ Trigger Defense Planning</h3>
           <p className="text-gray-300 text-sm">Schedule your trigger defense strategy</p>
@@ -6479,6 +6482,7 @@ const TriggerModal = ({ isOpen, onClose, onSchedule, scheduledTriggers }) => {
             Schedule
           </button>
         </div>
+        </div>
       </div>
     </div>
   );
@@ -6488,8 +6492,9 @@ const DiaryModal = ({ isOpen, onClose, selectedDate, onDateSelect, dailyData }) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-700">
+    <div className="modal-backdrop">
+      <div className="modal-container">
+        <div className="modal-content bg-slate-800 border-slate-700">
         <div className="text-center mb-6">
           <h3 className="text-xl font-bold text-white mb-2">📅 Daily Summary</h3>
           <p className="text-gray-300 text-sm">Your activities and progress</p>
@@ -6523,10 +6528,11 @@ const DiaryModal = ({ isOpen, onClose, selectedDate, onDateSelect, dailyData }) 
         
         <button
           onClick={onClose}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors min-h-[44px]"
         >
           Close
         </button>
+        </div>
       </div>
     </div>
   );
@@ -6583,7 +6589,7 @@ const SettingsView = ({ onResetApp, onBackToLogin, onResetForTesting, firestoreB
                   alert('❌ Error adding test data: ' + error.message);
                 }
               }}
-              className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg transition-colors text-sm"
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg transition-colors text-sm min-h-[44px]"
             >
               🧪 Add Test Data
             </button>
