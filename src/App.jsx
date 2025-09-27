@@ -1547,77 +1547,40 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
         </div>
         
         {/* Core Stats with Info Buttons (only for player card) */}
-        {isNemesis ? (
-          <div className="space-y-4 sm:space-y-5 mb-3 sm:mb-4">
-            <StatBar 
-              label="Addiction" 
-              value={addictionLevel} 
-              max={100} 
-              color="bg-red-500" 
-              statType={null}
-              onInfoClick={null}
-            />
-            <StatBar 
-              label="Mental Strength" 
-              value={mentalStrength} 
-              max={100} 
-              color="bg-blue-500" 
-              statType={null}
-              onInfoClick={null}
-            />
-            <StatBar 
-              label="Motivation" 
-              value={motivation} 
-              max={100} 
-              color="bg-green-500" 
-              statType={null}
-              onInfoClick={null}
-            />
-            <StatBar 
-              label="Trigger Defense" 
-              value={triggerDefense} 
-              max={100} 
-              color="bg-orange-500" 
-              statType={null}
-              onInfoClick={null}
-            />
-          </div>
-        ) : (
-          <div className="space-y-0 mb-3 sm:mb-4">
-            <StatBar 
-              label="Addiction" 
-              value={addictionLevel} 
-              max={100} 
-              color="bg-red-500" 
-              statType="addiction"
-              onInfoClick={handleInfoClick}
-            />
-            <StatBar 
-              label="Mental Strength" 
-              value={mentalStrength} 
-              max={100} 
-              color="bg-blue-500" 
-              statType="mentalStrength"
-              onInfoClick={handleInfoClick}
-            />
-            <StatBar 
-              label="Motivation" 
-              value={motivation} 
-              max={100} 
-              color="bg-green-500" 
-              statType="motivation"
-              onInfoClick={handleInfoClick}
-            />
-            <StatBar 
-              label="Trigger Defense" 
-              value={triggerDefense} 
-              max={100} 
-              color="bg-orange-500" 
-              statType="triggerDefense"
-              onInfoClick={handleInfoClick}
-            />
-          </div>
-        )}
+        <div className="mb-3 sm:mb-4">
+          <StatBar 
+            label="Addiction" 
+            value={addictionLevel} 
+            max={100} 
+            color="bg-red-500" 
+            statType={isNemesis ? null : "addiction"}
+            onInfoClick={isNemesis ? null : handleInfoClick}
+          />
+          <StatBar 
+            label="Mental Strength" 
+            value={mentalStrength} 
+            max={100} 
+            color="bg-blue-500" 
+            statType={isNemesis ? null : "mentalStrength"}
+            onInfoClick={isNemesis ? null : handleInfoClick}
+          />
+          <StatBar 
+            label="Motivation" 
+            value={motivation} 
+            max={100} 
+            color="bg-green-500" 
+            statType={isNemesis ? null : "motivation"}
+            onInfoClick={isNemesis ? null : handleInfoClick}
+          />
+          <StatBar 
+            label="Trigger Defense" 
+            value={triggerDefense} 
+            max={100} 
+            color="bg-orange-500" 
+            statType={isNemesis ? null : "triggerDefense"}
+            onInfoClick={isNemesis ? null : handleInfoClick}
+          />
+        </div>
         
         {/* Special Features Section */}
         <div className="mb-4">
@@ -1651,7 +1614,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
         </div>
         
         {/* Battle Info - Only Streak and Cravings Resisted */}
-        <div className="bg-black/30 rounded-lg p-2 sm:p-3 space-y-1 sm:space-y-2 mb-2 sm:mb-3 backdrop-blur-sm">
+        <div className="absolute bottom-6 sm:bottom-8 left-2 sm:left-3 right-2 sm:right-3 bg-black/30 rounded-lg p-2 sm:p-3 space-y-2 sm:space-y-3 backdrop-blur-sm">
           <div className="flex justify-between text-white text-xs sm:text-sm">
             <span className="text-gray-300">Streak:</span>
             <span className="font-bold text-green-400 flex items-center gap-1">
