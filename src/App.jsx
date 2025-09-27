@@ -1164,7 +1164,8 @@ const StatBar = ({ label, value, max, color, statType, onInfoClick }) => {
           {statType && onInfoClick && (
             <button
               onClick={() => onInfoClick(statType)}
-              className="w-8 h-8 sm:w-9 sm:h-9 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors min-h-[44px] min-w-[44px]"
+              className="w-0.5 h-0.5 sm:w-1 sm:h-1 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
+              style={{ fontSize: '6px' }}
               title={`Learn about ${label}`}
             >
               i
@@ -1546,40 +1547,77 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
         </div>
         
         {/* Core Stats with Info Buttons (only for player card) */}
-        <div className="space-y-1 sm:space-y-2 mb-3 sm:mb-4">
-          <StatBar 
-            label="Addiction" 
-            value={addictionLevel} 
-            max={100} 
-            color="bg-red-500" 
-            statType={!isNemesis ? "addiction" : null}
-            onInfoClick={!isNemesis ? handleInfoClick : null}
-          />
-          <StatBar 
-            label="Mental Strength" 
-            value={mentalStrength} 
-            max={100} 
-            color="bg-blue-500" 
-            statType={!isNemesis ? "mentalStrength" : null}
-            onInfoClick={!isNemesis ? handleInfoClick : null}
-          />
-          <StatBar 
-            label="Motivation" 
-            value={motivation} 
-            max={100} 
-            color="bg-green-500" 
-            statType={!isNemesis ? "motivation" : null}
-            onInfoClick={!isNemesis ? handleInfoClick : null}
-          />
-          <StatBar 
-            label="Trigger Defense" 
-            value={triggerDefense} 
-            max={100} 
-            color="bg-orange-500" 
-            statType={!isNemesis ? "triggerDefense" : null}
-            onInfoClick={!isNemesis ? handleInfoClick : null}
-          />
-        </div>
+        {isNemesis ? (
+          <div className="space-y-4 sm:space-y-5 mb-3 sm:mb-4">
+            <StatBar 
+              label="Addiction" 
+              value={addictionLevel} 
+              max={100} 
+              color="bg-red-500" 
+              statType={null}
+              onInfoClick={null}
+            />
+            <StatBar 
+              label="Mental Strength" 
+              value={mentalStrength} 
+              max={100} 
+              color="bg-blue-500" 
+              statType={null}
+              onInfoClick={null}
+            />
+            <StatBar 
+              label="Motivation" 
+              value={motivation} 
+              max={100} 
+              color="bg-green-500" 
+              statType={null}
+              onInfoClick={null}
+            />
+            <StatBar 
+              label="Trigger Defense" 
+              value={triggerDefense} 
+              max={100} 
+              color="bg-orange-500" 
+              statType={null}
+              onInfoClick={null}
+            />
+          </div>
+        ) : (
+          <div className="space-y-0 mb-3 sm:mb-4">
+            <StatBar 
+              label="Addiction" 
+              value={addictionLevel} 
+              max={100} 
+              color="bg-red-500" 
+              statType="addiction"
+              onInfoClick={handleInfoClick}
+            />
+            <StatBar 
+              label="Mental Strength" 
+              value={mentalStrength} 
+              max={100} 
+              color="bg-blue-500" 
+              statType="mentalStrength"
+              onInfoClick={handleInfoClick}
+            />
+            <StatBar 
+              label="Motivation" 
+              value={motivation} 
+              max={100} 
+              color="bg-green-500" 
+              statType="motivation"
+              onInfoClick={handleInfoClick}
+            />
+            <StatBar 
+              label="Trigger Defense" 
+              value={triggerDefense} 
+              max={100} 
+              color="bg-orange-500" 
+              statType="triggerDefense"
+              onInfoClick={handleInfoClick}
+            />
+          </div>
+        )}
         
         {/* Special Features Section */}
         <div className="mb-4">
@@ -2793,7 +2831,8 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             {/* Info Button */}
             <button
               onClick={() => setShowBattleInfo(true)}
-              className="w-8 h-8 sm:w-9 sm:h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg min-h-[44px] min-w-[44px]"
+              className="w-0.5 h-0.5 sm:w-1 sm:h-1 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+              style={{ fontSize: '6px' }}
               title="Battle Algorithm Info"
             >
               <span className="text-sm sm:text-lg font-bold">i</span>
@@ -6692,7 +6731,7 @@ const SettingsView = ({ onResetApp, onBackToLogin, onResetForTesting, firestoreB
 
 
 
-// Main App Component
+// Main App Component - Updated for smaller info icons
 const App = () => {
   const [activeTab, setActiveTab] = useState('arena');
   const [currentView, setCurrentView] = useState('auth');
