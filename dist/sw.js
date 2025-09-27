@@ -1,24 +1,25 @@
-// Service Worker for QuitCard Arena
+// Service Worker for QuitArena
 // Provides offline caching and improves app performance
 
-const CACHE_NAME = 'quitcard-arena-v1.0.0';
+const CACHE_NAME = 'quitarena-v1.0.1';
 const STATIC_CACHE = 'static-v1';
 const DYNAMIC_CACHE = 'dynamic-v1';
 
-// Files to cache immediately
+// Files to cache immediately (avoid hashed build assets here)
 const STATIC_FILES = [
   '/',
   '/index.html',
   '/offline.html',
-  '/src/index.css',
-  '/src/main.jsx',
-  '/src/App.jsx',
-  '/src/components/AuthScreen.jsx',
-  '/src/services/firebase.js',
-  '/src/services/offlineManager.js',
-  '/src/services/statManager.js',
-  '/src/data/mockUsers.js',
-  '/src/services/buddyMatching.js'
+  '/manifest.json',
+  '/favicon.svg',
+  '/icons/icon-72x72.png',
+  '/icons/icon-96x96.png',
+  '/icons/icon-128x128.png',
+  '/icons/icon-144x144.png',
+  '/icons/icon-152x152.png',
+  '/icons/icon-192x192.png',
+  '/icons/icon-384x384.png',
+  '/icons/icon-512x512.png'
 ];
 
 // Install event - cache static files
@@ -46,21 +47,27 @@ self.addEventListener('activate', (event) => {
   console.log('🚀 Service Worker activating...');
   
   event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
-              console.log('🧹 Cleaning up old cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      })
-      .then(() => {
-        console.log('✅ Service Worker activated and old caches cleaned');
-        return self.clients.claim();
-      })
+    (async () => {
+      // Enable navigation preload to speed up navigation requests
+      if ('navigationPreload' in self.registration) {
+        try {
+          await self.registration.navigationPreload.enable();
+        } catch (e) {
+          // no-op
+        }
+      }
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
+            console.log('🧹 Cleaning up old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+      console.log('✅ Service Worker activated and old caches cleaned');
+      await self.clients.claim();
+    })()
   );
 });
 
@@ -80,9 +87,9 @@ self.addEventListener('fetch', (event) => {
   }
   
   // Handle different types of requests
-  if (request.destination === 'document' || request.destination === '') {
-    // HTML pages - try cache first, then network
-    event.respondWith(handlePageRequest(request));
+  if (request.mode === 'navigate' || request.destination === 'document' || request.destination === '') {
+    // HTML navigations - try preload/network, then cache, then offline fallback
+    event.respondWith(handlePageRequest(request, event));
   } else if (request.destination === 'script' || request.destination === 'style') {
     // Static assets - cache first strategy
     event.respondWith(handleStaticRequest(request));
@@ -93,8 +100,15 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Handle page requests (HTML)
-async function handlePageRequest(request) {
+async function handlePageRequest(request, event) {
   try {
+    // Use navigation preload response if available
+    const preload = event && event.preloadResponse ? await event.preloadResponse : null;
+    if (preload) {
+      const cache = await caches.open(DYNAMIC_CACHE);
+      cache.put(request, preload.clone());
+      return preload;
+    }
     // Try network first
     const networkResponse = await fetch(request);
     
@@ -114,8 +128,14 @@ async function handlePageRequest(request) {
     return cachedResponse;
   }
   
-      // If no cache, return offline page
-    return caches.match('/offline.html');
+  // For SPA routes, serve index.html from cache
+  const indexCached = await caches.match('/index.html');
+  if (indexCached) {
+    return indexCached;
+  }
+  
+  // If no cache, return offline page
+  return caches.match('/offline.html');
 }
 
 // Handle static requests (JS, CSS)
@@ -522,3 +542,6 @@ async function syncSingleBehavioralLog(logData) {
 }
 
 console.log('🔄 Service Worker loaded successfully');
+
+// Note: beforeinstallprompt and appinstalled events are available on the Window, not in the Service Worker.
+// The app should capture them in the page context and, if needed, postMessage the SW to persist any analytics.

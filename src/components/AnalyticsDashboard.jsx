@@ -273,6 +273,7 @@ const AnalyticsDashboard = ({ user, behavioralService, onClose }) => {
             </div>
           )}
           </div>
+          </div>
         </div>
       </div>
     </div>

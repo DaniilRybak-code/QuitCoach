@@ -7,6 +7,7 @@ import BuddyMatchingService from './services/buddyMatchingService.js';
 import FirestoreBuddyService from './services/firestoreBuddyService.js';
 import FirestoreBehavioralService from './services/firestoreBehavioralService.js';
 import CentralizedStatService from './services/centralizedStatService.js';
+import useSwipeToDismiss from './hooks/useSwipeToDismiss.js';
 
 // Debug: Check if FirestoreBuddyService is imported correctly
 console.log('🧪 FirestoreBuddyService import check:', !!FirestoreBuddyService);
@@ -1163,7 +1164,7 @@ const StatBar = ({ label, value, max, color, statType, onInfoClick }) => {
           {statType && onInfoClick && (
             <button
               onClick={() => onInfoClick(statType)}
-              className="w-11 h-11 sm:w-12 sm:h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors min-h-[44px] min-w-[44px]"
+              className="w-8 h-8 sm:w-9 sm:h-9 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors min-h-[44px] min-w-[44px]"
               title={`Learn about ${label}`}
             >
               i
@@ -1299,10 +1300,11 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
   const ArchetypeIcon = archetype.icon;
   
   // Debug logging for TradingCard (reduced to prevent infinite loops)
-  // console.log('🎯 TradingCard: Received user object:', user);
-  // console.log('🎯 TradingCard: User stats:', user.stats);
-  // console.log('🎯 TradingCard: User stats.cravingsResisted:', user.stats?.cravingsResisted);
-  // console.log('🎯 TradingCard: User stats.streakDays:', user.stats?.streakDays);
+  console.log('🎯 TradingCard: Received user object:', user?.heroName);
+  console.log('🎯 TradingCard: User stats:', user?.stats);
+  console.log('🎯 TradingCard: User stats.cravingsResisted:', user?.stats?.cravingsResisted);
+  console.log('🎯 TradingCard: User stats.streakDisplayText:', user?.stats?.streakDisplayText);
+  console.log('🎯 TradingCard: User stats.streakDays:', user?.stats?.streakDays);
   
   // Generate and store personalized special features based on onboarding responses
   async function getPersonalizedFeatures(user) {
@@ -1517,7 +1519,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
   return (
     <>
       <div 
-        className={`relative w-72 sm:w-80 h-[480px] sm:h-[520px] rounded-xl ${rarity.color} border-4 ${rarity.glow} bg-gradient-to-br from-slate-800 to-slate-900 p-3 sm:p-4 transform transition-all duration-300 hover:scale-105 mx-auto overflow-hidden`}
+        className={`relative w-72 sm:w-80 min-h-[480px] sm:min-h-[520px] rounded-xl ${rarity.color} border-4 ${rarity.glow} bg-gradient-to-br from-slate-800 to-slate-900 p-3 sm:p-4 transform transition-all duration-300 hover:scale-105 mx-auto`}
       >
         
         <div className="text-center mb-3">
@@ -1629,11 +1631,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
           <div className="flex justify-between text-white text-xs sm:text-sm">
             <span className="text-gray-300">Cravings Resisted:</span>
             <span className="font-bold text-blue-400 flex items-center gap-1">
-              {(() => {
-                const cravingsValue = user.stats.cravingsResisted || 0;
-                // console.log('🎯 TradingCard: Rendering cravings value:', cravingsValue);
-                return cravingsValue;
-              })()}
+              {user.stats.cravingsResisted || 0}
               <span className="text-xs">💪</span>
             </span>
           </div>
@@ -2195,6 +2193,31 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
     streakDays: 0,
     streakUnit: 'hours'
   });
+
+  // Add state to store the latest user stats from CentralizedStatService
+  const [latestUserStats, setLatestUserStats] = useState({});
+
+  // Fetch latest stats from CentralizedStatService
+  useEffect(() => {
+    const fetchLatestStats = async () => {
+      if (user && window.centralizedStatService) {
+        try {
+          const stats = await window.centralizedStatService.getCurrentStats();
+          console.log('🔄 Arena: Fetched latest stats from CentralizedStatService:', stats);
+          setLatestUserStats(stats);
+        } catch (error) {
+          console.warn('🔄 Arena: Could not fetch latest stats from CentralizedStatService:', error);
+        }
+      }
+    };
+
+    fetchLatestStats();
+    
+    // Set up interval to refresh stats every 30 seconds
+    const interval = setInterval(fetchLatestStats, 30000);
+    
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Note: Firestore initialization is handled by the parent App component
 
@@ -2770,7 +2793,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             {/* Info Button */}
             <button
               onClick={() => setShowBattleInfo(true)}
-              className="w-11 h-11 sm:w-12 sm:h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg min-h-[44px] min-w-[44px]"
+              className="w-8 h-8 sm:w-9 sm:h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg min-h-[44px] min-w-[44px]"
               title="Battle Algorithm Info"
             >
               <span className="text-sm sm:text-lg font-bold">i</span>
@@ -2889,14 +2912,20 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                 );
               }
               
-              // Use CentralizedStatService stats for User 2 and User 3, calculated stats for others
-              // Use centralized stats for ALL users (universal system)
-              const mergedUserStats = userStats && Object.keys(userStats).length > 0
-                ? { ...user.stats, ...userStats }  // Use Firebase stats from CentralizedStatService
-                : { ...user.stats, ...realTimeUserStats }; // Fallback to calculated stats
+              // Use CentralizedStatService stats for ALL users (universal system)
+              // Prioritize latest stats from CentralizedStatService, then userStats, then realTimeUserStats
+              const mergedUserStats = latestUserStats && Object.keys(latestUserStats).length > 0
+                ? { ...user.stats, ...latestUserStats }  // Use latest Firebase stats from CentralizedStatService
+                : userStats && Object.keys(userStats).length > 0
+                ? { ...user.stats, ...userStats }  // Use passed userStats as fallback
+                : { ...user.stats, ...realTimeUserStats }; // Final fallback to calculated stats
               
-              console.log(`🎯 TradingCard: Using ${userStats && Object.keys(userStats).length > 0 ? 'centralized' : 'calculated'} stats for ${user.uid}`);
-              console.log('🎯 TradingCard: Final stats:', { streak: mergedUserStats.streakDisplayText, addiction: mergedUserStats.addictionLevel });
+              console.log(`🎯 TradingCard: Using ${latestUserStats && Object.keys(latestUserStats).length > 0 ? 'latest centralized' : userStats && Object.keys(userStats).length > 0 ? 'centralized' : 'calculated'} stats for ${user.uid}`);
+              console.log('🎯 TradingCard: Final stats:', { 
+                streak: mergedUserStats.streakDisplayText, 
+                addiction: mergedUserStats.addictionLevel,
+                cravingsResisted: mergedUserStats.cravingsResisted
+              });
               // Reduced logging to prevent console spam
               // console.log('🎯 TradingCard: User base stats:', user.stats);
               // console.log('🎯 TradingCard: Real-time user stats:', realTimeUserStats);
@@ -3150,6 +3179,13 @@ const CustomPopup = ({ isOpen, onClose, title, message, type = 'info' }) => {
 // Game Modal Component with Simple, Working Games
 const GameModal = ({ gameType, onClose }) => {
   const [score, setScore] = useState(0);
+  
+  // Import swipe-to-dismiss hook
+  const { modalRef, classes: swipeClasses } = useSwipeToDismiss(onClose, {
+    threshold: 100,
+    velocity: 0.5,
+    enabled: true
+  });
 
   // Snake Game with Movement-First Direction Processing
   const SnakeGame = () => {
@@ -3428,24 +3464,48 @@ const GameModal = ({ gameType, onClose }) => {
   return (
     <div className="modal-backdrop">
       <div className="modal-container">
-        <div className="modal-content bg-white max-w-4xl">
+        <div 
+          ref={modalRef}
+          className={`modal-content bg-white max-w-4xl ${swipeClasses}`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="game-modal-title"
+        >
+          {/* Swipe indicator */}
+          <div className="modal-swipe-indicator" />
+          
           <div className="modal-scrollable">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-gray-800">
+            <div className="flex justify-between items-center mb-4 p-4">
+              <h3 id="game-modal-title" className="text-xl font-bold text-gray-800">
                 🐍 Snake Game
               </h3>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={onClose}
-                  className="text-gray-500 hover:text-gray-700 text-2xl w-11 h-11 flex items-center justify-center min-h-[44px] min-w-[44px]"
-                >
-                  ×
-                </button>
-              </div>
+              <button
+                onClick={onClose}
+                className="modal-close-button"
+                aria-label="Close game modal"
+              >
+                ×
+              </button>
             </div>
             
-            <div className="bg-gray-100 rounded-lg p-4 min-h-[500px] flex items-center justify-center relative">
+            <div className="bg-gray-100 rounded-lg p-4 min-h-[400px] flex items-center justify-center relative mx-4">
               {renderGame()}
+            </div>
+            
+            {/* Game controls */}
+            <div className="p-4">
+              <div className="flex justify-center items-center gap-4 mb-4">
+                <span className="text-lg font-semibold text-gray-700">Score: {score}</span>
+              </div>
+              
+              <div className="modal-actions">
+                <button 
+                  onClick={onClose}
+                  className="modal-button modal-button-primary"
+                >
+                  Close Game
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -6188,44 +6248,69 @@ const ProfileView = ({ user, onNavigate }) => {
 // Modal Components for Profile
 const WaterModal = ({ isOpen, onClose, onConfirm, currentWater }) => {
   const [waterInput, setWaterInput] = useState(currentWater);
+  
+  // Swipe-to-dismiss functionality
+  const { modalRef, classes: swipeClasses } = useSwipeToDismiss(onClose, {
+    threshold: 80,
+    velocity: 0.4,
+    enabled: true
+  });
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-700">
-        <div className="text-center mb-6">
-          <h3 className="text-xl font-bold text-white mb-2">💧 Water Intake</h3>
-          <p className="text-gray-300 text-sm">How many glasses of water today?</p>
-        </div>
-        
-        <div className="mb-6">
-          <input
-            type="number"
-            min="0"
-            max="20"
-            value={waterInput}
-            onChange={(e) => setWaterInput(parseInt(e.target.value) || 0)}
-            className="w-full bg-slate-700 text-white text-center text-2xl font-bold py-4 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
-            placeholder="0"
-            autoComplete="off"
-          />
-          <p className="text-gray-400 text-sm text-center mt-2">0-20 glasses</p>
-        </div>
-        
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onConfirm(waterInput)}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors"
-          >
-            Confirm
-          </button>
+    <div className="modal-backdrop">
+      <div className="modal-container">
+        <div 
+          ref={modalRef}
+          className={`modal-content bg-slate-800 border-slate-700 ${swipeClasses}`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="water-modal-title"
+        >
+          {/* Swipe indicator */}
+          <div className="modal-swipe-indicator" />
+          
+          <div className="modal-scrollable">
+            <div className="text-center mb-6 p-4">
+              <h3 id="water-modal-title" className="text-xl font-bold text-white mb-2">
+                💧 Water Intake
+              </h3>
+              <p className="text-gray-300 text-sm">How many glasses of water today?</p>
+            </div>
+            
+            <div className="mb-6 px-4">
+              <div className="form-group">
+                <input
+                  type="number"
+                  min="0"
+                  max="20"
+                  value={waterInput}
+                  onChange={(e) => setWaterInput(parseInt(e.target.value) || 0)}
+                  className="w-full bg-slate-700 text-white text-center text-2xl font-bold py-4 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+                  placeholder="0"
+                  autoComplete="off"
+                  aria-label="Number of glasses of water"
+                />
+                <p className="text-gray-400 text-sm text-center mt-2">0-20 glasses</p>
+              </div>
+            </div>
+            
+            <div className="modal-actions px-4 pb-4">
+              <button
+                onClick={onClose}
+                className="modal-button modal-button-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => onConfirm(waterInput)}
+                className="modal-button modal-button-primary"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -6243,40 +6328,66 @@ const MoodModal = ({ isOpen, onClose, onSelect, selectedMood }) => {
     { name: 'Sadness', icon: '😢', color: 'bg-indigo-500' },
     { name: 'Indifferent', icon: '😐', color: 'bg-gray-500' }
   ];
+  
+  // Swipe-to-dismiss functionality
+  const { modalRef, classes: swipeClasses } = useSwipeToDismiss(onClose, {
+    threshold: 80,
+    velocity: 0.4,
+    enabled: true
+  });
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-700">
-        <div className="text-center mb-6">
-          <h3 className="text-xl font-bold text-white mb-2">🌤️ How do you feel?</h3>
-          <p className="text-gray-300 text-sm">Select your current mood</p>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          {moods.map((mood) => (
-            <button
-              key={mood.name}
-              onClick={() => onSelect(mood)}
-              className={`p-4 rounded-xl text-center transition-all duration-300 hover:scale-105 ${
-                selectedMood?.name === mood.name ? 'ring-2 ring-blue-400' : 'bg-slate-700 hover:bg-slate-600'
-              }`}
-            >
-              <div className={`w-12 h-12 ${mood.color} rounded-full flex items-center justify-center text-2xl mx-auto mb-2`}>
-                {mood.icon}
-              </div>
-              <p className="text-white font-semibold">{mood.name}</p>
-            </button>
-          ))}
-        </div>
-        
-        <button
-          onClick={onClose}
-          className="w-full bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors"
+    <div className="modal-backdrop">
+      <div className="modal-container">
+        <div 
+          ref={modalRef}
+          className={`modal-content bg-slate-800 border-slate-700 ${swipeClasses}`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mood-modal-title"
         >
-          Cancel
-        </button>
+          {/* Swipe indicator */}
+          <div className="modal-swipe-indicator" />
+          
+          <div className="modal-scrollable">
+            <div className="text-center mb-6 p-4">
+              <h3 id="mood-modal-title" className="text-xl font-bold text-white mb-2">
+                🌤️ How do you feel?
+              </h3>
+              <p className="text-gray-300 text-sm">Select your current mood</p>
+            </div>
+            
+            <div className="modal-grid modal-grid-2 gap-3 mb-6 px-4">
+              {moods.map((mood) => (
+                <button
+                  key={mood.name}
+                  onClick={() => onSelect(mood)}
+                  className={`p-4 rounded-xl text-center transition-all duration-300 hover:scale-105 min-h-[44px] ${
+                    selectedMood?.name === mood.name ? 'ring-2 ring-blue-400 bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'
+                  }`}
+                  aria-pressed={selectedMood?.name === mood.name}
+                  aria-label={`Select ${mood.name} mood`}
+                >
+                  <div className={`w-12 h-12 ${mood.color} rounded-full flex items-center justify-center text-2xl mx-auto mb-2`}>
+                    {mood.icon}
+                  </div>
+                  <p className="text-white font-semibold">{mood.name}</p>
+                </button>
+              ))}
+            </div>
+            
+            <div className="modal-actions px-4 pb-4">
+              <button
+                onClick={onClose}
+                className="modal-button modal-button-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
