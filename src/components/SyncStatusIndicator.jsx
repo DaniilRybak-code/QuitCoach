@@ -14,7 +14,7 @@ const SyncStatusIndicator = ({ offlineManager }) => {
   const [currentOperation, setCurrentOperation] = useState(null);
 
   useEffect(() => {
-    if (!offlineManager) return;
+    if (!offlineManager || !offlineManager.progressManager) return;
 
     // Set up progress callbacks
     const progressCallback = (progressData) => {
@@ -49,8 +49,10 @@ const SyncStatusIndicator = ({ offlineManager }) => {
     const interval = setInterval(updateStatus, 1000);
 
     return () => {
-      offlineManager.progressManager.removeProgressCallback(progressCallback);
-      offlineManager.progressManager.removeStatusCallback(statusCallback);
+      if (offlineManager && offlineManager.progressManager) {
+        offlineManager.progressManager.removeProgressCallback(progressCallback);
+        offlineManager.progressManager.removeStatusCallback(statusCallback);
+      }
       clearInterval(interval);
     };
   }, [offlineManager]);
@@ -108,7 +110,7 @@ const SyncStatusIndicator = ({ offlineManager }) => {
   if (!offlineManager) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed top-4 right-4 z-50">
       {/* Main Status Indicator */}
       <div 
         className={`bg-white rounded-lg shadow-lg p-3 cursor-pointer transition-all duration-200 hover:shadow-xl ${getStatusColor()}`}
@@ -137,7 +139,7 @@ const SyncStatusIndicator = ({ offlineManager }) => {
 
       {/* Detailed Status Panel */}
       {showDetails && (
-        <div className="absolute bottom-16 right-0 bg-white rounded-lg shadow-xl p-4 w-80 border">
+        <div className="absolute top-16 right-0 bg-white rounded-lg shadow-xl p-4 w-80 border">
           <div className="flex justify-between items-center mb-3">
             <h3 className="font-semibold text-gray-800">Sync Status</h3>
             <button 

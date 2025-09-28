@@ -98,17 +98,17 @@ class EnhancedOfflineManager {
 
   async loadOfflineData() {
     try {
-      // Load user data
-      this.offlineData.userData = await this.queueManager.getData('userData');
+      // Load user data from localStorage as fallback
+      this.offlineData.userData = JSON.parse(localStorage.getItem('offline_userData') || 'null');
       
-      // Load profile data
-      this.offlineData.profileData = await this.queueManager.getData('profileData');
+      // Load profile data from localStorage as fallback
+      this.offlineData.profileData = JSON.parse(localStorage.getItem('offline_profileData') || 'null');
       
-      // Load cached stats
-      this.offlineData.cachedStats = await this.queueManager.getData('cachedStats');
+      // Load cached stats from localStorage as fallback
+      this.offlineData.cachedStats = JSON.parse(localStorage.getItem('offline_cachedStats') || 'null');
       
-      // Load last sync time
-      this.offlineData.lastSyncTime = await this.queueManager.getData('lastSyncTime');
+      // Load last sync time from localStorage as fallback
+      this.offlineData.lastSyncTime = JSON.parse(localStorage.getItem('offline_lastSyncTime') || 'null');
       
       console.log('📱 Offline data loaded:', {
         userData: !!this.offlineData.userData,

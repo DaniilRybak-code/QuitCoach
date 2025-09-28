@@ -619,17 +619,27 @@ class OfflineManager {
   // ===== UTILITY METHODS =====
 
   async loadOfflineData() {
-    this.offlineData.userData = await this.getData('userData');
-    this.offlineData.profileData = await this.getData('profileData');
-    
-    // Load sync queue
-    this.syncQueue = await this.getQueuedActions();
-    
-    console.log('📱 Offline data loaded:', {
-      userData: !!this.offlineData.userData,
-      profileData: !!this.offlineData.profileData,
-      queuedActions: this.syncQueue.length
-    });
+    try {
+      this.offlineData.userData = await this.getData('userData');
+      this.offlineData.profileData = await this.getData('profileData');
+      
+      // Load sync queue
+      this.syncQueue = await this.getQueuedActions();
+      
+      console.log('📱 Offline data loaded:', {
+        userData: !!this.offlineData.userData,
+        profileData: !!this.offlineData.profileData,
+        queuedActions: this.syncQueue.length
+      });
+    } catch (error) {
+      console.error('❌ Error loading offline data:', error);
+      // Initialize with empty data if loading fails
+      this.offlineData = {
+        userData: null,
+        profileData: null
+      };
+      this.syncQueue = [];
+    }
   }
 
   async checkForPendingSync() {

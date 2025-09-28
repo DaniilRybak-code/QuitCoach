@@ -218,6 +218,35 @@ class OfflineQueueManager {
     }
   }
 
+  handleSyncResults(syncResults) {
+    console.log('✅ Sync completed:', syncResults);
+    
+    // Update progress
+    this.progressManager?.updateProgress(100, 'Sync completed');
+    
+    // Show success notification
+    this.showSyncSuccessNotification(syncResults);
+    
+    // Clear completed operations
+    this.clearCompletedOperations();
+  }
+
+  showSyncSuccessNotification(results) {
+    if (this.progressManager) {
+      this.progressManager.showNotification(
+        'Sync completed successfully',
+        `Synced ${results.successful} operations`,
+        'success'
+      );
+    }
+  }
+
+  clearCompletedOperations() {
+    // Remove completed operations from queue
+    this.queue = this.queue.filter(op => op.status !== 'completed');
+    this.saveQueue();
+  }
+
   async syncOperations() {
     const results = {
       successful: 0,

@@ -55,7 +55,7 @@ class FirestoreBehavioralService {
     try {
       const cravingDocument = {
         userId,
-        timestamp: serverTimestamp(),
+        timestamp: Timestamp.now(),
         date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
         
         // Core craving data
@@ -100,7 +100,7 @@ class FirestoreBehavioralService {
     try {
       const relapseDocument = {
         userId,
-        timestamp: serverTimestamp(),
+        timestamp: Timestamp.now(),
         date: new Date().toISOString().split('T')[0],
         
         // Relapse details
@@ -144,7 +144,7 @@ class FirestoreBehavioralService {
     try {
       const hydrationDocument = {
         userId,
-        timestamp: serverTimestamp(),
+        timestamp: Timestamp.now(),
         date: new Date().toISOString().split('T')[0],
         
         // Hydration details
@@ -180,7 +180,7 @@ class FirestoreBehavioralService {
     try {
       const breathingDocument = {
         userId,
-        timestamp: serverTimestamp(),
+        timestamp: Timestamp.now(),
         date: new Date().toISOString().split('T')[0],
         
         // Exercise details
@@ -221,7 +221,7 @@ class FirestoreBehavioralService {
     try {
       const meditationDocument = {
         userId,
-        timestamp: serverTimestamp(),
+        timestamp: Timestamp.now(),
         date: new Date().toISOString().split('T')[0],
         
         // Session details
@@ -259,7 +259,7 @@ class FirestoreBehavioralService {
     try {
       const activityDocument = {
         userId,
-        timestamp: serverTimestamp(),
+        timestamp: Timestamp.now(),
         date: new Date().toISOString().split('T')[0],
         
         // Activity details
@@ -302,7 +302,7 @@ class FirestoreBehavioralService {
     try {
       const moodDocument = {
         userId,
-        timestamp: serverTimestamp(),
+        timestamp: Timestamp.now(),
         date: new Date().toISOString().split('T')[0],
         
         // Mood details

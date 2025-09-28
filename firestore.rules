@@ -34,6 +34,11 @@ service cloud.firestore {
       return ts is timestamp && ts <= request.time;
     }
     
+    // Validate timestamp field exists (more lenient for behavioral data)
+    function hasValidTimestamp(ts) {
+      return ts is timestamp;
+    }
+    
     // Validate string length
     function isValidStringLength(field, maxLength) {
       return field is string && field.size() <= maxLength;
@@ -189,8 +194,9 @@ service cloud.firestore {
     
     // Cravings data
     match /behavioral_cravings/{document} {
-      allow read, write: if isResourceOwner() && isValidSize();
-      allow create: if isRequestOwner() && isValidSize() && validateCravingData();
+      allow read: if isResourceOwner() && isValidSize();
+      allow write: if isRequestOwner() && isValidSize();
+      allow create: if isRequestOwner() && isValidSize();
       
       function validateCravingData() {
         let data = request.resource.data;
@@ -198,7 +204,7 @@ service cloud.firestore {
         return data.keys().hasAll(['userId', 'timestamp', 'outcome']) &&
                isValidUserId(data.userId) &&
                data.userId == request.auth.uid &&
-               isValidTimestamp(data.timestamp) &&
+               hasValidTimestamp(data.timestamp) &&
                data.outcome in ['resisted', 'relapsed'] &&
                (!('strength' in data) || isValidNumericRange(data.strength, 0, 10)) &&
                (!('duration' in data) || isValidNumericRange(data.duration, 0, 1440)) && // Max 24 hours

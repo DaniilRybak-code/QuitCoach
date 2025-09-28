@@ -1,4 +1,5 @@
 import { ref, get, set, onValue } from 'firebase/database';
+import AuthGuard from './authGuard.js';
 
 /**
  * Centralized Stat Service - Single source of truth for all user stats
@@ -6,9 +7,10 @@ import { ref, get, set, onValue } from 'firebase/database';
  * and automatically synced in real-time to all views (user and buddy)
  */
 class CentralizedStatService {
-  constructor(db, userId) {
+  constructor(db, userId, authGuard = null) {
     this.db = db;
     this.userId = userId;
+    this.authGuard = authGuard;
     this.statsRef = ref(db, `users/${userId}/stats`);
     this.profileRef = ref(db, `users/${userId}/profile`);
     this.listeners = [];
@@ -22,16 +24,28 @@ class CentralizedStatService {
     try {
       // console.log(`📊 CentralizedStats: Refreshing all stats for user ${this.userId}`);
       
-      // Get current user data
-      const [profileSnapshot, statsSnapshot, userRootSnapshot] = await Promise.all([
-        get(this.profileRef),
-        get(this.statsRef),
-        get(ref(this.db, `users/${this.userId}`))
-      ]);
+      // Get current user data with auth validation
+      let profileData, statsData, userRootData;
+      
+      if (this.authGuard) {
+        [profileData, statsData, userRootData] = await Promise.all([
+          this.authGuard.databaseGet(`users/${this.userId}/profile`),
+          this.authGuard.databaseGet(`users/${this.userId}/stats`),
+          this.authGuard.databaseGet(`users/${this.userId}`)
+        ]);
+      } else {
+        const [profileSnapshot, statsSnapshot, userRootSnapshot] = await Promise.all([
+          get(this.profileRef),
+          get(this.statsRef),
+          get(ref(this.db, `users/${this.userId}`))
+        ]);
+        
+        profileData = profileSnapshot.exists() ? profileSnapshot.val() : {};
+        statsData = statsSnapshot.exists() ? statsSnapshot.val() : {};
+        userRootData = userRootSnapshot.exists() ? userRootSnapshot.val() : {};
+      }
 
       // Merge profile data with fallbacks from root user object to ensure quit date sources exist
-      const profileData = profileSnapshot.exists() ? profileSnapshot.val() : {};
-      const userRootData = userRootSnapshot.exists() ? userRootSnapshot.val() : {};
       const mergedProfile = {
         ...profileData,
         createdAt: profileData.createdAt || userRootData.createdAt || null,
@@ -50,7 +64,7 @@ class CentralizedStatService {
         }
       }
 
-      const currentStats = statsSnapshot.exists() ? statsSnapshot.val() : this.getDefaultStats();
+      const currentStats = statsData || this.getDefaultStats();
 
           // Calculate effective quit date (considering relapses)
           const effectiveQuitDate = this.calculateEffectiveQuitDate(mergedProfile);
@@ -91,7 +105,11 @@ class CentralizedStatService {
           };
 
       // Write to Firebase (single source of truth)
-      await set(this.statsRef, updatedStats);
+      if (this.authGuard) {
+        await this.authGuard.databaseSet(`users/${this.userId}/stats`, updatedStats);
+      } else {
+        await set(this.statsRef, updatedStats);
+      }
       
       console.log(`✅ CentralizedStats: Stats updated in Firebase for ${this.userId}:`, {
         streak: streakData.displayText,
@@ -806,14 +824,20 @@ class CentralizedStatService {
         const newCravingsApplied = previouslyAppliedCravings + 1;
         
         // Update stats with new mental strength and cravings applied count
-        await set(this.statsRef, {
+        const statsToUpdate = {
           ...currentStats,
           mentalStrength: newMentalStrength,
           mentalStrengthCravingsApplied: newCravingsApplied,
           // Track the date for the daily counter separately from lastUpdated
           mentalStrengthCravingsAppliedDate: new Date().toISOString(),
           lastUpdated: new Date().toISOString()
-        });
+        };
+        
+        if (this.authGuard) {
+          await this.authGuard.databaseSet(`users/${this.userId}/stats`, statsToUpdate);
+        } else {
+          await set(this.statsRef, statsToUpdate);
+        }
         
         console.log(`✅ CentralizedStats: Applied +1 mental strength (${currentStats.mentalStrength} → ${newMentalStrength}), cravings applied: ${newCravingsApplied}/3`);
         // Refresh all other stats (streak, addiction level, etc.)
@@ -847,12 +871,18 @@ class CentralizedStatService {
       if (!appliedDate) {
         // If we don't have a daily stamp, this is the first check today.
         // Reset the counter to 0 and stamp today to avoid carrying over previous days' counts.
-        await set(this.statsRef, {
+        const resetStats = {
           ...currentStats,
           mentalStrengthCravingsApplied: 0,
           mentalStrengthCravingsAppliedDate: today.toISOString(),
           lastUpdated: new Date().toISOString()
-        });
+        };
+        
+        if (this.authGuard) {
+          await this.authGuard.databaseSet(`users/${this.userId}/stats`, resetStats);
+        } else {
+          await set(this.statsRef, resetStats);
+        }
         console.log(`✅ CentralizedStats: Initialized daily counter for ${this.userId} (reset to 0)`);
         return;
       }
@@ -860,12 +890,18 @@ class CentralizedStatService {
       const lastAppliedDate = new Date(appliedDate);
       if (lastAppliedDate.toDateString() !== todayKey) {
         console.log(`🔄 CentralizedStats: New day detected, resetting daily mental strength counter for ${this.userId}`);
-        await set(this.statsRef, {
+        const newDayStats = {
           ...currentStats,
           mentalStrengthCravingsApplied: 0,
           mentalStrengthCravingsAppliedDate: today.toISOString(),
           lastUpdated: new Date().toISOString()
-        });
+        };
+        
+        if (this.authGuard) {
+          await this.authGuard.databaseSet(`users/${this.userId}/stats`, newDayStats);
+        } else {
+          await set(this.statsRef, newDayStats);
+        }
         console.log(`✅ CentralizedStats: Daily mental strength counter reset for ${this.userId}`);
       }
     } catch (error) {

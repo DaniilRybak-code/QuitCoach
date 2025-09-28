@@ -17,6 +17,7 @@ console.log('🧪 FirestoreBuddyService constructor:', FirestoreBuddyService?.na
 import AuthScreen from './components/AuthScreen';
 import OfflineIndicator from './components/OfflineIndicator';
 import SyncStatusIndicator from './components/SyncStatusIndicator';
+import SessionStatusIndicator from './components/SessionStatusIndicator';
 import BreathingModal from './components/BreathingModal';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { Users, Zap, Trophy, Target, Heart, DollarSign, Calendar, Star, Shield, Sword, Home, User, Settings, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
@@ -3955,14 +3956,32 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
     }
   };
 
+  // Handle offline behavioral logging
+  const handleOfflineBehavioralLog = async (logType, logData) => {
+    if (!window.offlineManager || !authUser?.uid) return false;
+    
+    const enhancedLogData = {
+      ...logData,
+      userId: authUser.uid,
+      timestamp: Date.now()
+    };
+    
+    return await window.offlineManager.handleOfflineBehavioralLog(logType, enhancedLogData);
+  };
+
   const completeAssessment = async (outcome) => {
+    // Declare variables outside try block for catch block access
+    let finalCravingData;
+    let newStats;
+    let timestamp;
+    
     try {
-      const timestamp = new Date().toISOString();
+      timestamp = new Date().toISOString();
       const date = new Date().toDateString();
       
       // Prepare enhanced craving data with additional context
       const now = new Date();
-      const finalCravingData = {
+      finalCravingData = {
         ...cravingData,
         outcome,
         timestamp,
@@ -3994,7 +4013,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
       setDailyCravingLogs(newCount);
       
       // Initialize newStats variable
-      let newStats = {
+      newStats = {
         resisted: weeklyStats.resisted,
         relapses: weeklyStats.relapses,
         lastUpdated: timestamp
@@ -4003,381 +4022,158 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
       // Award awareness bonuses only for first 2 logs per day
       let statBonusAwarded = false;
       if (newCount <= 2 && statManager) {
-        await statManager.handleCravingLogged();
-        statBonusAwarded = true;
-      }
-      
-      // Import Firebase functions at function scope
-      const { ref, set, push, get } = await import('firebase/database');
-      
-      // Save daily count to Firebase
-      if (user && user.uid) {
-        
         try {
-          const logsRef = ref(db, `users/${user.uid}/profile/dailyCravingLogs/${today}`);
-          await set(logsRef, { count: newCount, lastUpdated: timestamp });
-        } catch (firebaseError) {
-          // Fallback to localStorage
-          const localStorageKey = `cravingLogs_${user.uid}_${today}`;
-          localStorage.setItem(localStorageKey, JSON.stringify({ count: newCount, lastUpdated: timestamp }));
-        }
-        
-        // Save individual craving record with enhanced structure
-        const cravingsRef = ref(db, `users/${user.uid}/cravings`);
-        const newCravingRef = push(cravingsRef);
-        await set(newCravingRef, finalCravingData);
-        
-        // ALSO save to Firestore for predictive analytics
-        if (behavioralService) {
-          try {
-            await behavioralService.logCraving(user.uid, {
-              outcome: 'resisted',
-              strength: cravingData.strength,
-              duration: cravingData.duration,
-              context: 'detailed_assessment',
-              triggers: cravingData.triggers || [],
-              mood: cravingData.mood,
-              stressLevel: cravingData.stressLevel,
-              copingStrategiesUsed: cravingData.copingStrategies || [],
-              location: cravingData.location,
-              socialSituation: cravingData.socialSituation
-            });
-            console.log('✅ Craving also logged to Firestore for analytics');
-          } catch (firestoreError) {
-            console.warn('⚠️ Could not log craving to Firestore:', firestoreError.message);
-            // Queue for offline sync if Firestore fails
-            await handleOfflineBehavioralLog('craving', {
-              outcome: 'resisted',
-              strength: cravingData.strength,
-              duration: cravingData.duration,
-              context: 'detailed_assessment',
-              triggers: cravingData.triggers || [],
-              mood: cravingData.mood,
-              stressLevel: cravingData.stressLevel,
-              copingStrategiesUsed: cravingData.copingStrategies || [],
-              location: cravingData.location,
-              socialSituation: cravingData.socialSituation
-            });
+          const bonusResult = await statManager.handleCravingLogged();
+          if (bonusResult && bonusResult.applied) {
+            statBonusAwarded = true;
+            console.log('✅ Awareness bonus awarded for craving tracking');
           }
-        }
-        
-        // Initialize variables for organized collections
-        let historyData = [];
-        let monthHistory = [];
-        
-        // Also save to organized collections for easier analysis
-        try {
-          const organizedRef = ref(db, `users/${user.uid}/profile/cravingHistory/${today}`);
-          const todayHistory = await get(organizedRef);
-          historyData = todayHistory.exists() ? todayHistory.val() : [];
-          historyData.push({
-            id: newCravingRef.key,
-            strength: finalCravingData.strength,
-            mood: finalCravingData.mood,
-            context: finalCravingData.context,
-            outcome: finalCravingData.outcome,
-            timestamp: finalCravingData.timestamp,
-            timeOfDay: finalCravingData.timeOfDay
-          });
-          await set(organizedRef, historyData);
-          console.log(`📅 Daily history updated for ${today}:`, historyData.length, 'records');
         } catch (error) {
-          console.warn('⚠️ Could not save to daily history:', error);
+          console.warn('⚠️ Could not award awareness bonus:', error);
         }
-        
-        // Calculate month key for trend analysis
-        const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        
-        // Save to monthly collection for trend analysis
-        try {
-          const monthlyRef = ref(db, `users/${user.uid}/profile/cravingTrends/${monthKey}`);
-          const monthlyData = await get(monthlyRef);
-          monthHistory = monthlyData.exists() ? monthlyData.val() : [];
-          monthHistory.push({
-            id: newCravingRef.key,
-            date: finalCravingData.date,
-            strength: finalCravingData.strength,
-            outcome: finalCravingData.outcome,
-            timeOfDay: finalCravingData.timeOfDay
-          });
-          await set(monthlyRef, monthHistory);
-          console.log(`📊 Monthly trends updated for ${monthKey}:`, monthHistory.length, 'records');
-        } catch (error) {
-          console.warn('⚠️ Could not save to monthly trends:', error);
-        }
-        
-        // Update weekly statistics based on outcome
-        const statsRef = ref(db, `users/${user.uid}/profile/cravingStats`);
-        
-        if (outcome === 'resisted') {
-          // User successfully resisted - this counts as actual resistance
-          newStats.resisted = weeklyStats.resisted + 1;
-          
-          // Check daily limits before giving resistance bonuses
-          let resistanceLimits = null;
-          let canAwardMentalStrength = true;
-          
-          // Use CentralizedStatService for ALL users (universal system)
-          if (window.centralizedStatService) {
-            console.log('🔄 Detailed Assessment: Using CentralizedStatService...');
-            
-            // Check daily mental strength limit before processing
-            const currentStats = await window.centralizedStatService.getCurrentStats();
-            const dailyMentalStrengthBonus = currentStats?.mentalStrengthCravingsApplied || 0;
-            
-            if (dailyMentalStrengthBonus >= 3) {
-              // User has reached daily limit for mental strength bonus
-              canAwardMentalStrength = false;
-              console.log('🔄 Detailed Assessment: Daily mental strength limit reached');
-            }
-            
-            // Process the craving resistance
-            await window.centralizedStatService.handleCravingResisted();
-            console.log('✅ Detailed Assessment: Stats updated via CentralizedStatService');
-          }
-          // Fallback to StatManager (legacy support)
-          else if (statManager) {
-            resistanceLimits = await statManager.checkDailyCravingResistanceLimits(today);
-            await statManager.handleCravingResistance();
-          }
-          
-          // Store resistance limits for message display
-          finalCravingData.resistanceLimits = {
-            ...resistanceLimits,
-            canAwardMentalStrength
-          };
-        } else if (outcome === 'relapsed') {
-          newStats.relapses = weeklyStats.relapses + 1;
-          
-          // Handle relapse
-          if (statManager) {
-            console.log('🔄 Detailed Craving: Calling StatManager.handleRelapse()...');
-            const relapseResult = await statManager.handleRelapse();
-            console.log('🔄 Detailed Craving: StatManager.handleRelapse() result:', relapseResult);
-            
-            // ALSO log relapse to Firestore for predictive analytics
-            if (behavioralService) {
-              try {
-                const escalationLevel = await statManager.getCurrentEscalationLevel();
-                await behavioralService.logRelapse(user.uid, {
-                  escalationLevel: escalationLevel,
-                  triggers: cravingData.triggers || [],
-                  mood: cravingData.mood,
-                  stressLevel: cravingData.stressLevel,
-                  location: cravingData.location,
-                  socialSituation: cravingData.socialSituation,
-                  copingAttempts: cravingData.copingStrategies || [],
-                  addictionIncrease: escalationLevel === 1 ? 4 : escalationLevel === 2 ? 6 : 8,
-                  mentalStrengthDecrease: 3,
-                  triggerDefenseDecrease: 3
-                });
-                console.log('✅ Relapse also logged to Firestore for analytics');
-              } catch (firestoreError) {
-                console.warn('⚠️ Could not log relapse to Firestore:', firestoreError.message);
-                // Queue for offline sync if Firestore fails (critical data)
-                await handleOfflineBehavioralLog('relapse', {
-                  escalationLevel: await statManager.getCurrentEscalationLevel(),
-                  triggers: cravingData.triggers || [],
-                  mood: cravingData.mood,
-                  stressLevel: cravingData.stressLevel,
-                  location: cravingData.location,
-                  socialSituation: cravingData.socialSituation,
-                  copingAttempts: cravingData.copingStrategies || [],
-                  addictionIncrease: escalationLevel === 1 ? 4 : escalationLevel === 2 ? 6 : 8,
-                  mentalStrengthDecrease: 3,
-                  triggerDefenseDecrease: 3
-                });
-              }
-            }
-          } else {
-            console.error('❌ Detailed Craving: StatManager not available!');
-          }
-          
-          // Refresh stats display after relapse - IMMEDIATE refresh
-          console.log('🔄 Detailed Craving: Triggering stats refresh...');
-          if (typeof refreshStats === 'function') {
-            refreshStats(); // Immediate refresh
-            setTimeout(() => {
-              console.log('🔄 Detailed Craving: Secondary stats refresh...');
-              refreshStats();
-            }, 1500); // Secondary refresh to ensure Firebase sync
-          } else {
-            console.error('❌ Detailed Craving: refreshStats function not available!');
-          }
-          
-          // Also refresh Arena stats immediately
-          if (typeof window.refreshArenaStats === 'function') {
-            console.log('🔄 Detailed Craving: Refreshing Arena stats...');
-            window.refreshArenaStats();
-            setTimeout(() => {
-              console.log('🔄 Detailed Craving: Secondary Arena stats refresh...');
-              window.refreshArenaStats();
-            }, 2000);
-          } else {
-            console.warn('⚠️ Detailed Craving: window.refreshArenaStats not available');
-          }
-          
-          // PWA-specific refresh: Force immediate UI update after relapse
-          console.log('🔄 Detailed Craving: Triggering immediate PWA refresh...');
-          
-          // Immediate refresh - no delays
-          if (typeof window.refreshArenaStats === 'function') {
-            console.log('🔄 Detailed Craving: Immediate Arena stats refresh...');
-            window.refreshArenaStats();
-          }
-          
-          // Force immediate re-render by updating user state
-          if (typeof setUser === 'function') {
-            setUser(prevUser => ({ ...prevUser, lastRelapseRefresh: Date.now() }));
-          }
-          
-          // Force ArenaView re-render
-          setStatsUpdateTrigger(prev => prev + 1);
-          
-          // Force immediate stats update
-          if (window.centralizedStatService) {
-            window.centralizedStatService.getCurrentStats().then(latestStats => {
-              console.log('🔄 Detailed Craving: Fetched latest stats after relapse:', latestStats);
-              if (typeof window.setLatestUserStats === 'function') {
-                window.setLatestUserStats(latestStats);
-              }
-            }).catch(error => {
-              console.error('❌ Detailed Craving: Failed to fetch latest stats:', error);
-            });
-          }
-          
-          // Additional immediate refresh attempts
-          setTimeout(() => {
-            console.log('🔄 Detailed Craving: Secondary immediate refresh...');
-            if (typeof window.refreshArenaStats === 'function') {
-              window.refreshArenaStats();
-            }
-            // Force a complete re-render
-            window.dispatchEvent(new Event('resize'));
-          }, 100);
-          
-          setTimeout(() => {
-            console.log('🔄 Detailed Craving: Tertiary immediate refresh...');
-            if (typeof window.refreshArenaStats === 'function') {
-              window.refreshArenaStats();
-            }
-          }, 500);
-          
-          // Note: Buddy will see these changes automatically via Firebase listeners
-        }
-        // For 'resistance_practices' and 'logged', newStats remains unchanged
-        
-        await set(statsRef, newStats);
-        setWeeklyStats(newStats);
-        
-        console.log('📊 Craving assessment saved to database:', {
-          userId: user.uid,
-          cravingId: newCravingRef.key,
-          data: finalCravingData,
-          databasePaths: {
-            main: `users/${user.uid}/cravings/${newCravingRef.key}`,
-            dailyHistory: `users/${user.uid}/profile/cravingHistory/${today}`,
-            monthlyTrends: `users/${user.uid}/profile/cravingTrends/${monthKey}`,
-            weeklyStats: `users/${user.uid}/profile/cravingStats`,
-            dailyLogs: `users/${user.uid}/profile/dailyCravingLogs/${today}`
-          },
-          summary: {
-            dailyHistoryRecords: historyData?.length || 0,
-            monthlyTrendsRecords: monthHistory?.length || 0,
-            monthKey: monthKey,
-            today: today
-          }
-        });
       }
-      
-      // Fallback to localStorage with user-specific key
-      const localCravings = JSON.parse(localStorage.getItem(`cravings_${user.uid}`) || '[]');
-      localCravings.push(finalCravingData);
-      localStorage.setItem(`cravings_${user.uid}`, JSON.stringify(localCravings));
-      
-      // Save weekly stats to localStorage
-      localStorage.setItem(`cravingStats_${user.uid}`, JSON.stringify(newStats));
-      
-      // Show appropriate message
+
+      // Handle different outcomes
       if (outcome === 'resisted') {
-        // Check if we have resistance limits to determine the message
-        if (finalCravingData.resistanceLimits) {
-          const limits = finalCravingData.resistanceLimits;
-          
-          if (!limits.canAwardMentalStrength && !limits.canAwardTriggerDefense) {
-            // Both limits reached
-            setPopupData({
-              title: '🎯 Daily Limits Reached',
-              message: 'You\'ve reached your daily limits for Mental Strength (3 points) and Trigger Defense (5 points).\n\nGreat job staying consistent! Come back tomorrow for more opportunities to grow.',
-              type: 'info'
-            });
-          } else if (!limits.canAwardMentalStrength) {
-            // Only mental strength limit reached
-            setPopupData({
-              title: '🎯 Mental Strength Limit Reached',
-              message: 'You\'ve reached your daily limit for Mental Strength (3 points).\n\nYour Trigger Defense increased by 3 points!\n\nCome back tomorrow for more Mental Strength opportunities.',
-              type: 'info'
-            });
-          } else if (!limits.canAwardTriggerDefense) {
-            // Only trigger defense limit reached
-            setPopupData({
-              title: '🎯 Trigger Defense Limit Reached',
-              message: 'You\'ve reached your daily limit for Trigger Defense (5 points).\n\nYour Mental Strength increased by 1 point!\n\nCome back tomorrow for more Trigger Defense opportunities.',
-              type: 'info'
-            });
-          } else {
-            // Both stats awarded - show remaining mental strength points
-            const currentStats = await window.centralizedStatService?.getCurrentStats();
-            const remainingMentalStrength = 3 - ((currentStats?.mentalStrengthCravingsApplied || 0) + 1);
-            
-            if (remainingMentalStrength > 0) {
-              setPopupData({
-                title: '🎉 Great Job!',
-                message: `You successfully resisted that craving!\n\nYour Mental Strength increased by 1 point (${remainingMentalStrength} more today) and Trigger Defense increased by 3 points!\n\nPlus, you earned awareness bonuses for tracking your craving!`,
-                type: 'success'
-              });
-            } else {
-              setPopupData({
-                title: '🎉 Great Job!',
-                message: 'You successfully resisted that craving!\n\nYour Mental Strength increased by 1 point (daily max reached!) and Trigger Defense increased by 3 points!\n\nPlus, you earned awareness bonuses for tracking your craving!',
-                type: 'success'
-              });
-            }
-          }
-        } else {
-          // Fallback message if limits not available
-          setPopupData({
-            title: '🎉 Great Job!',
-            message: 'You successfully resisted that craving!\n\nYour Mental Strength and Trigger Defense have increased significantly.\n\nPlus, you earned awareness bonuses for tracking your craving!',
-            type: 'success'
-          });
+        newStats.resisted = weeklyStats.resisted + 1;
+        
+        // Handle resistance with both StatManager and CentralizedStatService
+        if (statManager) {
+          console.log('🔄 Detailed Craving: Calling StatManager.handleCravingResistance()...');
+          const resistanceResult = await statManager.handleCravingResistance();
+          console.log('🔄 Detailed Craving: StatManager.handleCravingResistance() result:', resistanceResult);
         }
-      } else if (outcome === 'resistance_practices') {
+        
+        // ALSO handle resistance with CentralizedStatService (universal system)
+        if (window.centralizedStatService) {
+          console.log('🔄 Detailed Craving: Using CentralizedStatService...');
+          await window.centralizedStatService.handleCravingResisted();
+          console.log('✅ Detailed Craving: Stats updated via CentralizedStatService');
+        }
+        
+      } else if (outcome === 'relapsed') {
+        newStats.relapses = weeklyStats.relapses + 1;
+        
+        // Handle relapse with both StatManager and CentralizedStatService
+        if (statManager) {
+          console.log('🔄 Detailed Craving: Calling StatManager.handleRelapse()...');
+          const relapseResult = await statManager.handleRelapse();
+          console.log('🔄 Detailed Craving: StatManager.handleRelapse() result:', relapseResult);
+        }
+        
+        // ALSO handle relapse with CentralizedStatService (universal system)
+        if (window.centralizedStatService) {
+          console.log('🔄 Detailed Craving: Using CentralizedStatService...');
+          await window.centralizedStatService.handleRelapse();
+          console.log('✅ Detailed Craving: Stats updated via CentralizedStatService');
+        }
+      }
+
+      // Import Firebase functions
+      const { ref, set, push, get } = await import('firebase/database');
+
+      // Update weekly stats in Firebase
+      const weeklyStatsRef = ref(db, `users/${user.uid}/profile/cravingStats`);
+      await set(weeklyStatsRef, newStats);
+      
+      // Save craving data to Firebase
+      const cravingsRef = ref(db, `users/${user.uid}/cravings`);
+      const newCravingRef = push(cravingsRef);
+      await set(newCravingRef, finalCravingData);
+      
+      // ALSO save to Firestore for predictive analytics
+      if (behavioralService) {
+        try {
+          await behavioralService.logCraving(user.uid, {
+            outcome: outcome,
+            strength: cravingData.strength,
+            duration: cravingData.duration,
+            context: 'detailed_assessment',
+            triggers: cravingData.triggers || [],
+            mood: cravingData.mood,
+            stressLevel: cravingData.stressLevel,
+            copingStrategiesUsed: cravingData.copingStrategies || [],
+            location: cravingData.location,
+            socialSituation: cravingData.socialSituation
+          });
+          console.log('✅ Craving also logged to Firestore for analytics');
+        } catch (firestoreError) {
+          console.warn('⚠️ Could not log craving to Firestore:', firestoreError.message);
+          // Queue for offline sync if Firestore fails
+          if (handleOfflineBehavioralLog) {
+            await handleOfflineBehavioralLog('craving', {
+              outcome: outcome,
+              strength: cravingData.strength,
+              duration: cravingData.duration,
+              context: 'detailed_assessment',
+              triggers: cravingData.triggers || [],
+              mood: cravingData.mood,
+              stressLevel: cravingData.stressLevel,
+              copingStrategiesUsed: cravingData.copingStrategies || [],
+              location: cravingData.location,
+              socialSituation: cravingData.socialSituation
+            });
+          }
+        }
+      }
+
+      // Update daily history for analytics
+      const historyRef = ref(db, `users/${user.uid}/profile/cravingHistory/${today}`);
+      const historySnapshot = await get(historyRef);
+      let historyData = historySnapshot.exists() ? historySnapshot.val() : [];
+      
+      // Add new craving to history
+      historyData.push({
+        ...finalCravingData,
+        id: newCravingRef.key,
+        timestamp: timestamp
+      });
+      
+      // Keep only last 30 days of history
+      if (historyData.length > 30) {
+        historyData = historyData.slice(-30);
+      }
+      
+      await set(historyRef, historyData);
+      console.log(`📅 Daily history updated for ${today}:`, historyData.length, 'records');
+
+      // Update monthly trends
+      const monthKey = now.toISOString().substring(0, 7); // YYYY-MM format
+      const monthlyRef = ref(db, `users/${user.uid}/profile/cravingTrends/${monthKey}`);
+      const monthlySnapshot = await get(monthlyRef);
+      let monthHistory = monthlySnapshot.exists() ? monthlySnapshot.val() : [];
+      
+      // Add new craving to monthly trends
+      monthHistory.push({
+        ...finalCravingData,
+        id: newCravingRef.key,
+        timestamp: timestamp
+      });
+      
+      // Keep only last 12 months of trends
+      if (monthHistory.length > 365) {
+        monthHistory = monthHistory.slice(-365);
+      }
+      
+      await set(monthlyRef, monthHistory);
+      console.log(`📊 Monthly trends updated for ${monthKey}:`, monthHistory.length, 'records');
+
+      // Update weekly stats display
+      setWeeklyStats(newStats);
+      
+      // Show appropriate message based on outcome
+      if (outcome === 'resisted') {
         setPopupData({
-          title: '🛡️ Stay Strong!',
-          message: 'Stay strong! Use distraction or wellbeing practices to resist.\n\nYou earned awareness bonuses for tracking your craving!',
-          type: 'info'
+          title: '🎉 Great Job!',
+          message: 'You successfully resisted that craving!\n\nYour Mental Strength and Trigger Defense have increased significantly.\n\nPlus, you earned awareness bonuses for tracking your craving!',
+          type: 'success'
         });
       } else if (outcome === 'relapsed') {
         setPopupData({
-          title: '💪 Don\'t Give Up',
-          message: 'Relapses happen to everyone. The important thing is that you\'re here and trying again.\n\nYou still earned awareness bonuses for tracking your craving!',
-          type: 'info'
+          title: '🌟 New Beginning',
+          message: 'Every relapse is a chance to learn and grow stronger. You\'re back on track and that takes courage!\n\nYour awareness and tracking skills are improving with each experience. Keep going!',
+          type: 'success'
         });
-      } else if (outcome === 'logged') {
-        if (statBonusAwarded) {
-          setPopupData({
-            title: '📝 Craving Logged',
-            message: 'Great job tracking your craving!\n\nYou earned awareness bonuses for your self-awareness.\n\nThis helps build your Motivation and Trigger Defense.',
-            type: 'info'
-          });
-        } else {
-          setPopupData({
-            title: '📝 Daily Limit Reached',
-            message: 'Daily craving logging limit reached. Additional logs are recorded but won\'t award stat points until tomorrow.',
-            type: 'info'
-          });
-        }
       } else {
         setPopupData({
           title: '📝 Progress Recorded',
@@ -4392,17 +4188,50 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
       
     } catch (error) {
       console.error('Error saving craving assessment:', error);
-      // Still show message even if save fails
-      setPopupData({
-        title: 'Progress Recorded',
-        message: 'Your progress has been recorded locally.\n\nKeep up the great work!',
-        type: 'info'
-      });
+      
+      // Fallback to localStorage with user-specific key
+      if (finalCravingData) {
+        const localCravings = JSON.parse(localStorage.getItem(`cravings_${user.uid}`) || '[]');
+        localCravings.push(finalCravingData);
+        localStorage.setItem(`cravings_${user.uid}`, JSON.stringify(localCravings));
+      }
+      
+      // Save weekly stats to localStorage
+      if (newStats) {
+        const localStats = JSON.parse(localStorage.getItem(`cravingStats_${user.uid}`) || '{"resisted": 0, "relapses": 0}');
+        localStats.resisted = newStats.resisted;
+        localStats.relapses = newStats.relapses;
+        localStats.lastUpdated = timestamp;
+        localStorage.setItem(`cravingStats_${user.uid}`, JSON.stringify(localStats));
+      }
+      
+      // Show success message even if Firebase fails
+      if (outcome === 'resisted') {
+        setPopupData({
+          title: '🎉 Great Job!',
+          message: 'You successfully resisted that craving!\n\nYour progress has been recorded locally and will sync when the connection is restored.',
+          type: 'success'
+        });
+      } else if (outcome === 'relapsed') {
+        setPopupData({
+          title: '🌟 New Beginning',
+          message: 'Every relapse is a chance to learn and grow stronger. You\'re back on track and that takes courage!\n\nYour progress has been recorded locally and will sync when the connection is restored.',
+          type: 'success'
+        });
+      } else {
+        setPopupData({
+          title: '📝 Progress Recorded',
+          message: 'Your progress has been recorded locally and will sync when the connection is restored.',
+          type: 'info'
+        });
+      }
+      
       setShowCustomPopup(true);
       setShowCravingAssessment(false);
       setAssessmentStep(1);
     }
   };
+
 
   // Quick action functions
   const handleQuickResistance = async () => {
@@ -6896,6 +6725,7 @@ const App = () => {
   // StatManager instance
   const [statManager, setStatManager] = useState(null);
 
+
   // ===== PWA INSTALL HANDLERS =====
   useEffect(() => {
     const handleBIP = (e) => {
@@ -7424,7 +7254,8 @@ const App = () => {
         const manager = new OfflineManager();
         setOfflineManager(manager);
         
-        // Make refreshUserData available globally for offline manager
+        // Make offline manager and refreshUserData available globally
+        window.offlineManager = manager;
         window.refreshUserData = refreshUserData;
         
         console.log('✅ Offline manager initialized');
@@ -7432,8 +7263,27 @@ const App = () => {
         console.error('Error initializing offline manager:', error);
       }
     };
+
+    const initAuthServices = async () => {
+      try {
+        const AuthGuard = (await import('./services/authGuard')).default;
+        const SessionManager = (await import('./services/sessionManager')).default;
+        
+        const authGuard = new AuthGuard();
+        const sessionManager = new SessionManager();
+        
+        // Store globally for access
+        window.authGuard = authGuard;
+        window.sessionManager = sessionManager;
+        
+        console.log('✅ Auth services initialized');
+      } catch (error) {
+        console.error('❌ Failed to initialize auth services:', error);
+      }
+    };
     
     initOfflineManager();
+    initAuthServices();
   }, []);
 
   // Enhanced data loading with offline support
@@ -7503,18 +7353,6 @@ const App = () => {
     return await offlineManager.handleOfflineAction(action);
   };
 
-  // Handle offline behavioral logging
-  const handleOfflineBehavioralLog = async (logType, logData) => {
-    if (!offlineManager || !authUser?.uid) return false;
-    
-    const enhancedLogData = {
-      ...logData,
-      userId: authUser.uid,
-      timestamp: Date.now()
-    };
-    
-    return await offlineManager.handleOfflineBehavioralLog(logType, enhancedLogData);
-  };
 
   // Handle offline Firestore actions
   const handleOfflineFirestoreAction = async (actionType, actionData) => {
@@ -7816,7 +7654,7 @@ const App = () => {
 
               // Initialize CentralizedStatService for ALL users (universal system)
               try {
-                const centralizedService = new CentralizedStatService(db, firebaseUser.uid);
+                const centralizedService = new CentralizedStatService(db, firebaseUser.uid, window.authGuard);
                 setCentralizedStatService(centralizedService);
                 window.centralizedStatService = centralizedService; // Make globally accessible
                 
@@ -7977,7 +7815,7 @@ const App = () => {
           
           // Initialize CentralizedStatService for ALL existing users (universal system)
           try {
-            const centralizedService = new CentralizedStatService(db, firebaseUser.uid);
+            const centralizedService = new CentralizedStatService(db, firebaseUser.uid, window.authGuard);
             setCentralizedStatService(centralizedService);
             window.centralizedStatService = centralizedService; // Make globally accessible
             await centralizedService.refreshAllStats();
@@ -9480,6 +9318,12 @@ const App = () => {
       
       {/* Sync Status Indicator */}
       <SyncStatusIndicator offlineManager={offlineManager} />
+      
+      {/* Session Status Indicator */}
+      <SessionStatusIndicator 
+        sessionManager={window.sessionManager} 
+        authGuard={window.authGuard} 
+      />
             
 
       {/* Onboarding Flow */}
