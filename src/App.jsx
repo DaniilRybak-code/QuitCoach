@@ -10,6 +10,13 @@ import CentralizedStatService from './services/centralizedStatService.js';
 import useSwipeToDismiss from './hooks/useSwipeToDismiss.js';
 import PerformanceDashboard from './components/PerformanceDashboard.jsx';
 import performanceIntegrationService from './services/performanceIntegrationService.js';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
+import BetaMonitoringDashboard from './components/BetaMonitoringDashboard.jsx';
+import dataBackupService from './services/dataBackupService.js';
+import privacyProtectionService from './services/privacyProtectionService.js';
+import errorLoggingService from './services/errorLoggingService.js';
+import gracefulDegradationService from './services/gracefulDegradationService.js';
+import rateLimitingService from './services/rateLimitingService.js';
 
 // Debug: Check if FirestoreBuddyService is imported correctly
 console.log('🧪 FirestoreBuddyService import check:', !!FirestoreBuddyService);
@@ -6523,7 +6530,7 @@ const DiaryModal = ({ isOpen, onClose, selectedDate, onDateSelect, dailyData }) 
 
 
 
-const SettingsView = ({ onResetApp, onBackToLogin, onResetForTesting, firestoreBuddyService, firestoreBuddyServiceRef, initializeFirestoreBuddyService, behavioralService, user, onShowAnalytics, onShowPerformanceDashboard }) => (
+const SettingsView = ({ onResetApp, onBackToLogin, onResetForTesting, firestoreBuddyService, firestoreBuddyServiceRef, initializeFirestoreBuddyService, behavioralService, user, onShowAnalytics, onShowPerformanceDashboard, onShowBetaMonitoring }) => (
   <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pb-20">
     <div className="max-w-md mx-auto px-4 pt-16">
       <div className="text-center mb-8">
@@ -6591,6 +6598,21 @@ const SettingsView = ({ onResetApp, onBackToLogin, onResetForTesting, firestoreB
           </button>
           <p className="text-gray-500 text-xs">
             View database performance, authentication metrics, offline queue status, and run stress tests
+          </p>
+        </div>
+
+        {/* Beta Monitoring */}
+        <div className="bg-slate-800/50 rounded-xl p-4">
+          <h3 className="text-white font-semibold mb-2">🛡️ Beta Safety Monitoring</h3>
+          <p className="text-gray-400 text-sm mb-4">Monitor safety measures and beta testing metrics</p>
+          <button
+            onClick={onShowBetaMonitoring}
+            className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg transition-colors mb-3 min-h-[44px]"
+          >
+            🔒 Open Beta Monitoring Dashboard
+          </button>
+          <p className="text-gray-500 text-xs">
+            View data backup status, privacy compliance, error logs, rate limiting, and system health
           </p>
         </div>
 
@@ -6706,6 +6728,7 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(false);
+  const [showBetaMonitoring, setShowBetaMonitoring] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -7696,6 +7719,37 @@ const App = () => {
                 console.log('✅ Performance monitoring system initialized');
               } catch (error) {
                 console.error('Error initializing performance monitoring:', error);
+              }
+
+              // Initialize Safety Services for Beta Testing
+              try {
+                // Initialize data backup service
+                dataBackupService.initialize(firebaseUser.uid);
+                window.dataBackupService = dataBackupService;
+                console.log('✅ Data backup service initialized');
+
+                // Initialize privacy protection service
+                privacyProtectionService.initialize(firebaseUser.uid);
+                window.privacyProtectionService = privacyProtectionService;
+                console.log('✅ Privacy protection service initialized');
+
+                // Initialize error logging service
+                errorLoggingService.initialize(firebaseUser.uid);
+                window.errorLoggingService = errorLoggingService;
+                console.log('✅ Error logging service initialized');
+
+                // Initialize graceful degradation service
+                gracefulDegradationService.initialize(firebaseUser.uid);
+                window.gracefulDegradationService = gracefulDegradationService;
+                console.log('✅ Graceful degradation service initialized');
+
+                // Initialize rate limiting service
+                rateLimitingService.initialize(firebaseUser.uid);
+                window.rateLimitingService = rateLimitingService;
+                console.log('✅ Rate limiting service initialized');
+
+              } catch (error) {
+                console.error('Error initializing safety services:', error);
               }
               
               // Check if existing user needs buddy matching
@@ -9318,7 +9372,8 @@ const App = () => {
     );
   }
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 relative">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 relative">
       {/* Pull-to-refresh indicator */}
       {pullToRefreshY > 0 && (
         <div 
@@ -9456,6 +9511,7 @@ const App = () => {
               user={user}
               onShowAnalytics={() => setShowAnalytics(true)}
               onShowPerformanceDashboard={() => setShowPerformanceDashboard(true)}
+              onShowBetaMonitoring={() => setShowBetaMonitoring(true)}
             />
           )}
 
@@ -9473,6 +9529,14 @@ const App = () => {
             <PerformanceDashboard 
               isOpen={showPerformanceDashboard}
               onClose={() => setShowPerformanceDashboard(false)}
+            />
+          )}
+
+          {/* Beta Monitoring Dashboard Modal */}
+          {showBetaMonitoring && (
+            <BetaMonitoringDashboard 
+              isOpen={showBetaMonitoring}
+              onClose={() => setShowBetaMonitoring(false)}
             />
           )}
 
@@ -9508,7 +9572,8 @@ const App = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 

@@ -413,11 +413,48 @@ service cloud.firestore {
       }
     }
     
-    // ===== RATE LIMITING =====
+    // ===== SAFETY SERVICES COLLECTIONS =====
     
-    // Rate limiting for behavioral data (max 100 writes per hour per user)
-    match /rate_limits/{userId} {
-      allow read, write: if isOwner(userId);
+    // Data backup service - Firestore collections
+    match /backup_data/{document} {
+      allow read, write: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize();
+    }
+    
+    // Error logging service - Firestore collections
+    match /error_logs/{document} {
+      allow read, write: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize();
+    }
+    
+    // Performance metrics - Firestore collections
+    match /performance_metrics/{document} {
+      allow read, write: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize();
+    }
+    
+    // Privacy protection logs - Firestore collections
+    match /privacy_logs/{document} {
+      allow read, write: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize();
+    }
+    
+    // Graceful degradation logs - Firestore collections
+    match /degradation_logs/{document} {
+      allow read, write: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize();
+    }
+    
+    // Beta monitoring data - Firestore collections
+    match /beta_monitoring/{document} {
+      allow read, write: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize();
+    }
+    
+    // Health check collections (for service monitoring)
+    match /health_check/{document} {
+      allow read, write: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize();
     }
     
     // ===== DENY ALL OTHER ACCESS =====
