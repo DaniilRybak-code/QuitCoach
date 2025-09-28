@@ -16,6 +16,7 @@ console.log('🧪 FirestoreBuddyService constructor:', FirestoreBuddyService?.na
 
 import AuthScreen from './components/AuthScreen';
 import OfflineIndicator from './components/OfflineIndicator';
+import SyncStatusIndicator from './components/SyncStatusIndicator';
 import BreathingModal from './components/BreathingModal';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { Users, Zap, Trophy, Target, Heart, DollarSign, Calendar, Star, Shield, Sword, Home, User, Settings, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
@@ -1201,16 +1202,16 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
     let isCancelled = false;
     const loadSpecialFeatures = async () => {
       try {
-        console.log('🔄 TradingCard: Loading Special Features for user:', user?.heroName, 'uid:', user?.uid);
-        console.log('🔄 TradingCard: User has specialFeatures:', !!user?.specialFeatures);
-        console.log('🔄 TradingCard: User has triggers:', user?.triggers);
-        console.log('🔄 TradingCard: User has dailyPatterns:', user?.dailyPatterns);
-        console.log('🔄 TradingCard: User has copingStrategies:', user?.copingStrategies);
+        // console.log('🔄 TradingCard: Loading Special Features for user:', user?.heroName, 'uid:', user?.uid);
+        // console.log('🔄 TradingCard: User has specialFeatures:', !!user?.specialFeatures);
+        // console.log('🔄 TradingCard: User has triggers:', user?.triggers);
+        // console.log('🔄 TradingCard: User has dailyPatterns:', user?.dailyPatterns);
+        // console.log('🔄 TradingCard: User has copingStrategies:', user?.copingStrategies);
         
         if (user && user.uid) {
           // Check if user already has Special Features loaded
           if (user.specialFeatures) {
-            console.log('✅ TradingCard: Using pre-loaded Special Features');
+            // console.log('✅ TradingCard: Using pre-loaded Special Features');
             if (!isCancelled) {
               // Handle both old format (array) and new format (object with features and categories)
               if (Array.isArray(user.specialFeatures)) {
@@ -1225,10 +1226,10 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
               }
             }
           } else {
-            console.log('🔄 TradingCard: Generating new Special Features');
+            // console.log('🔄 TradingCard: Generating new Special Features');
             // Generate Special Features if not already available
             const featuresData = await getPersonalizedFeatures(user);
-            console.log('✅ TradingCard: Generated features:', featuresData);
+            // console.log('✅ TradingCard: Generated features:', featuresData);
             if (!isCancelled) {
               // Handle both old format (array) and new format (object with features and categories)
               if (Array.isArray(featuresData)) {
@@ -1244,7 +1245,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
             }
           }
         } else {
-          console.log('⚠️ TradingCard: No user or uid, setting empty features');
+          // console.log('⚠️ TradingCard: No user or uid, setting empty features');
           // Fallback to empty list when user missing
           if (!isCancelled) {
             setUserSpecialFeatures([]);
@@ -1307,17 +1308,17 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
   const ArchetypeIcon = archetype.icon;
   
   // Debug logging for TradingCard (reduced to prevent infinite loops)
-  console.log('🎯 TradingCard: Received user object:', user?.heroName);
-  console.log('🎯 TradingCard: User stats:', user?.stats);
-  console.log('🎯 TradingCard: User stats.cravingsResisted:', user?.stats?.cravingsResisted);
-  console.log('🎯 TradingCard: User stats.streakDisplayText:', user?.stats?.streakDisplayText);
-  console.log('🎯 TradingCard: User stats.streakDays:', user?.stats?.streakDays);
+  // console.log('🎯 TradingCard: Received user object:', user?.heroName);
+  // console.log('🎯 TradingCard: User stats:', user?.stats);
+  // console.log('🎯 TradingCard: User stats.cravingsResisted:', user?.stats?.cravingsResisted);
+  // console.log('🎯 TradingCard: User stats.streakDisplayText:', user?.stats?.streakDisplayText);
+  // console.log('🎯 TradingCard: User stats.streakDays:', user?.stats?.streakDays);
   
   // Generate and store personalized special features based on onboarding responses
   async function getPersonalizedFeatures(user) {
     // If this is a buddy/nemesis user, load their centralized Special Features
     if (user?.isRealBuddy) {
-      console.log('🔄 TradingCard: Loading centralized Special Features for buddy:', user.heroName);
+      // console.log('🔄 TradingCard: Loading centralized Special Features for buddy:', user.heroName);
       try {
         const { ref, get } = await import('firebase/database');
         const statsRef = ref(db, `users/${user.uid}/stats`);
@@ -1326,7 +1327,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
         if (snapshot.exists()) {
           const stats = snapshot.val();
           if (stats.specialFeatures && Array.isArray(stats.specialFeatures)) {
-            console.log('✅ TradingCard: Using centralized Special Features for buddy:', stats.specialFeatures);
+            // console.log('✅ TradingCard: Using centralized Special Features for buddy:', stats.specialFeatures);
             return stats.specialFeatures;
           }
         }
@@ -1336,7 +1337,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
         const legacySnapshot = await get(legacyRef);
         if (legacySnapshot.exists()) {
           const features = legacySnapshot.val();
-          console.log('✅ TradingCard: Using legacy Special Features for buddy:', features);
+          // console.log('✅ TradingCard: Using legacy Special Features for buddy:', features);
           return features;
         }
       } catch (error) {
@@ -1344,7 +1345,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
       }
       
       // Fallback: Use placeholder features
-      console.log('🔄 TradingCard: Generating placeholder features for buddy:', user.heroName);
+      // console.log('🔄 TradingCard: Generating placeholder features for buddy:', user.heroName);
       return ['Freedom Chaser', 'Nicotine Fighter', 'Health Seeker', 'Willpower Warrior'];
     }
     
@@ -1895,7 +1896,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             }
           });
           stats.cravingsResisted = totalResisted;
-          console.log('🔄 Arena: Got buddy cravings resisted:', totalResisted);
+          // console.log('🔄 Arena: Got buddy cravings resisted:', totalResisted);
         }
       } catch (cravingsError) {
         console.log('⚠️ Arena: Could not read buddy cravings, using default');
@@ -2182,14 +2183,14 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
       cravingsResisted: 0,
       streakDays: 0
     };
-    console.log('🔄 Arena: Initializing realTimeNemesisStats with default stats:', defaultStats);
+    // console.log('🔄 Arena: Initializing realTimeNemesisStats with default stats:', defaultStats);
     return defaultStats;
   });
 
   // Sync realTimeUserStats with userStats when userStats changes
   useEffect(() => {
     if (userStats && Object.keys(userStats).length > 0) {
-      console.log('🔄 Arena: Syncing realTimeUserStats with userStats:', userStats);
+      // console.log('🔄 Arena: Syncing realTimeUserStats with userStats:', userStats);
       setRealTimeUserStats(userStats);
     }
   }, [userStats]);
@@ -2209,7 +2210,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
     if (user && window.centralizedStatService) {
       try {
         const stats = await window.centralizedStatService.getCurrentStats();
-        console.log('🔄 Arena: Fetched latest stats from CentralizedStatService:', stats);
+        // console.log('🔄 Arena: Fetched latest stats from CentralizedStatService:', stats);
         setLatestUserStats(stats);
         return stats;
       } catch (error) {
@@ -2301,7 +2302,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
     }
 
     let isMounted = true;
-    console.log('🔄 Arena: Setting up real-time listener for buddy stats:', nemesis.heroName);
+    // console.log('🔄 Arena: Setting up real-time listener for buddy stats:', nemesis.heroName);
 
     const setupBuddyStatsListener = async () => {
       try {
@@ -2314,8 +2315,8 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
           
           if (snapshot.exists()) {
             const updatedBuddyStats = snapshot.val();
-            console.log('🔄 Arena: Buddy stats updated in real-time:', updatedBuddyStats);
-            console.log('🔍 Arena: Buddy streak display info - streakDays:', updatedBuddyStats.streakDays, 'streakUnit:', updatedBuddyStats.streakUnit, 'streakDisplayText:', updatedBuddyStats.streakDisplayText);
+            // console.log('🔄 Arena: Buddy stats updated in real-time:', updatedBuddyStats);
+            // console.log('🔍 Arena: Buddy streak display info - streakDays:', updatedBuddyStats.streakDays, 'streakUnit:', updatedBuddyStats.streakUnit, 'streakDisplayText:', updatedBuddyStats.streakDisplayText);
             
             // Prefer centralized streak if present
             if (updatedBuddyStats.streakDisplayText && updatedBuddyStats.streakUnit) {
@@ -2325,7 +2326,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                 streakDisplayText: updatedBuddyStats.streakDisplayText
               };
               setBuddyStreakData(centralizedStreakData);
-              console.log('🔍 Arena: Using centralized stats streak:', centralizedStreakData.streakDisplayText);
+              // console.log('🔍 Arena: Using centralized stats streak:', centralizedStreakData.streakDisplayText);
             } else {
               // Compute from buddy's own timestamps only when centralized values are missing
               let dateSource = realBuddy?.lastRelapseDate || nemesis?.lastRelapseDate || realBuddy?.originalQuitDate || nemesis?.originalQuitDate || realBuddy?.lastActivity || nemesis?.lastActivity || null;
@@ -2340,7 +2341,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                 updatedBuddyStats.streakDays = streakData.value;
                 updatedBuddyStats.streakUnit = streakData.unit;
                 updatedBuddyStats.streakDisplayText = streakData.displayText;
-                console.log('🔄 Arena: Calculated buddy streak from timestamps (no centralized):', streakData.displayText);
+                // console.log('🔄 Arena: Calculated buddy streak from timestamps (no centralized):', streakData.displayText);
               } else {
                 // Final default when nothing available
                 updatedBuddyStats.streakUnit = 'hours';
@@ -2350,7 +2351,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             
             // Update the nemesis stats in real-time with calculated streak
             setRealTimeNemesisStats(prevStats => {
-              console.log('🔄 Arena: Updating buddy stats with calculated streak:', updatedBuddyStats.streakDisplayText);
+              // console.log('🔄 Arena: Updating buddy stats with calculated streak:', updatedBuddyStats.streakDisplayText);
               
               return {
                 ...prevStats,
@@ -2372,15 +2373,15 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
           
           if (snapshot.exists()) {
             const profileData = snapshot.val();
-            console.log('🔄 Arena: Buddy profile updated, recalculating stats...');
+            // console.log('🔄 Arena: Buddy profile updated, recalculating stats...');
             
             // Update buddy stats preserving the pre-loaded real stats
-            console.log('🔄 Arena: Preserving pre-loaded buddy stats during profile update...');
+            // console.log('🔄 Arena: Preserving pre-loaded buddy stats during profile update...');
             
             // For User 2 and User 3: Don't recalculate on profile changes, use centralized stats
             const buddyUID = nemesis?.uid || realBuddy?.uid;
             if (buddyUID === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1' || buddyUID === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2') {
-              console.log(`🔄 Arena: Profile change for centralized buddy ${buddyUID} - keeping centralized stats intact`);
+              // console.log(`🔄 Arena: Profile change for centralized buddy ${buddyUID} - keeping centralized stats intact`);
               // Don't recalculate anything - centralized stats are already correct
             } else {
               // For other users: Update streak if needed
@@ -2395,7 +2396,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                   updatedStats.streakDays = streakData.value;
                   updatedStats.streakUnit = streakData.unit;
                   updatedStats.streakDisplayText = streakData.displayText;
-                  console.log('🔄 Arena: Updated buddy streak from profile change:', streakData.displayText);
+                  // console.log('🔄 Arena: Updated buddy streak from profile change:', streakData.displayText);
                 } else if (profileData.lastRelapseDate || profileData.relapseDate) {
                   // Fallback: use last relapse date when available to compute streak
                   const relapseDate = new Date(profileData.lastRelapseDate || profileData.relapseDate);
@@ -2408,7 +2409,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                     streakUnit: relapseStreak.unit,
                     streakDisplayText: relapseStreak.displayText
                   });
-                  console.log('🔄 Arena: Updated buddy streak from last relapse date:', relapseStreak.displayText);
+                  // console.log('🔄 Arena: Updated buddy streak from last relapse date:', relapseStreak.displayText);
                 } else if (nemesis?.finalQuitDate || realBuddy?.finalQuitDate) {
                   // Last resort: use computed finalQuitDate (e.g., seeded or fallback)
                   const fallbackQuit = new Date(nemesis?.finalQuitDate || realBuddy?.finalQuitDate);
@@ -2421,14 +2422,14 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                     streakUnit: fallbackStreak.unit,
                     streakDisplayText: fallbackStreak.displayText
                   });
-                  console.log('🔄 Arena: Updated buddy streak from finalQuitDate fallback:', fallbackStreak.displayText);
+                  // console.log('🔄 Arena: Updated buddy streak from finalQuitDate fallback:', fallbackStreak.displayText);
                 }
                 
-                console.log('🔄 Arena: Preserved real buddy stats during profile update:', updatedStats);
+                // console.log('🔄 Arena: Preserved real buddy stats during profile update:', updatedStats);
                 
                 // Preserve locally calculated streak during profile update
                 setRealTimeNemesisStats(prevStats => {
-                  console.log('🔄 Arena: Preserving locally calculated streak during profile update:', buddyStreakData);
+                  // console.log('🔄 Arena: Preserving locally calculated streak during profile update:', buddyStreakData);
                   
                   return {
                     ...prevStats,
@@ -2437,7 +2438,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                   };
                 });
               } else {
-                console.log('🔄 Arena: Skipping profile update - waiting for real stats to load first');
+                // console.log('🔄 Arena: Skipping profile update - waiting for real stats to load first');
               }
             }
           }
@@ -2939,12 +2940,12 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                 ? { ...user.stats, ...userStats }  // Use passed userStats as fallback
                 : { ...user.stats, ...realTimeUserStats }; // Final fallback to calculated stats
               
-              console.log(`🎯 TradingCard: Using ${latestUserStats && Object.keys(latestUserStats).length > 0 ? 'latest centralized' : userStats && Object.keys(userStats).length > 0 ? 'centralized' : 'calculated'} stats for ${user.uid}`);
-              console.log('🎯 TradingCard: Final stats:', { 
-                streak: mergedUserStats.streakDisplayText, 
-                addiction: mergedUserStats.addictionLevel,
-                cravingsResisted: mergedUserStats.cravingsResisted
-              });
+              // console.log(`🎯 TradingCard: Using ${latestUserStats && Object.keys(latestUserStats).length > 0 ? 'latest centralized' : userStats && Object.keys(userStats).length > 0 ? 'centralized' : 'calculated'} stats for ${user.uid}`);
+              // console.log('🎯 TradingCard: Final stats:', { 
+              //   streak: mergedUserStats.streakDisplayText, 
+              //   addiction: mergedUserStats.addictionLevel,
+              //   cravingsResisted: mergedUserStats.cravingsResisted
+              // });
               // Reduced logging to prevent console spam
               // console.log('🎯 TradingCard: User base stats:', user.stats);
               // console.log('🎯 TradingCard: Real-time user stats:', realTimeUserStats);
@@ -3003,12 +3004,12 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                 mergedNemesisStats.stats.streakUnit = buddyStreakData.streakUnit;
               }
               
-              console.log('🎯 TradingCard: Buddy streak debug:', {
-                realTimeNemesisStats: realTimeNemesisStats,
-                mergedNemesisStats: mergedNemesisStats.stats,
-                buddyStreak: mergedNemesisStats.stats?.streakDisplayText,
-                preservedBuddyStreak: buddyStreakData
-              });
+              // console.log('🎯 TradingCard: Buddy streak debug:', {
+              //   realTimeNemesisStats: realTimeNemesisStats,
+              //   mergedNemesisStats: mergedNemesisStats.stats,
+              //   buddyStreak: mergedNemesisStats.stats?.streakDisplayText,
+              //   preservedBuddyStreak: buddyStreakData
+              // });
               
               // Debug logging for buddy stats (removed to reduce console noise)
               // console.log('🔍 Buddy TradingCard: Nemesis stats source:', {
@@ -9476,6 +9477,9 @@ const App = () => {
 
       {/* Offline Indicator */}
       <OfflineIndicator offlineManager={offlineManager} />
+      
+      {/* Sync Status Indicator */}
+      <SyncStatusIndicator offlineManager={offlineManager} />
             
 
       {/* Onboarding Flow */}

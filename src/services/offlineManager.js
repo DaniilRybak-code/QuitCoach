@@ -1,5 +1,8 @@
 // Offline Manager Service
 // Handles offline data storage, action queuing, and synchronization
+// Enhanced with queue management and conflict resolution
+
+import EnhancedOfflineManager from './enhancedOfflineManager.js';
 
 class OfflineManager {
   constructor() {
@@ -7,6 +10,9 @@ class OfflineManager {
     this.syncQueue = [];
     this.offlineData = {};
     this.lastSyncTime = null;
+    
+    // Initialize enhanced offline manager
+    this.enhancedManager = new EnhancedOfflineManager();
     
     // Initialize offline storage
     this.initOfflineStorage();
@@ -292,22 +298,36 @@ class OfflineManager {
   // ===== BEHAVIORAL LOGGING OFFLINE SUPPORT =====
 
   async handleOfflineBehavioralLog(logType, logData) {
-    const action = {
-      type: 'BEHAVIORAL_LOG',
-      logType,
-      logData,
-      timestamp: Date.now(),
-      userId: logData.userId || 'unknown'
-    };
+    try {
+      // Use enhanced queue manager for better handling
+      const operationId = await this.enhancedManager.queueBehavioralLog(
+        logData.userId || 'unknown',
+        logType,
+        logData,
+        'normal'
+      );
+      
+      console.log(`📝 Behavioral log queued: ${logType} (${operationId})`);
+      return operationId;
+    } catch (error) {
+      console.error('❌ Error queuing behavioral log:', error);
+      
+      // Fallback to legacy method
+      const action = {
+        type: 'BEHAVIORAL_LOG',
+        logType,
+        logData,
+        timestamp: Date.now(),
+        userId: logData.userId || 'unknown'
+      };
 
-    if (this.isOnline) {
-      // If online, try to log immediately
-      return await this.executeBehavioralLog(action);
-    } else {
-      // If offline, queue for later sync
-      const actionId = await this.queueOfflineAction(action);
-      this.showOfflineSaveNotification(logType);
-      return actionId;
+      if (this.isOnline) {
+        return await this.executeBehavioralLog(action);
+      } else {
+        const actionId = await this.queueOfflineAction(action);
+        this.showOfflineSaveNotification(logType);
+        return actionId;
+      }
     }
   }
 
@@ -332,22 +352,36 @@ class OfflineManager {
   }
 
   async handleOfflineFirestoreAction(actionType, actionData) {
-    const action = {
-      type: 'FIRESTORE_ACTION',
-      actionType,
-      actionData,
-      timestamp: Date.now(),
-      userId: actionData.userId || 'unknown'
-    };
+    try {
+      // Use enhanced queue manager for better handling
+      const operationId = await this.enhancedManager.queueFirestoreAction(
+        actionData.userId || 'unknown',
+        actionType,
+        actionData,
+        'normal'
+      );
+      
+      console.log(`📝 Firestore action queued: ${actionType} (${operationId})`);
+      return operationId;
+    } catch (error) {
+      console.error('❌ Error queuing Firestore action:', error);
+      
+      // Fallback to legacy method
+      const action = {
+        type: 'FIRESTORE_ACTION',
+        actionType,
+        actionData,
+        timestamp: Date.now(),
+        userId: actionData.userId || 'unknown'
+      };
 
-    if (this.isOnline) {
-      // If online, try to execute immediately
-      return await this.executeFirestoreAction(action);
-    } else {
-      // If offline, queue for later sync
-      const actionId = await this.queueOfflineAction(action);
-      this.showOfflineSaveNotification(actionType);
-      return actionId;
+      if (this.isOnline) {
+        return await this.executeFirestoreAction(action);
+      } else {
+        const actionId = await this.queueOfflineAction(action);
+        this.showOfflineSaveNotification(actionType);
+        return actionId;
+      }
     }
   }
 
@@ -613,10 +647,48 @@ class OfflineManager {
     };
   }
 
+  // ===== ENHANCED MANAGER INTEGRATION =====
+
+  // Expose enhanced manager methods
+  async queueCreate(collection, data, userId, priority = 'normal') {
+    return await this.enhancedManager.queueCreate(collection, data, userId, priority);
+  }
+
+  async queueUpdate(collection, docId, data, userId, priority = 'normal') {
+    return await this.enhancedManager.queueUpdate(collection, docId, data, userId, priority);
+  }
+
+  async queueDelete(collection, docId, userId, priority = 'normal') {
+    return await this.enhancedManager.queueDelete(collection, docId, userId, priority);
+  }
+
+  async getQueueDetails() {
+    return await this.enhancedManager.getQueueDetails();
+  }
+
+  async retryFailedOperations() {
+    return await this.enhancedManager.retryFailedOperations();
+  }
+
+  async clearAllQueues() {
+    return await this.enhancedManager.clearAllQueues();
+  }
+
+  getEnhancedStatus() {
+    return this.enhancedManager.getStatus();
+  }
+
+  getEnhancedManager() {
+    return this.enhancedManager;
+  }
+
   // ===== CLEANUP =====
 
   async clearOfflineData() {
     try {
+      // Clear enhanced manager data
+      await this.enhancedManager.clearAllQueues();
+      
       if (this.storageType === 'indexedDB' && this.db) {
         const transaction = this.db.transaction(['userData', 'offlineActions', 'syncQueue'], 'readwrite');
         await Promise.all([
@@ -638,6 +710,12 @@ class OfflineManager {
       console.log('🧹 Offline data cleared');
     } catch (error) {
       console.error('Error clearing offline data:', error);
+    }
+  }
+
+  destroy() {
+    if (this.enhancedManager) {
+      this.enhancedManager.destroy();
     }
   }
 }

@@ -1,5 +1,6 @@
 {
   "indexes": [
+    // ===== EXISTING BEHAVIORAL DATA INDEXES =====
     {
       "collectionGroup": "behavioral_cravings",
       "queryScope": "COLLECTION",
@@ -150,6 +151,152 @@
         },
         {
           "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+
+    // ===== NEW OPTIMIZATION INDEXES =====
+    
+    // Date range queries for cravings
+    {
+      "collectionGroup": "behavioral_cravings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+
+    // Outcome-based queries for cravings
+    {
+      "collectionGroup": "behavioral_cravings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "outcome",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+
+    // Strength-based queries for cravings
+    {
+      "collectionGroup": "behavioral_cravings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "strength",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+
+    // Matching pool availability queries
+    {
+      "collectionGroup": "matchingPool",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "availableForMatching",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastActive",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+
+    // User-specific matching pool queries
+    {
+      "collectionGroup": "matchingPool",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+
+    // Buddy pairs queries - user1Id
+    {
+      "collectionGroup": "buddyPairs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "user1Id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+
+    // Buddy pairs queries - user2Id
+    {
+      "collectionGroup": "buddyPairs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "user2Id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+
+    // Pagination support for cravings
+    {
+      "collectionGroup": "behavioral_cravings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
           "order": "DESCENDING"
         }
       ]

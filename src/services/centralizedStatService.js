@@ -20,7 +20,7 @@ class CentralizedStatService {
    */
   async refreshAllStats() {
     try {
-      console.log(`📊 CentralizedStats: Refreshing all stats for user ${this.userId}`);
+      // console.log(`📊 CentralizedStats: Refreshing all stats for user ${this.userId}`);
       
       // Get current user data
       const [profileSnapshot, statsSnapshot, userRootSnapshot] = await Promise.all([
@@ -188,11 +188,11 @@ class CentralizedStatService {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
 
-    console.log(`📊 CentralizedStats: Streak calculation for ${this.userId}:`);
-    console.log(`  - Last relapse: ${lastRelapseDate}`);
-    console.log(`  - Current time: ${now.toISOString()}`);
-    console.log(`  - Hours since relapse: ${diffHours}`);
-    console.log(`  - Days since relapse: ${diffDays}`);
+    // console.log(`📊 CentralizedStats: Streak calculation for ${this.userId}:`);
+    // console.log(`  - Last relapse: ${lastRelapseDate}`);
+    // console.log(`  - Current time: ${now.toISOString()}`);
+    // console.log(`  - Hours since relapse: ${diffHours}`);
+    // console.log(`  - Days since relapse: ${diffDays}`);
 
     // First 24 hours shown in hours, then in days
     if (diffHours < 24) {
@@ -237,7 +237,7 @@ class CentralizedStatService {
         cravingsResisted = Object.values(cravingsData).filter(craving => 
           craving.outcome === 'resisted'
         ).length;
-        console.log(`📊 CentralizedStats: Counted cravings from collection: ${cravingsResisted}`);
+        // console.log(`📊 CentralizedStats: Counted cravings from collection: ${cravingsResisted}`);
       }
       
       return cravingsResisted;
@@ -257,7 +257,7 @@ class CentralizedStatService {
       const currentMentalStrength = currentStats.mentalStrength || 50;
       const previouslyAppliedCravings = currentStats.mentalStrengthCravingsApplied || 0;
       
-      console.log(`📊 CentralizedStats: Mental strength calculation for ${this.userId}: ${currentMentalStrength} (cravings applied: ${previouslyAppliedCravings}/3)`);
+      // console.log(`📊 CentralizedStats: Mental strength calculation for ${this.userId}: ${currentMentalStrength} (cravings applied: ${previouslyAppliedCravings}/3)`);
       
       // Return current values without applying daily bonus
       // Daily bonus is handled separately in handleCravingResisted() to ensure proper capping
