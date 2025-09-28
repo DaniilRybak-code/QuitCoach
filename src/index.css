@@ -1298,21 +1298,112 @@ code {
 
 /* Prevent iOS Safari address bar issues */
 @supports (-webkit-touch-callout: none) {
+  /* Fix iOS Safari viewport height issues */
+  :root {
+    --ios-vh: 100vh;
+    --ios-vh-fill: -webkit-fill-available;
+  }
+  
+  /* Modal backdrop iOS Safari fixes */
   .modal-backdrop {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    /* Use 100vh for iOS Safari compatibility */
-    height: 100vh;
-    min-height: 100vh;
+    height: var(--ios-vh);
+    height: var(--ios-vh-fill);
+    min-height: var(--ios-vh);
+    min-height: var(--ios-vh-fill);
+    /* Prevent iOS Safari bounce scrolling */
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    /* Hardware acceleration */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    will-change: transform;
   }
   
-  /* Fix for iOS Safari viewport changes */
+  /* Modal container iOS Safari fixes */
   .modal-container {
-    height: 100vh;
-    min-height: 100vh;
+    height: var(--ios-vh);
+    height: var(--ios-vh-fill);
+    min-height: var(--ios-vh);
+    min-height: var(--ios-vh-fill);
+    /* Prevent iOS Safari bounce scrolling */
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    /* Hardware acceleration */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    will-change: transform;
+  }
+  
+  /* Modal content iOS Safari fixes */
+  .modal-content {
+    /* Prevent iOS Safari zoom on focus */
+    -webkit-text-size-adjust: 100%;
+    /* Hardware acceleration */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    /* Smooth scrolling */
+    -webkit-overflow-scrolling: touch;
+    /* Prevent iOS Safari bounce */
+    overscroll-behavior: contain;
+  }
+  
+  /* iOS Safari scrollable content fixes */
+  .modal-scrollable {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    /* Prevent iOS Safari zoom */
+    -webkit-text-size-adjust: 100%;
+  }
+  
+  /* Fix iOS Safari input zoom */
+  input, select, textarea, button {
+    -webkit-appearance: none;
+    -webkit-text-size-adjust: 100%;
+    font-size: 16px !important;
+    /* Prevent iOS Safari zoom on focus */
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  
+  /* iOS Safari button fixes */
+  button {
+    -webkit-border-radius: 0;
+    border-radius: 0;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  /* Fix iOS Safari touch events */
+  * {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+  
+  /* Allow text selection in inputs */
+  input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  
+  /* Fix iOS Safari backdrop filter */
+  .modal-backdrop {
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  
+  /* Fix iOS Safari position sticky */
+  .modal-close-button {
+    position: -webkit-sticky;
+    position: sticky;
   }
 }
 
@@ -1409,6 +1500,352 @@ code {
 .duration-picker {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Enhanced Touch Interactions and Visual Feedback */
+/* Base touch interaction styles */
+.touch-interactive {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform, box-shadow, background-color;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Button press feedback */
+.touch-interactive:active {
+  transform: scale(0.95) translateZ(0);
+  -webkit-transform: scale(0.95) translateZ(0);
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced button states */
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 active:bg-blue-800;
+  @apply text-white font-semibold rounded-lg;
+  @apply transition-all duration-200 ease-out;
+  @apply transform hover:scale-105 active:scale-95;
+  @apply shadow-lg hover:shadow-xl;
+  @apply touch-interactive;
+}
+
+.btn-primary:active {
+  @apply shadow-md;
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.btn-secondary {
+  @apply bg-slate-600 hover:bg-slate-700 active:bg-slate-800;
+  @apply text-white font-semibold rounded-lg;
+  @apply transition-all duration-200 ease-out;
+  @apply transform hover:scale-105 active:scale-95;
+  @apply shadow-lg hover:shadow-xl;
+  @apply touch-interactive;
+}
+
+.btn-success {
+  @apply bg-green-600 hover:bg-green-700 active:bg-green-800;
+  @apply text-white font-semibold rounded-lg;
+  @apply transition-all duration-200 ease-out;
+  @apply transform hover:scale-105 active:scale-95;
+  @apply shadow-lg hover:shadow-xl;
+  @apply touch-interactive;
+}
+
+.btn-danger {
+  @apply bg-red-600 hover:bg-red-700 active:bg-red-800;
+  @apply text-white font-semibold rounded-lg;
+  @apply transition-all duration-200 ease-out;
+  @apply transform hover:scale-105 active:scale-95;
+  @apply shadow-lg hover:shadow-xl;
+  @apply touch-interactive;
+}
+
+/* Card touch interactions */
+.touch-card {
+  @apply transition-all duration-300 ease-out;
+  @apply transform hover:scale-105 active:scale-95;
+  @apply shadow-lg hover:shadow-2xl;
+  @apply touch-interactive;
+  @apply cursor-pointer;
+}
+
+.touch-card:active {
+  @apply shadow-lg;
+  transform: scale(0.98) translateZ(0);
+  -webkit-transform: scale(0.98) translateZ(0);
+}
+
+/* Info button enhanced interactions */
+.info-button {
+  @apply transition-all duration-200 ease-out;
+  @apply transform hover:scale-110 active:scale-90;
+  @apply shadow-sm hover:shadow-md;
+  @apply touch-interactive;
+}
+
+.info-button:active {
+  @apply shadow-sm;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
+}
+
+/* Tab navigation enhanced */
+.tab-interactive {
+  @apply transition-all duration-200 ease-out;
+  @apply transform active:scale-95;
+  @apply touch-interactive;
+}
+
+.tab-interactive:active {
+  @apply bg-slate-700;
+}
+
+/* Modal close button enhanced */
+.modal-close-enhanced {
+  @apply transition-all duration-200 ease-out;
+  @apply transform hover:scale-110 active:scale-90;
+  @apply touch-interactive;
+}
+
+.modal-close-enhanced:active {
+  @apply bg-slate-600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Stat bar interactions */
+.stat-bar-interactive {
+  @apply transition-all duration-300 ease-out;
+  @apply touch-interactive;
+}
+
+/* Breathing exercise button */
+.breathing-button {
+  @apply transition-all duration-300 ease-out;
+  @apply transform hover:scale-105 active:scale-95;
+  @apply shadow-xl hover:shadow-2xl;
+  @apply touch-interactive;
+}
+
+.breathing-button:active {
+  @apply shadow-lg;
+  box-shadow: 0 8px 16px rgba(59, 130, 246, 0.4);
+}
+
+/* iOS Safari-specific fixes and enhancements */
+@supports (-webkit-touch-callout: none) {
+  /* Custom tap highlights for better visual feedback */
+  .touch-interactive {
+    -webkit-tap-highlight-color: rgba(59, 130, 246, 0.1);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  .touch-interactive:active {
+    -webkit-tap-highlight-color: rgba(59, 130, 246, 0.2);
+  }
+  
+  /* Prevent iOS Safari zoom on input focus */
+  input, select, textarea {
+    -webkit-text-size-adjust: 100%;
+    font-size: 16px !important;
+  }
+  
+  /* Fix iOS Safari button styling */
+  button {
+    -webkit-appearance: none;
+    -webkit-border-radius: 0;
+    border-radius: 0;
+  }
+  
+  /* iOS Safari modal fixes */
+  .modal-backdrop {
+    -webkit-overflow-scrolling: touch;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+  
+  .modal-content {
+    -webkit-overflow-scrolling: touch;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+  
+  /* Fix iOS Safari viewport height issues */
+  .modal-backdrop {
+    height: 100vh;
+    height: -webkit-fill-available;
+  }
+  
+  .modal-container {
+    height: 100vh;
+    height: -webkit-fill-available;
+  }
+}
+
+/* Ripple effect for buttons */
+.ripple-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-effect::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.ripple-effect:active::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* Pulse animation for important buttons */
+.pulse-on-touch {
+  animation: pulse-touch 0.6s ease-out;
+}
+
+@keyframes pulse-touch {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Loading button state */
+.btn-loading {
+  @apply relative;
+  @apply cursor-not-allowed;
+  @apply opacity-75;
+}
+
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* iOS Safari touch event enhancements */
+@supports (-webkit-touch-callout: none) {
+  /* Improve touch responsiveness */
+  .touch-interactive,
+  .btn-primary,
+  .btn-secondary,
+  .btn-success,
+  .btn-danger,
+  .info-button,
+  .tab-interactive,
+  .modal-close-enhanced,
+  .breathing-button,
+  .touch-card {
+    /* Enable hardware acceleration for smooth animations */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    will-change: transform, box-shadow, background-color;
+    
+    /* Optimize touch events */
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    
+    /* Prevent iOS Safari zoom on double-tap */
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Special handling for input elements */
+  input, textarea, select {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-tap-highlight-color: rgba(59, 130, 246, 0.1);
+  }
+  
+  /* Fix iOS Safari scroll bounce */
+  body, html {
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Modal scroll container fixes */
+  .modal-scrollable,
+  .modal-content {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Fix iOS Safari button appearance */
+  button {
+    -webkit-appearance: none;
+    -webkit-border-radius: 0;
+    border-radius: 0;
+    -webkit-box-shadow: none;
+    box-shadow: none;
+  }
+  
+  /* Fix iOS Safari input appearance */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  textarea,
+  select {
+    -webkit-appearance: none;
+    -webkit-border-radius: 0;
+    border-radius: 0;
+  }
+  
+  /* Fix iOS Safari range slider */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Fix iOS Safari checkbox and radio */
+  input[type="checkbox"],
+  input[type="radio"] {
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 /* Duration Slider Custom Styling */

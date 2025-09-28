@@ -1122,6 +1122,10 @@ const InfoModal = ({ isOpen, onClose, statType }) => {
 
   return (
     <div className="modal-backdrop">
+      <div 
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <div className="modal-container">
         <div className="modal-content bg-slate-800 border-slate-700">
         <div className="text-center mb-4">
@@ -1159,15 +1163,15 @@ const StatBar = ({ label, value, max, color, statType, onInfoClick }) => {
   const cappedValue = Math.min(value, max);
   
   return (
-    <div className="mb-1 sm:mb-2">
+    <div className="mb-0.5 sm:mb-1">
       <div className="flex justify-between text-white text-xs mb-1">
         <div className="flex items-center gap-1">
           <span className="text-xs sm:text-xs">{label}</span>
           {statType && onInfoClick && (
             <button
               onClick={() => onInfoClick(statType)}
-              className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
-              style={{ fontSize: '6px' }}
+              className="info-button w-0.5 h-0.5 sm:w-1 sm:h-1 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white text-xs font-bold"
+              style={{ fontSize: '4px' }}
               title={`Learn about ${label}`}
             >
               i
@@ -1176,7 +1180,7 @@ const StatBar = ({ label, value, max, color, statType, onInfoClick }) => {
         </div>
         <span className="text-xs">{cappedValue}/{max}</span>
       </div>
-      <div className="w-full bg-gray-700 rounded-full h-1.5 sm:h-2">
+      <div className="stat-bar-interactive w-full bg-gray-700 rounded-full h-1.5 sm:h-2">
         <div 
           className={`${color} h-1.5 sm:h-2 rounded-full transition-all duration-500`} 
           style={{ width: `${(cappedValue / max) * 100}%` }}
@@ -1522,7 +1526,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
   return (
     <>
       <div 
-        className={`relative w-72 sm:w-80 min-h-[480px] sm:min-h-[520px] rounded-xl ${rarity.color} border-4 ${rarity.glow} bg-gradient-to-br from-slate-800 to-slate-900 p-3 sm:p-4 transform transition-all duration-300 hover:scale-105 mx-auto`}
+        className={`touch-card relative w-72 sm:w-80 min-h-[480px] sm:min-h-[520px] rounded-xl ${rarity.color} border-4 ${rarity.glow} bg-gradient-to-br from-slate-800 to-slate-900 p-3 sm:p-4 mx-auto`}
       >
         
         <div className="text-center mb-3">
@@ -1549,7 +1553,7 @@ const TradingCard = ({ user, isNemesis = false, showComparison = false, nemesisU
         </div>
         
         {/* Core Stats with Info Buttons (only for player card) */}
-        <div className="mb-3 sm:mb-4">
+        <div className="mb-2 sm:mb-3">
           <StatBar 
             label="Addiction" 
             value={addictionLevel} 
@@ -1697,7 +1701,7 @@ const BottomNavigation = ({ activeTab, onTabChange, dataLoadingState, onRefreshD
               <button 
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${
+                className={`tab-interactive flex flex-col items-center min-h-[44px] min-w-[44px] justify-center ${
                   isActive ? 'text-blue-400' : 'text-gray-400 hover:text-blue-300'
                 }`}
               >
@@ -2201,25 +2205,35 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
   const [latestUserStats, setLatestUserStats] = useState({});
 
   // Fetch latest stats from CentralizedStatService
-  useEffect(() => {
-    const fetchLatestStats = async () => {
-      if (user && window.centralizedStatService) {
-        try {
-          const stats = await window.centralizedStatService.getCurrentStats();
-          console.log('🔄 Arena: Fetched latest stats from CentralizedStatService:', stats);
-          setLatestUserStats(stats);
-        } catch (error) {
-          console.warn('🔄 Arena: Could not fetch latest stats from CentralizedStatService:', error);
-        }
+  const fetchLatestStats = async () => {
+    if (user && window.centralizedStatService) {
+      try {
+        const stats = await window.centralizedStatService.getCurrentStats();
+        console.log('🔄 Arena: Fetched latest stats from CentralizedStatService:', stats);
+        setLatestUserStats(stats);
+        return stats;
+      } catch (error) {
+        console.warn('🔄 Arena: Could not fetch latest stats from CentralizedStatService:', error);
+        return null;
       }
-    };
+    }
+    return null;
+  };
 
+  useEffect(() => {
     fetchLatestStats();
     
     // Set up interval to refresh stats every 30 seconds
     const interval = setInterval(fetchLatestStats, 30000);
     
     return () => clearInterval(interval);
+  }, [user]);
+
+  // Expose fetchLatestStats globally for immediate refresh after behavior logging
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.refreshArenaStats = fetchLatestStats;
+    }
   }, [user]);
 
   // Note: Firestore initialization is handled by the parent App component
@@ -2796,8 +2810,8 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             {/* Info Button */}
             <button
               onClick={() => setShowBattleInfo(true)}
-              className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
-              style={{ fontSize: '6px' }}
+              className="info-button w-0.5 h-0.5 sm:w-1 sm:h-1 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-lg"
+              style={{ fontSize: '4px' }}
               title="Battle Algorithm Info"
             >
               <span className="text-sm sm:text-lg font-bold">i</span>
@@ -2806,7 +2820,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
             {/* Refresh Stats Button */}
             <button
               onClick={refreshStats}
-              className="w-11 h-11 sm:w-12 sm:h-12 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg min-h-[44px] min-w-[44px]"
+              className="touch-interactive ripple-effect w-11 h-11 sm:w-12 sm:h-12 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center shadow-lg min-h-[44px] min-w-[44px]"
               title="Refresh Stats"
             >
               <span className="text-sm sm:text-lg font-bold">🔄</span>
@@ -3068,6 +3082,10 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
       {/* Battle Algorithm Info Modal */}
       {showBattleInfo && (
         <div className="modal-backdrop">
+          <div 
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setShowBattleInfo(false)}
+          />
           <div className="modal-container">
             <div className="modal-content bg-slate-800 border-slate-600 p-6">
             <div className="flex justify-between items-center mb-4">
@@ -3082,7 +3100,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
                 </button>
                 <button
                   onClick={() => setShowBattleInfo(false)}
-                  className="text-gray-400 hover:text-white text-2xl w-11 h-11 flex items-center justify-center min-h-[44px] min-w-[44px]"
+                  className="modal-close-enhanced text-gray-400 hover:text-white text-2xl w-11 h-11 flex items-center justify-center min-h-[44px] min-w-[44px]"
                 >
                   ×
                 </button>
@@ -3157,6 +3175,10 @@ const CustomPopup = ({ isOpen, onClose, title, message, type = 'info' }) => {
 
   return (
     <div className="modal-backdrop">
+      <div 
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <div className="modal-container">
         <div className="modal-content bg-slate-800 border-slate-600 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
         <div className="text-center">
@@ -4179,6 +4201,16 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
             console.error('❌ Detailed Craving: refreshStats function not available!');
           }
           
+          // Also refresh Arena stats immediately
+          if (typeof window.refreshArenaStats === 'function') {
+            console.log('🔄 Detailed Craving: Refreshing Arena stats...');
+            window.refreshArenaStats();
+            setTimeout(() => {
+              console.log('🔄 Detailed Craving: Secondary Arena stats refresh...');
+              window.refreshArenaStats();
+            }, 2000);
+          }
+          
           // Note: Buddy will see these changes automatically via Firebase listeners
         }
         // For 'resistance_practices' and 'logged', newStats remains unchanged
@@ -4395,6 +4427,16 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
               'You\'ve already earned the maximum 3 mental strength points from craving resistance today. Keep up the great work! Your resistance still counts for your overall progress.',
               'info'
             );
+          }
+          
+          // Refresh Arena stats immediately
+          if (typeof window.refreshArenaStats === 'function') {
+            console.log('🔄 Quick Resistance: Refreshing Arena stats...');
+            window.refreshArenaStats();
+            setTimeout(() => {
+              console.log('🔄 Quick Resistance: Secondary Arena stats refresh...');
+              window.refreshArenaStats();
+            }, 1000);
           }
           
           // Return early to prevent fallback popup messages from overriding the correct ones
@@ -4616,6 +4658,16 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           }, 1500); // Secondary refresh to ensure Firebase sync
         } else {
           console.log('ℹ️ Quick Relapse: refreshStats function not available in this context (will refresh when returning to Arena)');
+        }
+        
+        // Also refresh Arena stats immediately
+        if (typeof window.refreshArenaStats === 'function') {
+          console.log('🔄 Quick Relapse: Refreshing Arena stats...');
+          window.refreshArenaStats();
+          setTimeout(() => {
+            console.log('🔄 Quick Relapse: Secondary Arena stats refresh...');
+            window.refreshArenaStats();
+          }, 2000);
         }
         
         // Note: Buddy will see these changes automatically via Firebase listeners
@@ -4914,7 +4966,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           <div className="grid grid-cols-2 gap-6">
             <button
               onClick={handleQuickResistance}
-              className="bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium py-3 px-5 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg border border-slate-500/30 hover:border-slate-400/50 min-h-[44px]"
+              className="btn-success touch-interactive ripple-effect bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium py-3 px-5 rounded-full shadow-lg border border-slate-500/30 hover:border-slate-400/50 min-h-[44px]"
             >
               <div className="flex items-center justify-center gap-2">
                 <span className="text-green-400">✅</span>
@@ -4923,7 +4975,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
             </button>
             <button
               onClick={handleQuickRelapse}
-              className="bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium py-3 px-5 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg border border-slate-500/30 hover:border-slate-400/50 min-h-[44px]"
+              className="btn-danger touch-interactive ripple-effect bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium py-3 px-5 rounded-full shadow-lg border border-slate-500/30 hover:border-slate-400/50 min-h-[44px]"
             >
               <div className="flex items-center justify-center gap-2">
                 <span className="text-red-400">❌</span>
@@ -4992,13 +5044,13 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           <div className="grid grid-cols-2 gap-4">
             <button 
               onClick={() => setShowHydrationModal(true)}
-              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg min-h-[44px]"
+              className="btn-primary touch-interactive ripple-effect bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl border border-slate-500/20 hover:border-slate-400/40 shadow-lg min-h-[44px]"
             >
               💧 Hydration
             </button>
             <button 
               onClick={() => setShowBreathingModal(true)}
-              className="bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl transition-all duration-300 border border-slate-500/20 hover:border-slate-400/40 hover:scale-105 shadow-lg min-h-[44px]"
+              className="breathing-button touch-interactive ripple-effect bg-slate-700/30 hover:bg-slate-600/40 text-slate-200 font-medium py-4 px-4 rounded-xl border border-slate-500/20 hover:border-slate-400/40 shadow-lg min-h-[44px]"
             >
               🫁 Breathe
             </button>
@@ -6700,7 +6752,7 @@ const SettingsView = ({ onResetApp, onBackToLogin, onResetForTesting, firestoreB
 
 
 
-// Main App Component - Updated for smaller info icons
+// Main App Component - Updated for ultra-tiny info icons and consistent card spacing
 const App = () => {
   const [activeTab, setActiveTab] = useState('arena');
   const [currentView, setCurrentView] = useState('auth');
@@ -6712,6 +6764,8 @@ const App = () => {
   const [authLoading, setAuthLoading] = useState(true);
   // PWA install prompt state
   const [pwaInstallAvailable, setPwaInstallAvailable] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullToRefreshY, setPullToRefreshY] = useState(0);
 
   // ===== COMPREHENSIVE DATA LOADING SYSTEM =====
   
@@ -6756,6 +6810,75 @@ const App = () => {
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBIP);
       window.removeEventListener('appinstalled', handleInstalled);
+    };
+  }, []);
+
+  // Pull-to-refresh functionality
+  useEffect(() => {
+    let startY = 0;
+    let currentY = 0;
+    let isPulling = false;
+    const threshold = 80; // Pull distance threshold
+
+    const handleTouchStart = (e) => {
+      startY = e.touches[0].clientY;
+      isPulling = false;
+    };
+
+    const handleTouchMove = (e) => {
+      if (window.scrollY > 0) return; // Only work when at top of page
+      
+      currentY = e.touches[0].clientY;
+      const pullDistance = currentY - startY;
+      
+      if (pullDistance > 0) {
+        isPulling = true;
+        e.preventDefault(); // Prevent default scroll behavior
+        setPullToRefreshY(Math.min(pullDistance, threshold * 1.5));
+      }
+    };
+
+    const handleTouchEnd = async () => {
+      if (!isPulling) return;
+      
+      const pullDistance = currentY - startY;
+      
+      if (pullDistance > threshold) {
+        setIsRefreshing(true);
+        setPullToRefreshY(0);
+        
+        // Trigger refresh
+        if (typeof window.refreshArenaStats === 'function') {
+          console.log('🔄 Pull-to-refresh: Refreshing stats...');
+          await window.refreshArenaStats();
+        }
+        
+        // Also trigger the main refresh function if available
+        if (typeof refreshStats === 'function') {
+          console.log('🔄 Pull-to-refresh: Calling main refresh...');
+          refreshStats();
+        }
+        
+        // Show refresh complete feedback
+        setTimeout(() => {
+          setIsRefreshing(false);
+        }, 1000);
+      } else {
+        setPullToRefreshY(0);
+      }
+      
+      isPulling = false;
+    };
+
+    // Add touch event listeners
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
     };
   }, []);
 
@@ -9228,7 +9351,27 @@ const App = () => {
     );
   }
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 relative">
+      {/* Pull-to-refresh indicator */}
+      {pullToRefreshY > 0 && (
+        <div 
+          className="fixed top-0 left-0 right-0 z-50 bg-blue-600 text-white text-center py-2 transition-transform duration-200"
+          style={{ transform: `translateY(${Math.max(0, pullToRefreshY - 60)}px)` }}
+        >
+          {pullToRefreshY > 80 ? 'Release to refresh' : 'Pull to refresh'}
+        </div>
+      )}
+      
+      {/* Refreshing indicator */}
+      {isRefreshing && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-green-600 text-white text-center py-2">
+          <div className="flex items-center justify-center gap-2">
+            <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+            <span>Refreshing...</span>
+          </div>
+        </div>
+      )}
+
       {/* Offline Indicator */}
       <OfflineIndicator offlineManager={offlineManager} />
             
