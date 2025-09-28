@@ -8,6 +8,8 @@ import FirestoreBuddyService from './services/firestoreBuddyService.js';
 import FirestoreBehavioralService from './services/firestoreBehavioralService.js';
 import CentralizedStatService from './services/centralizedStatService.js';
 import useSwipeToDismiss from './hooks/useSwipeToDismiss.js';
+import PerformanceDashboard from './components/PerformanceDashboard.jsx';
+import performanceIntegrationService from './services/performanceIntegrationService.js';
 
 // Debug: Check if FirestoreBuddyService is imported correctly
 console.log('🧪 FirestoreBuddyService import check:', !!FirestoreBuddyService);
@@ -6521,7 +6523,7 @@ const DiaryModal = ({ isOpen, onClose, selectedDate, onDateSelect, dailyData }) 
 
 
 
-const SettingsView = ({ onResetApp, onBackToLogin, onResetForTesting, firestoreBuddyService, firestoreBuddyServiceRef, initializeFirestoreBuddyService, behavioralService, user, onShowAnalytics }) => (
+const SettingsView = ({ onResetApp, onBackToLogin, onResetForTesting, firestoreBuddyService, firestoreBuddyServiceRef, initializeFirestoreBuddyService, behavioralService, user, onShowAnalytics, onShowPerformanceDashboard }) => (
   <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pb-20">
     <div className="max-w-md mx-auto px-4 pt-16">
       <div className="text-center mb-8">
@@ -6575,6 +6577,21 @@ const SettingsView = ({ onResetApp, onBackToLogin, onResetForTesting, firestoreB
               🧪 Add Test Data
             </button>
           )}
+        </div>
+
+        {/* Performance Monitoring */}
+        <div className="bg-slate-800/50 rounded-xl p-4">
+          <h3 className="text-white font-semibold mb-2">⚡ Performance Monitoring</h3>
+          <p className="text-gray-400 text-sm mb-4">Monitor app performance and run stress tests</p>
+          <button
+            onClick={onShowPerformanceDashboard}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg transition-colors mb-3 min-h-[44px]"
+          >
+            📊 Open Performance Dashboard
+          </button>
+          <p className="text-gray-500 text-xs">
+            View database performance, authentication metrics, offline queue status, and run stress tests
+          </p>
         </div>
 
         {/* Session Management */}
@@ -6688,6 +6705,7 @@ const App = () => {
   const [selectedMood, setSelectedMood] = useState(null);
   const [user, setUser] = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -7670,6 +7688,14 @@ const App = () => {
                 
               } catch (error) {
                 console.error('Error initializing CentralizedStatService:', error);
+              }
+
+              // Initialize Performance Monitoring System
+              try {
+                performanceIntegrationService.initialize();
+                console.log('✅ Performance monitoring system initialized');
+              } catch (error) {
+                console.error('Error initializing performance monitoring:', error);
               }
               
               // Check if existing user needs buddy matching
@@ -9429,6 +9455,7 @@ const App = () => {
               behavioralService={behavioralService}
               user={user}
               onShowAnalytics={() => setShowAnalytics(true)}
+              onShowPerformanceDashboard={() => setShowPerformanceDashboard(true)}
             />
           )}
 
@@ -9438,6 +9465,14 @@ const App = () => {
               user={user}
               behavioralService={behavioralService}
               onClose={() => setShowAnalytics(false)}
+            />
+          )}
+
+          {/* Performance Dashboard Modal */}
+          {showPerformanceDashboard && (
+            <PerformanceDashboard 
+              isOpen={showPerformanceDashboard}
+              onClose={() => setShowPerformanceDashboard(false)}
             />
           )}
 
