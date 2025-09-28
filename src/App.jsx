@@ -2233,6 +2233,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.refreshArenaStats = fetchLatestStats;
+      window.setLatestUserStats = setLatestUserStats;
     }
   }, [user]);
 
@@ -2953,6 +2954,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
               
               return (
                 <TradingCard 
+                  key={`user-${user.uid}-${user.lastRelapseRefresh || Date.now()}`}
                   user={{ 
                     ...user, 
                     stats: mergedUserStats
@@ -3025,6 +3027,7 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
               
               return (
                 <TradingCard 
+                  key={`buddy-${nemesis.uid}-${user.lastRelapseRefresh || Date.now()}`}
                   user={mergedNemesisStats} 
                   isNemesis={true} 
                   showComparison={false} 
@@ -4209,7 +4212,55 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
               console.log('🔄 Detailed Craving: Secondary Arena stats refresh...');
               window.refreshArenaStats();
             }, 2000);
+          } else {
+            console.warn('⚠️ Detailed Craving: window.refreshArenaStats not available');
           }
+          
+          // PWA-specific refresh: Force immediate UI update after relapse
+          console.log('🔄 Detailed Craving: Triggering immediate PWA refresh...');
+          
+          // Immediate refresh - no delays
+          if (typeof window.refreshArenaStats === 'function') {
+            console.log('🔄 Detailed Craving: Immediate Arena stats refresh...');
+            window.refreshArenaStats();
+          }
+          
+          // Force immediate re-render by updating user state
+          if (typeof setUser === 'function') {
+            setUser(prevUser => ({ ...prevUser, lastRelapseRefresh: Date.now() }));
+          }
+          
+          // Force ArenaView re-render
+          setStatsUpdateTrigger(prev => prev + 1);
+          
+          // Force immediate stats update
+          if (window.centralizedStatService) {
+            window.centralizedStatService.getCurrentStats().then(latestStats => {
+              console.log('🔄 Detailed Craving: Fetched latest stats after relapse:', latestStats);
+              if (typeof window.setLatestUserStats === 'function') {
+                window.setLatestUserStats(latestStats);
+              }
+            }).catch(error => {
+              console.error('❌ Detailed Craving: Failed to fetch latest stats:', error);
+            });
+          }
+          
+          // Additional immediate refresh attempts
+          setTimeout(() => {
+            console.log('🔄 Detailed Craving: Secondary immediate refresh...');
+            if (typeof window.refreshArenaStats === 'function') {
+              window.refreshArenaStats();
+            }
+            // Force a complete re-render
+            window.dispatchEvent(new Event('resize'));
+          }, 100);
+          
+          setTimeout(() => {
+            console.log('🔄 Detailed Craving: Tertiary immediate refresh...');
+            if (typeof window.refreshArenaStats === 'function') {
+              window.refreshArenaStats();
+            }
+          }, 500);
           
           // Note: Buddy will see these changes automatically via Firebase listeners
         }
@@ -4668,7 +4719,55 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
             console.log('🔄 Quick Relapse: Secondary Arena stats refresh...');
             window.refreshArenaStats();
           }, 2000);
+        } else {
+          console.warn('⚠️ Quick Relapse: window.refreshArenaStats not available');
         }
+        
+        // PWA-specific refresh: Force immediate UI update after relapse
+        console.log('🔄 Quick Relapse: Triggering immediate PWA refresh...');
+        
+        // Immediate refresh - no delays
+        if (typeof window.refreshArenaStats === 'function') {
+          console.log('🔄 Quick Relapse: Immediate Arena stats refresh...');
+          window.refreshArenaStats();
+        }
+        
+        // Force immediate re-render by updating user state
+        if (typeof setUser === 'function') {
+          setUser(prevUser => ({ ...prevUser, lastRelapseRefresh: Date.now() }));
+        }
+        
+        // Force ArenaView re-render
+        setStatsUpdateTrigger(prev => prev + 1);
+        
+        // Force immediate stats update
+        if (window.centralizedStatService) {
+          window.centralizedStatService.getCurrentStats().then(latestStats => {
+            console.log('🔄 Quick Relapse: Fetched latest stats after relapse:', latestStats);
+            if (typeof window.setLatestUserStats === 'function') {
+              window.setLatestUserStats(latestStats);
+            }
+          }).catch(error => {
+            console.error('❌ Quick Relapse: Failed to fetch latest stats:', error);
+          });
+        }
+        
+        // Additional immediate refresh attempts
+        setTimeout(() => {
+          console.log('🔄 Quick Relapse: Secondary immediate refresh...');
+          if (typeof window.refreshArenaStats === 'function') {
+            window.refreshArenaStats();
+          }
+          // Force a complete re-render
+          window.dispatchEvent(new Event('resize'));
+        }, 100);
+        
+        setTimeout(() => {
+          console.log('🔄 Quick Relapse: Tertiary immediate refresh...');
+          if (typeof window.refreshArenaStats === 'function') {
+            window.refreshArenaStats();
+          }
+        }, 500);
         
         // Note: Buddy will see these changes automatically via Firebase listeners
       }
@@ -6764,6 +6863,9 @@ const App = () => {
   const [authLoading, setAuthLoading] = useState(true);
   // PWA install prompt state
   const [pwaInstallAvailable, setPwaInstallAvailable] = useState(false);
+  
+  // State to force re-render when stats are updated
+  const [statsUpdateTrigger, setStatsUpdateTrigger] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullToRefreshY, setPullToRefreshY] = useState(0);
 
@@ -9400,6 +9502,7 @@ const App = () => {
                   const currentOpponent = getCurrentOpponent();
                   return (
                     <ArenaView 
+                            key={`arena-${user.uid}-${statsUpdateTrigger}`}
                             user={user}
                             userStats={userStats}
                             nemesis={currentOpponent}
