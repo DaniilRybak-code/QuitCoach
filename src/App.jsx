@@ -86,7 +86,7 @@ const calculateStreak = (startDate, endDate = new Date()) => {
 };
 
 // Onboarding Flow Component
-const OnboardingFlow = ({ onComplete, authUser }) => {
+const OnboardingFlow = ({ onComplete, authUser, pwaInstallAvailable, promptInstall }) => {
   const [step, setStep] = useState(1);
   const [userData, setUserData] = useState({
     heroName: '',
@@ -9380,7 +9380,12 @@ const App = () => {
       {currentView === 'onboarding' && (
         <div>
   
-          <OnboardingFlow onComplete={handleOnboardingComplete} authUser={authUser} />
+          <OnboardingFlow 
+            onComplete={handleOnboardingComplete} 
+            authUser={authUser} 
+            pwaInstallAvailable={pwaInstallAvailable}
+            promptInstall={promptInstall}
+          />
         </div>
       )}
 

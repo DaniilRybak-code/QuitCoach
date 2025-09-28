@@ -79,7 +79,7 @@ const BreathingModal = ({ isOpen, onClose, onNavigateToCravingSupport, onComplet
       {/* Modal Container */}
       <div className="modal-container">
         {/* Modal Content */}
-        <div className="modal-content bg-slate-900 border-slate-700/50">
+        <div className="modal-content bg-slate-900 border-slate-700/50 max-w-md sm:max-w-2xl mx-auto w-full">
         {/* Close Button - Only show when NOT in active exercise */}
         {!(modalStep === 'exercise' && isExerciseActive) && (
           <button
