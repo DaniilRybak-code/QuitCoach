@@ -219,14 +219,33 @@ class ErrorLoggingService {
    */
   async sendErrorToServer(error) {
     try {
-      // Store in Firestore
-      await addDoc(collection(firestore, 'error_logs'), error);
+      // Skip if no user ID (user not authenticated)
+      if (!this.userId) {
+        console.log('⚠️ ErrorLoggingService: Skipping error log - no user ID');
+        return;
+      }
 
-      // Store in Realtime Database for real-time monitoring
+      // Ensure error has all required fields for Firestore validation
+      const validatedError = {
+        ...error,
+        userId: this.userId,
+        timestamp: error.timestamp || new Date(),
+        type: error.type || 'unknown_error',
+        severity: error.severity || 'info'
+      };
+
+      // Store in Realtime Database for real-time monitoring (primary storage)
       const errorRef = ref(db, `error_logs/${this.userId}/${error.id}`);
-      await set(errorRef, error);
+      await set(errorRef, validatedError);
 
-      console.log(`✅ ErrorLoggingService: Error ${error.id} sent to server`);
+      // Store in Firestore for redundancy (with error handling)
+      try {
+        await addDoc(collection(firestore, 'error_logs'), validatedError);
+        console.log(`✅ ErrorLoggingService: Error ${error.id} sent to both databases`);
+      } catch (firestoreError) {
+        console.warn('⚠️ ErrorLoggingService: Could not store error in Firestore:', firestoreError.message);
+        console.log(`✅ ErrorLoggingService: Error ${error.id} sent to Realtime Database`);
+      }
 
     } catch (error) {
       console.error('❌ ErrorLoggingService: Error sending to server:', error);

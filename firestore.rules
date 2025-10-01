@@ -186,7 +186,11 @@ service cloud.firestore {
         return data.user1Id == resource.data.user1Id &&
                data.user2Id == resource.data.user2Id &&
                data.status in ['active', 'inactive', 'blocked'] &&
-               (!('lastInteraction' in data) || isValidTimestamp(data.lastInteraction));
+               (!('lastInteraction' in data) || isValidTimestamp(data.lastInteraction)) &&
+               // Allow updating user names and other metadata
+               (!('user1Name' in data) || isValidStringLength(data.user1Name, 50)) &&
+               (!('user2Name' in data) || isValidStringLength(data.user2Name, 50)) &&
+               (!('currentUserId' in data) || isValidUserId(data.currentUserId));
       }
     }
     
@@ -195,8 +199,8 @@ service cloud.firestore {
     // Cravings data
     match /behavioral_cravings/{document} {
       allow read: if isResourceOwner() && isValidSize();
-      allow write: if isRequestOwner() && isValidSize();
-      allow create: if isRequestOwner() && isValidSize();
+      allow write: if isRequestOwner() && isValidSize() && validateCravingData();
+      allow create: if isRequestOwner() && isValidSize() && validateCravingData();
       
       function validateCravingData() {
         let data = request.resource.data;
@@ -418,43 +422,100 @@ service cloud.firestore {
     // Data backup service - Firestore collections
     match /backup_data/{document} {
       allow read, write: if isAuthenticated() && isValidSize();
-      allow create: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize() && validateBackupData();
+      
+      function validateBackupData() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['userId', 'timestamp']) &&
+               isValidUserId(data.userId) &&
+               data.userId == request.auth.uid &&
+               hasValidTimestamp(data.timestamp);
+      }
     }
     
     // Error logging service - Firestore collections
     match /error_logs/{document} {
       allow read, write: if isAuthenticated() && isValidSize();
-      allow create: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize() && validateErrorLogData();
+      
+      function validateErrorLogData() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['userId', 'timestamp', 'type']) &&
+               isValidUserId(data.userId) &&
+               data.userId == request.auth.uid &&
+               hasValidTimestamp(data.timestamp) &&
+               isValidStringLength(data.type, 50) &&
+               data.severity in ['critical', 'warning', 'info'];
+      }
     }
     
     // Performance metrics - Firestore collections
     match /performance_metrics/{document} {
       allow read, write: if isAuthenticated() && isValidSize();
-      allow create: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize() && validatePerformanceData();
+      
+      function validatePerformanceData() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['userId', 'timestamp']) &&
+               isValidUserId(data.userId) &&
+               data.userId == request.auth.uid &&
+               hasValidTimestamp(data.timestamp);
+      }
     }
     
     // Privacy protection logs - Firestore collections
     match /privacy_logs/{document} {
       allow read, write: if isAuthenticated() && isValidSize();
-      allow create: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize() && validatePrivacyLogData();
+      
+      function validatePrivacyLogData() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['userId', 'timestamp']) &&
+               isValidUserId(data.userId) &&
+               data.userId == request.auth.uid &&
+               hasValidTimestamp(data.timestamp);
+      }
     }
     
     // Graceful degradation logs - Firestore collections
     match /degradation_logs/{document} {
       allow read, write: if isAuthenticated() && isValidSize();
-      allow create: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize() && validateDegradationLogData();
+      
+      function validateDegradationLogData() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['userId', 'timestamp']) &&
+               isValidUserId(data.userId) &&
+               data.userId == request.auth.uid &&
+               hasValidTimestamp(data.timestamp);
+      }
     }
     
     // Beta monitoring data - Firestore collections
     match /beta_monitoring/{document} {
       allow read, write: if isAuthenticated() && isValidSize();
-      allow create: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize() && validateBetaMonitoringData();
+      
+      function validateBetaMonitoringData() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['userId', 'timestamp']) &&
+               isValidUserId(data.userId) &&
+               data.userId == request.auth.uid &&
+               hasValidTimestamp(data.timestamp);
+      }
     }
     
     // Health check collections (for service monitoring)
     match /health_check/{document} {
       allow read, write: if isAuthenticated() && isValidSize();
-      allow create: if isAuthenticated() && isValidSize();
+      allow create: if isAuthenticated() && isValidSize() && validateHealthCheckData();
+      
+      function validateHealthCheckData() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['timestamp']) &&
+               hasValidTimestamp(data.timestamp) &&
+               (!('userId' in data) || (isValidUserId(data.userId) && data.userId == request.auth.uid));
+      }
     }
     
     // ===== DENY ALL OTHER ACCESS =====

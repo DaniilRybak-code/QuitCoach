@@ -2215,13 +2215,22 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
   // Add state to store the latest user stats from CentralizedStatService
   const [latestUserStats, setLatestUserStats] = useState({});
 
-  // Fetch latest stats from CentralizedStatService
+  // Fetch latest stats from CentralizedStatService and recalculate streak
   const fetchLatestStats = async () => {
     if (user && window.centralizedStatService) {
       try {
         const stats = await window.centralizedStatService.getCurrentStats();
         // console.log('🔄 Arena: Fetched latest stats from CentralizedStatService:', stats);
         setLatestUserStats(stats);
+        
+        // CRITICAL: Also recalculate real-time stats to update streak after relapse
+        console.log('🔄 Arena: Recalculating real-time stats to update streak...');
+        const realTimeStats = await calculateRealTimeStats(user);
+        if (realTimeStats) {
+          console.log('🔄 Arena: Updated real-time stats with new streak:', realTimeStats.streakDisplayText);
+          setRealTimeUserStats(realTimeStats);
+        }
+        
         return stats;
       } catch (error) {
         console.warn('🔄 Arena: Could not fetch latest stats from CentralizedStatService:', error);
@@ -2229,6 +2238,37 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
       }
     }
     return null;
+  };
+
+  // Comprehensive refresh function for after relapse - recalculates streak immediately
+  const refreshAfterRelapse = async () => {
+    if (user) {
+      try {
+        console.log('🔄 Arena: Comprehensive refresh after relapse...');
+        
+        // First, get the latest stats from CentralizedStatService
+        if (window.centralizedStatService) {
+          const stats = await window.centralizedStatService.getCurrentStats();
+          setLatestUserStats(stats);
+        }
+        
+        // Then recalculate real-time stats to update streak based on new relapse date
+        const realTimeStats = await calculateRealTimeStats(user);
+        if (realTimeStats) {
+          console.log('🔄 Arena: Updated real-time stats with new streak after relapse:', realTimeStats.streakDisplayText);
+          setRealTimeUserStats(realTimeStats);
+        }
+        
+        // Also trigger the regular refresh function if available
+        if (typeof refreshStats === 'function') {
+          refreshStats();
+        }
+        
+        console.log('✅ Arena: Comprehensive refresh after relapse completed');
+      } catch (error) {
+        console.error('❌ Arena: Error during comprehensive refresh after relapse:', error);
+      }
+    }
   };
 
   useEffect(() => {
@@ -2240,10 +2280,11 @@ const ArenaView = ({ user, userStats, nemesis, onBackToLogin, onResetForTesting,
     return () => clearInterval(interval);
   }, [user]);
 
-  // Expose fetchLatestStats globally for immediate refresh after behavior logging
+  // Expose refresh functions globally for immediate refresh after behavior logging
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.refreshArenaStats = fetchLatestStats;
+      window.refreshAfterRelapse = refreshAfterRelapse;
       window.setLatestUserStats = setLatestUserStats;
     }
   }, [user]);
@@ -4076,6 +4117,25 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           await window.centralizedStatService.handleRelapse();
           console.log('✅ Detailed Craving: Stats updated via CentralizedStatService');
         }
+        
+        // Trigger comprehensive Arena refresh after relapse
+        if (typeof window.refreshAfterRelapse === 'function') {
+          console.log('🔄 Detailed Craving: Comprehensive Arena refresh after relapse...');
+          window.refreshAfterRelapse();
+          setTimeout(() => {
+            console.log('🔄 Detailed Craving: Secondary comprehensive Arena refresh...');
+            window.refreshAfterRelapse();
+          }, 2000);
+        } else if (typeof window.refreshArenaStats === 'function') {
+          console.log('🔄 Detailed Craving: Fallback to regular Arena stats refresh...');
+          window.refreshArenaStats();
+          setTimeout(() => {
+            console.log('🔄 Detailed Craving: Secondary Arena stats refresh...');
+            window.refreshArenaStats();
+          }, 2000);
+        } else {
+          console.warn('⚠️ Detailed Craving: No Arena refresh functions available');
+        }
       }
 
       // Import Firebase functions
@@ -4329,6 +4389,13 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
             }, 1000);
           }
           
+          // Trigger a global stats update event
+          if (window.centralizedStatService) {
+            window.centralizedStatService.getCurrentStats().then(latestStats => {
+              window.dispatchEvent(new CustomEvent('statsUpdated', { detail: latestStats }));
+            });
+          }
+          
           // Return early to prevent fallback popup messages from overriding the correct ones
           return;
         } 
@@ -4337,68 +4404,68 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           resistanceLimits = await statManager.checkDailyCravingResistanceLimits(date);
           await statManager.handleCravingResistance();
         }
-      }
-      
-      // Fallback to localStorage
-      const localCravings = JSON.parse(localStorage.getItem(`cravings_${user.uid}`) || '[]');
-      localCravings.push({
-        strength: 0,
-        mood: 'quick',
-        context: 'quick_action',
-        outcome: 'resisted',
-        timestamp,
-        date
-      });
-      localStorage.setItem(`cravings_${user.uid}`, JSON.stringify(localCravings));
-      
-      const newStats = {
-        resisted: weeklyStats.resisted + 1,
-        relapses: weeklyStats.relapses,
-        lastUpdated: timestamp
-      };
-      localStorage.setItem(`cravingStats_${user.uid}`, JSON.stringify(newStats));
-      setWeeklyStats(newStats);
-      
-      // Show appropriate message based on daily limits
-      if (resistanceLimits) {
-        if (!resistanceLimits.canAwardMentalStrength && !resistanceLimits.canAwardTriggerDefense) {
-          // Both limits reached
-          setPopupData({
-            title: '🎯 Daily Limits Reached',
-            message: 'You\'ve reached your daily limits for Mental Strength (3 points) and Trigger Defense (5 points).\n\nGreat job staying consistent! Come back tomorrow for more opportunities to grow.',
-            type: 'info'
-          });
-        } else if (!resistanceLimits.canAwardMentalStrength) {
-          // Only mental strength limit reached
-          setPopupData({
-            title: '🎯 Mental Strength Limit Reached',
-            message: 'You\'ve reached your daily limit for Mental Strength (3 points).\n\nYour Trigger Defense increased by 3 points!\n\nCome back tomorrow for more Mental Strength opportunities.',
-            type: 'info'
-          });
-        } else if (!resistanceLimits.canAwardTriggerDefense) {
-          // Only trigger defense limit reached
-          setPopupData({
-            title: '🎯 Trigger Defense Limit Reached',
-            message: 'You\'ve reached your daily limit for Trigger Defense (5 points).\n\nYour Mental Strength increased by 1 point!\n\nCome back tomorrow for more Trigger Defense opportunities.',
-            type: 'info'
-          });
+        
+        // Fallback to localStorage
+        const localCravings = JSON.parse(localStorage.getItem(`cravings_${user.uid}`) || '[]');
+        localCravings.push({
+          strength: 0,
+          mood: 'quick',
+          context: 'quick_action',
+          outcome: 'resisted',
+          timestamp,
+          date
+        });
+        localStorage.setItem(`cravings_${user.uid}`, JSON.stringify(localCravings));
+        
+        const fallbackStats = {
+          resisted: weeklyStats.resisted + 1,
+          relapses: weeklyStats.relapses,
+          lastUpdated: timestamp
+        };
+        localStorage.setItem(`cravingStats_${user.uid}`, JSON.stringify(fallbackStats));
+        setWeeklyStats(fallbackStats);
+        
+        // Show appropriate message based on daily limits
+        if (resistanceLimits) {
+          if (!resistanceLimits.canAwardMentalStrength && !resistanceLimits.canAwardTriggerDefense) {
+            // Both limits reached
+            setPopupData({
+              title: '🎯 Daily Limits Reached',
+              message: 'You\'ve reached your daily limits for Mental Strength (3 points) and Trigger Defense (5 points).\n\nGreat job staying consistent! Come back tomorrow for more opportunities to grow.',
+              type: 'info'
+            });
+          } else if (!resistanceLimits.canAwardMentalStrength) {
+            // Only mental strength limit reached
+            setPopupData({
+              title: '🎯 Mental Strength Limit Reached',
+              message: 'You\'ve reached your daily limit for Mental Strength (3 points).\n\nYour Trigger Defense increased by 3 points!\n\nCome back tomorrow for more Mental Strength opportunities.',
+              type: 'info'
+            });
+          } else if (!resistanceLimits.canAwardTriggerDefense) {
+            // Only trigger defense limit reached
+            setPopupData({
+              title: '🎯 Trigger Defense Limit Reached',
+              message: 'You\'ve reached your daily limit for Trigger Defense (5 points).\n\nYour Mental Strength increased by 1 point!\n\nCome back tomorrow for more Trigger Defense opportunities.',
+              type: 'info'
+            });
+          } else {
+            // Both stats awarded
+            setPopupData({
+              title: '🎉 Quick Win!',
+              message: 'Great job resisting that craving!\n\nYour Mental Strength increased by 1 point and Trigger Defense increased by 3 points!',
+              type: 'success'
+            });
+          }
         } else {
-          // Both stats awarded
+          // Fallback message if limits not available
           setPopupData({
             title: '🎉 Quick Win!',
-            message: 'Great job resisting that craving!\n\nYour Mental Strength increased by 1 point and Trigger Defense increased by 3 points!',
+            message: 'Great job resisting that craving!\n\nYour Mental Strength and Trigger Defense have increased.',
             type: 'success'
           });
         }
-      } else {
-        // Fallback message if limits not available
-        setPopupData({
-          title: '🎉 Quick Win!',
-          message: 'Great job resisting that craving!\n\nYour Mental Strength and Trigger Defense have increased.',
-          type: 'success'
-        });
+        setShowCustomPopup(true);
       }
-      setShowCustomPopup(true);
       
     } catch (error) {
       console.error('Error recording quick resistance:', error);
@@ -4550,16 +4617,23 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
           console.log('ℹ️ Quick Relapse: refreshStats function not available in this context (will refresh when returning to Arena)');
         }
         
-        // Also refresh Arena stats immediately
-        if (typeof window.refreshArenaStats === 'function') {
-          console.log('🔄 Quick Relapse: Refreshing Arena stats...');
+        // Also refresh Arena stats immediately with comprehensive refresh
+        if (typeof window.refreshAfterRelapse === 'function') {
+          console.log('🔄 Quick Relapse: Comprehensive Arena refresh after relapse...');
+          window.refreshAfterRelapse();
+          setTimeout(() => {
+            console.log('🔄 Quick Relapse: Secondary comprehensive Arena refresh...');
+            window.refreshAfterRelapse();
+          }, 2000);
+        } else if (typeof window.refreshArenaStats === 'function') {
+          console.log('🔄 Quick Relapse: Fallback to regular Arena stats refresh...');
           window.refreshArenaStats();
           setTimeout(() => {
             console.log('🔄 Quick Relapse: Secondary Arena stats refresh...');
             window.refreshArenaStats();
           }, 2000);
         } else {
-          console.warn('⚠️ Quick Relapse: window.refreshArenaStats not available');
+          console.warn('⚠️ Quick Relapse: No Arena refresh functions available');
         }
         
         // PWA-specific refresh: Force immediate UI update after relapse
@@ -4577,7 +4651,7 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
         }
         
         // Force ArenaView re-render
-        setStatsUpdateTrigger(prev => prev + 1);
+        // Note: setStatsUpdateTrigger is not available in this scope
         
         // Force immediate stats update
         if (window.centralizedStatService) {
@@ -4586,6 +4660,8 @@ const CravingSupportView = ({ user, nemesis, onBackToLogin, onResetForTesting, o
             if (typeof window.setLatestUserStats === 'function') {
               window.setLatestUserStats(latestStats);
             }
+            // Trigger a global stats update event
+            window.dispatchEvent(new CustomEvent('statsUpdated', { detail: latestStats }));
           }).catch(error => {
             console.error('❌ Quick Relapse: Failed to fetch latest stats:', error);
           });
@@ -7634,10 +7710,27 @@ const App = () => {
           
           console.log('Auth state changed:', firebaseUser ? `User: ${firebaseUser.uid}` : 'No user');
           
-          if (firebaseUser) {
-            // User is authenticated (either from session or new login)
-            setAuthUser(firebaseUser);
-            console.log('User authenticated, checking database for user data...');
+        if (firebaseUser) {
+          // User is authenticated (either from session or new login)
+          console.log('🔥 onAuthStateChanged: User authenticated:', firebaseUser.uid, firebaseUser.email);
+          setAuthUser(firebaseUser);
+          console.log('User authenticated, checking database for user data...');
+            
+            // Update lastActivity timestamp immediately upon authentication
+            console.log('🔄 onAuthStateChanged: Attempting to update lastActivity timestamp for user:', firebaseUser.uid);
+            try {
+              const { ref, set } = await import('firebase/database');
+              const now = new Date();
+              const lastActivityRef = ref(db, `users/${firebaseUser.uid}/profile/lastActivity`);
+              await set(lastActivityRef, now.toISOString());
+              console.log('✅ onAuthStateChanged: Updated lastActivity timestamp for user:', firebaseUser.uid, 'to:', now.toISOString());
+              
+              // Wait a moment to ensure the update has been propagated
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              console.log('✅ onAuthStateChanged: lastActivity update completed and propagated');
+            } catch (error) {
+              console.warn('⚠️ onAuthStateChanged: Could not update lastActivity timestamp:', error.message);
+            }
             
             // Clear localStorage cache for User 2 and User 3 to force fresh data loading
             if (firebaseUser.uid === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2' || firebaseUser.uid === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1') {
@@ -7682,8 +7775,11 @@ const App = () => {
               setHasCompletedOnboarding(true);
               setCurrentView('arena');
               
-              // Initialize StatManager for the authenticated user
+              // Initialize StatManager for the authenticated user (with delay to ensure lastActivity is updated)
               try {
+                // Wait a moment to ensure lastActivity update has been propagated
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
                 const StatManager = await import('./services/statManager.js');
                 const manager = new StatManager.default(db, firebaseUser.uid);
                 await manager.initialize();
@@ -7707,6 +7803,19 @@ const App = () => {
                 centralizedService.setupRealTimeListener((updatedStats) => {
                   console.log('🔄 Real-time stats update received:', updatedStats);
                   setUserStats(updatedStats);
+                  
+                  // Update buddy streak data when centralized stats are updated
+                  if (updatedStats.streakDisplayText && typeof setBuddyStreakData === 'function') {
+                    try {
+                      setBuddyStreakData({
+                        streakDays: updatedStats.streakDays || 0,
+                        streakUnit: updatedStats.streakUnit || 'hours',
+                        streakDisplayText: updatedStats.streakDisplayText
+                      });
+                    } catch (error) {
+                      console.error('Error updating buddy streak data:', error);
+                    }
+                  }
                 });
                 
               } catch (error) {
@@ -7721,36 +7830,41 @@ const App = () => {
                 console.error('Error initializing performance monitoring:', error);
               }
 
-              // Initialize Safety Services for Beta Testing
-              try {
-                // Initialize data backup service
-                dataBackupService.initialize(firebaseUser.uid);
-                window.dataBackupService = dataBackupService;
-                console.log('✅ Data backup service initialized');
+              // Initialize Safety Services for Beta Testing (with delay to ensure auth token is ready)
+              setTimeout(async () => {
+                try {
+                  // Wait longer for auth token to be fully propagated and Firestore to be ready
+                  await new Promise(resolve => setTimeout(resolve, 3000));
+                  
+                  // Initialize data backup service
+                  dataBackupService.initialize(firebaseUser.uid);
+                  window.dataBackupService = dataBackupService;
+                  console.log('✅ Data backup service initialized');
 
-                // Initialize privacy protection service
-                privacyProtectionService.initialize(firebaseUser.uid);
-                window.privacyProtectionService = privacyProtectionService;
-                console.log('✅ Privacy protection service initialized');
+                  // Initialize privacy protection service
+                  privacyProtectionService.initialize(firebaseUser.uid);
+                  window.privacyProtectionService = privacyProtectionService;
+                  console.log('✅ Privacy protection service initialized');
 
-                // Initialize error logging service
-                errorLoggingService.initialize(firebaseUser.uid);
-                window.errorLoggingService = errorLoggingService;
-                console.log('✅ Error logging service initialized');
+                  // Initialize error logging service
+                  errorLoggingService.initialize(firebaseUser.uid);
+                  window.errorLoggingService = errorLoggingService;
+                  console.log('✅ Error logging service initialized');
 
-                // Initialize graceful degradation service
-                gracefulDegradationService.initialize(firebaseUser.uid);
-                window.gracefulDegradationService = gracefulDegradationService;
-                console.log('✅ Graceful degradation service initialized');
+                  // Initialize graceful degradation service
+                  gracefulDegradationService.initialize(firebaseUser.uid);
+                  window.gracefulDegradationService = gracefulDegradationService;
+                  console.log('✅ Graceful degradation service initialized');
 
-                // Initialize rate limiting service
-                rateLimitingService.initialize(firebaseUser.uid);
-                window.rateLimitingService = rateLimitingService;
-                console.log('✅ Rate limiting service initialized');
+                  // Initialize rate limiting service
+                  rateLimitingService.initialize(firebaseUser.uid);
+                  window.rateLimitingService = rateLimitingService;
+                  console.log('✅ Rate limiting service initialized');
 
-              } catch (error) {
-                console.error('Error initializing safety services:', error);
-              }
+                } catch (error) {
+                  console.error('Error initializing safety services:', error);
+                }
+              }, 5000); // 5 second delay
               
               // Check if existing user needs buddy matching
               try {
@@ -7874,11 +7988,27 @@ const App = () => {
 
   // Handle authentication success (check database for ALL auth methods)
   const handleAuthSuccess = async (firebaseUser) => {
+    console.log('🔥 handleAuthSuccess called for user:', firebaseUser?.uid, firebaseUser?.email);
     console.log('Authentication successful, checking for existing user data...', { uid: firebaseUser?.uid, email: firebaseUser?.email });
 
     try {
-      const { ref, get } = await import('firebase/database');
+      const { ref, get, set } = await import('firebase/database');
       console.log('Checking database for existing user data...');
+
+      // Update lastActivity timestamp immediately upon login
+      console.log('🔄 Attempting to update lastActivity timestamp for user:', firebaseUser.uid);
+      try {
+        const now = new Date();
+        const lastActivityRef = ref(db, `users/${firebaseUser.uid}/profile/lastActivity`);
+        await set(lastActivityRef, now.toISOString());
+        console.log('✅ Updated lastActivity timestamp for user:', firebaseUser.uid, 'to:', now.toISOString());
+        
+        // Wait a moment to ensure the update has been propagated
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log('✅ lastActivity update completed and propagated');
+      } catch (error) {
+        console.warn('⚠️ Could not update lastActivity timestamp:', error.message);
+      }
 
       const userRef = ref(db, `users/${firebaseUser.uid}`);
       const snapshot = await get(userRef);
@@ -7905,6 +8035,19 @@ const App = () => {
             centralizedService.setupRealTimeListener((updatedStats) => {
               console.log('🔄 Real-time stats update received:', updatedStats);
               setUserStats(updatedStats);
+              
+              // Update buddy streak data when centralized stats are updated
+              if (updatedStats.streakDisplayText && typeof setBuddyStreakData === 'function') {
+                try {
+                  setBuddyStreakData({
+                    streakDays: updatedStats.streakDays || 0,
+                    streakUnit: updatedStats.streakUnit || 'hours',
+                    streakDisplayText: updatedStats.streakDisplayText
+                  });
+                } catch (error) {
+                  console.error('Error updating buddy streak data:', error);
+                }
+              }
             });
           } catch (error) {
             console.error('Error initializing CentralizedStatService for existing user:', error);

@@ -125,6 +125,10 @@ class DataBackupService {
    * Collect all user data for backup
    */
   async collectUserData() {
+    if (!this.userId) {
+      throw new Error('User ID not set - cannot collect user data');
+    }
+
     const userData = {
       profile: null,
       stats: null,
@@ -151,19 +155,25 @@ class DataBackupService {
         userData.stats = statsSnapshot.val();
       }
 
-      // Get behavioral data from Firestore
-      const behavioralQuery = query(
-        collection(firestore, 'behavioral_cravings'),
-        where('userId', '==', this.userId),
-        orderBy('timestamp', 'desc'),
-        limit(100) // Limit to last 100 entries for backup
-      );
-      
-      const behavioralSnapshot = await getDocs(behavioralQuery);
-      userData.behavioralData = behavioralSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // Get behavioral data from Firestore (with error handling)
+      try {
+        const behavioralQuery = query(
+          collection(firestore, 'behavioral_cravings'),
+          where('userId', '==', this.userId),
+          orderBy('timestamp', 'desc'),
+          limit(100) // Limit to last 100 entries for backup
+        );
+        
+        const behavioralSnapshot = await getDocs(behavioralQuery);
+        userData.behavioralData = behavioralSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+      } catch (firestoreError) {
+        console.warn('⚠️ DataBackupService: Could not collect behavioral data from Firestore:', firestoreError.message);
+        // Continue with backup even if Firestore data collection fails
+        userData.behavioralData = [];
+      }
 
       // Get user settings (if stored separately)
       const settingsRef = ref(db, `users/${this.userId}/settings`);
@@ -189,11 +199,26 @@ class DataBackupService {
       const backupRef = ref(db, `backups/${this.userId}/${backupRecord.id}`);
       await set(backupRef, backupRecord);
 
-      // Store actual data
-      const dataRef = ref(db, `backup_data/${this.userId}/${backupRecord.id}`);
-      await set(dataRef, userData);
+      // Store actual data with proper structure for Firestore validation
+      const backupDataWithMetadata = {
+        ...userData,
+        userId: this.userId,
+        timestamp: new Date(),
+        backupId: backupRecord.id
+      };
 
-      console.log(`✅ DataBackupService: Backup data stored for ${backupRecord.id}`);
+      // Store in Realtime Database
+      const dataRef = ref(db, `backup_data/${this.userId}/${backupRecord.id}`);
+      await set(dataRef, backupDataWithMetadata);
+
+      // Also store in Firestore for redundancy (with error handling)
+      try {
+        await addDoc(collection(firestore, 'backup_data'), backupDataWithMetadata);
+        console.log(`✅ DataBackupService: Backup data stored in both databases for ${backupRecord.id}`);
+      } catch (firestoreError) {
+        console.warn('⚠️ DataBackupService: Could not store backup in Firestore:', firestoreError.message);
+        console.log(`✅ DataBackupService: Backup data stored in Realtime Database for ${backupRecord.id}`);
+      }
 
     } catch (error) {
       console.error('❌ DataBackupService: Error storing backup:', error);

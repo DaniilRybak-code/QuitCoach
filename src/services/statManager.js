@@ -563,6 +563,18 @@ class StatManager {
 
   async checkInactivityPenalty() {
     try {
+      // Prevent multiple calls within the same day for this specific user
+      const today = new Date().toDateString();
+      const lastCheckKey = `lastInactivityCheck_${this.userUID}_${today}`;
+      const lastCheck = localStorage.getItem(lastCheckKey);
+      
+      if (lastCheck) {
+        console.log(`Inactivity penalty already checked today for user ${this.userUID}, skipping...`);
+        return;
+      }
+      
+      console.log(`🔍 Checking inactivity penalty for user ${this.userUID}...`);
+      
       // Get user profile to check registration date and last activity
       const userSnapshot = await get(this.userRef);
       if (!userSnapshot.exists()) return;
@@ -587,18 +599,59 @@ class StatManager {
       if (lastActivitySnapshot.exists()) {
         const lastActivityDate = new Date(lastActivitySnapshot.val());
         const daysSinceLastActivity = Math.floor((now - lastActivityDate) / (1000 * 60 * 60 * 24));
+        const hoursSinceLastActivity = Math.floor((now - lastActivityDate) / (1000 * 60 * 60));
+        
+        console.log(`📅 User has lastActivity timestamp: ${lastActivityDate.toISOString()}, days since: ${daysSinceLastActivity}, hours since: ${hoursSinceLastActivity}, days since registration: ${daysSinceRegistration}`);
+        
+        // If user logged in today (within last 24 hours), don't apply penalty
+        if (hoursSinceLastActivity < 24) {
+          console.log(`✅ User logged in today (${hoursSinceLastActivity} hours ago) - no inactivity penalty needed`);
+          localStorage.setItem(lastCheckKey, 'checked');
+          return;
+        }
+        
+        // Additional check: if lastActivity is very recent (within last 2 hours), definitely no penalty
+        if (hoursSinceLastActivity < 2) {
+          console.log(`✅ User logged in very recently (${hoursSinceLastActivity} hours ago) - no inactivity penalty needed`);
+          localStorage.setItem(lastCheckKey, 'checked');
+          return;
+        }
+        
+        // Additional check: if lastActivity is within the last 24 hours, no penalty
+        if (hoursSinceLastActivity < 24) {
+          console.log(`✅ User logged in today (${hoursSinceLastActivity} hours ago) - no inactivity penalty needed`);
+          localStorage.setItem(lastCheckKey, 'checked');
+          return;
+        }
+        
+        // Additional check: if lastActivity is within the last 7 days, no penalty (safety net)
+        if (daysSinceLastActivity < 7) {
+          console.log(`✅ User logged in within last 7 days (${daysSinceLastActivity} days ago) - no inactivity penalty needed`);
+          localStorage.setItem(lastCheckKey, 'checked');
+          return;
+        }
         
         // Only apply penalty if user has been inactive for 7+ days AND registered for 7+ days
         if (daysSinceLastActivity >= 7 && daysSinceRegistration >= 7) {
           await this.updateStat('motivation', -3, 'Long period inactive (7+ days)');
           console.log(`Inactivity penalty applied: ${daysSinceLastActivity} days since last activity`);
+          localStorage.setItem(lastCheckKey, 'checked');
+          return;
+        } else {
+          // User has been active recently, no penalty needed
+          console.log(`No inactivity penalty needed: last activity was ${daysSinceLastActivity} days ago`);
+          localStorage.setItem(lastCheckKey, 'checked');
           return;
         }
       }
       
+      console.log(`📅 No lastActivity timestamp found, checking daily activity records...`);
+      
       // Fallback: Check for last activity in the last 10 days (for users without lastActivity timestamp)
-      let lastActivity = null;
+      let lastActivityFound = false;
       let lastActivityDate = null;
+      
+      console.log(`🔍 Checking daily activity records for the last 10 days...`);
       
       for (let i = 0; i < 10; i++) {
         const checkDate = new Date();
@@ -606,28 +659,41 @@ class StatManager {
         const checkDateStr = checkDate.toDateString();
         const loggedSnapshot = await get(ref(this.db, `users/${this.userUID}/profile/daily/${checkDateStr}/logged`));
         
+        console.log(`📅 Checking ${checkDateStr}: ${loggedSnapshot.exists() ? 'Activity found' : 'No activity'}`);
+        
         if (loggedSnapshot.exists() && loggedSnapshot.val()) {
-          lastActivity = i;
+          lastActivityFound = true;
           lastActivityDate = checkDate;
+          console.log(`✅ Found activity on ${checkDateStr}`);
           break;
         }
       }
       
       // Only apply penalty if user has been registered long enough AND has been inactive for 7+ days
-      if (lastActivity === null || lastActivity >= 7) {
-        // Additional safety check: ensure we're not penalizing users who just registered
-        if (lastActivityDate) {
-          const daysSinceLastActivity = Math.floor((now - lastActivityDate) / (1000 * 60 * 60 * 24));
-          if (daysSinceLastActivity >= 7 && daysSinceRegistration >= 7) {
-            await this.updateStat('motivation', -3, 'Long period inactive (7+ days)');
-            console.log(`Inactivity penalty applied: ${daysSinceLastActivity} days since last activity`);
-          }
-        } else if (daysSinceRegistration >= 7) {
-          // Only apply penalty if user has been registered for 7+ days and has no activity at all
-          await this.updateStat('motivation', 1, 'Long period inactive (7+ days)');
+      if (!lastActivityFound) {
+        // No activity found in the last 10 days
+        console.log(`❌ No activity found in the last 10 days`);
+        if (daysSinceRegistration >= 7) {
+          await this.updateStat('motivation', -3, 'Long period inactive (7+ days)');
           console.log(`Inactivity penalty applied: ${daysSinceRegistration} days since registration with no activity`);
+        } else {
+          console.log(`No penalty applied: user registered only ${daysSinceRegistration} days ago`);
+        }
+      } else if (lastActivityDate) {
+        // Activity was found, check if it was 7+ days ago
+        const actualDaysSinceLastActivity = Math.floor((now - lastActivityDate) / (1000 * 60 * 60 * 24));
+        console.log(`✅ Activity found on ${lastActivityDate.toDateString()}, days since: ${actualDaysSinceLastActivity}, days since registration: ${daysSinceRegistration}`);
+        
+        if (actualDaysSinceLastActivity >= 7 && daysSinceRegistration >= 7) {
+          await this.updateStat('motivation', -3, 'Long period inactive (7+ days)');
+          console.log(`Inactivity penalty applied: ${actualDaysSinceLastActivity} days since last activity`);
+        } else {
+          console.log(`No inactivity penalty needed: last activity was ${actualDaysSinceLastActivity} days ago`);
         }
       }
+      
+      // Mark that we've checked inactivity penalty for today
+      localStorage.setItem(lastCheckKey, 'checked');
     } catch (error) {
       console.error('Error checking inactivity penalty:', error);
     }

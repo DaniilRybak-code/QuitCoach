@@ -4,7 +4,7 @@
  */
 
 import { ref, get, set } from 'firebase/database';
-import { collection, addDoc, getDocs, query, where, limit } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, limit, deleteDoc } from 'firebase/firestore';
 import { db, firestore } from './firebase.js';
 
 class GracefulDegradationService {
@@ -76,13 +76,38 @@ class GracefulDegradationService {
     }
 
     try {
-      // Test Firestore
-      const testQuery = query(collection(firestore, 'health_check'), limit(1));
-      await getDocs(testQuery);
+      // Only test Firestore if user is authenticated
+      if (!this.userId) {
+        console.log('⚠️ GracefulDegradationService: Skipping Firestore health check - no user ID');
+        this.serviceStatus.firestore = 'unknown';
+        return;
+      }
+
+      // Test Firestore with proper data structure (simplified test)
+      const testCollection = collection(firestore, 'health_check');
+      const testData = {
+        userId: this.userId,
+        timestamp: new Date(),
+        service: 'health_check',
+        status: 'testing'
+      };
+      
+      // Try to add a test document
+      const testDoc = await addDoc(testCollection, testData);
+      
+      // Clean up the test document
+      await testDoc.delete();
+      
       this.serviceStatus.firestore = 'healthy';
     } catch (error) {
-      this.serviceStatus.firestore = 'unhealthy';
-      this.handleServiceFailure('firestore', error);
+      // Don't treat Firestore permission errors as service failures during health checks
+      if (error.code === 'permission-denied' || error.message.includes('Missing or insufficient permissions')) {
+        console.log('⚠️ GracefulDegradationService: Firestore health check skipped due to permissions');
+        this.serviceStatus.firestore = 'unknown';
+      } else {
+        this.serviceStatus.firestore = 'unhealthy';
+        this.handleServiceFailure('firestore', error);
+      }
     }
   }
 
@@ -90,6 +115,12 @@ class GracefulDegradationService {
    * Handle service failure
    */
   handleServiceFailure(service, error) {
+    // Don't treat permission errors as critical service failures
+    if (error.code === 'permission-denied' || error.message.includes('Missing or insufficient permissions')) {
+      console.log(`⚠️ GracefulDegradationService: ${service} service access denied - not treating as failure`);
+      return;
+    }
+    
     console.warn(`⚠️ GracefulDegradationService: ${service} service failure:`, error);
     
     // Enable degradation mode if critical services fail
@@ -446,7 +477,14 @@ class GracefulDegradationService {
   async setBehavioralData(behavioralData) {
     try {
       if (!this.degradationMode && this.serviceStatus.firestore === 'healthy') {
-        await addDoc(collection(firestore, 'behavioral_cravings'), behavioralData);
+        // Ensure behavioral data has required fields
+        const validatedData = {
+          ...behavioralData,
+          userId: this.userId,
+          timestamp: behavioralData.timestamp || new Date()
+        };
+        
+        await addDoc(collection(firestore, 'behavioral_cravings'), validatedData);
         console.log('✅ GracefulDegradationService: Behavioral data saved to Firestore');
       } else {
         console.log('📱 GracefulDegradationService: Behavioral data cached (offline mode)');
