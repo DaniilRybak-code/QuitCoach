@@ -7850,7 +7850,6 @@ const App = () => {
     setBuddyLoading(false);
     setRealBuddy(null);
     return;
-  };
   
   // Fallback Realtime Database buddy loading function
   const loadRealBuddyRealtimeDB = async () => {
@@ -7952,7 +7951,89 @@ const App = () => {
     // Buddy matching disabled - no longer removing from pool
     console.log('ℹ️ removeUsersFromMatchingPool called but buddy matching is disabled');
     return;
+      
+      if (service && realBuddy?.pairId) {
+        // Use Firestore for matching pool removal
+        console.log('🔄 Firestore: Removing users from matching pool');
+        
+        // Remove both users from Firestore matching pool
+        await service.removeFromMatchingPool(user1Id);
+        await service.removeFromMatchingPool(user2Id);
+        
+        // Update buddy pair in Firestore to mark users as removed from pool
+        const { doc, updateDoc } = await import('firebase/firestore');
+        const pairRef = doc(firestore, 'buddyPairs', realBuddy.pairId);
+        await updateDoc(pairRef, {
+          user1RemovedFromPool: true,
+          user2RemovedFromPool: true
+        });
+        
+        console.log('✅ Firestore: Users removed from matching pool and pair updated');
+      } else {
+        // Fallback to Realtime Database
+        console.log('🔄 Realtime Database: Removing users from matching pool');
+        
+        const { ref, remove, set } = await import('firebase/database');
+        
+        // Remove both users from matchingPool
+        await remove(ref(db, `matchingPool/${user1Id}`));
+        await remove(ref(db, `matchingPool/${user2Id}`));
+        
+        // Update buddy pair to mark users as removed from pool
+        if (realBuddy?.pairId) {
+          await set(ref(db, `buddyPairs/${realBuddy.pairId}/user1RemovedFromPool`), true);
+          await set(ref(db, `buddyPairs/${realBuddy.pairId}/user2RemovedFromPool`), true);
+        }
+        
+        console.log('✅ Realtime Database: Users removed from matching pool and pair updated');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error removing users from matching pool:', error);
+    }
   };
+
+  // Clean up orphaned buddy pairs that reference non-existent users
+  const cleanupOrphanedBuddyPairs = async () => {
+    try {
+      const { ref, get, remove } = await import('firebase/database');
+      
+      const buddyPairsRef = ref(db, 'buddyPairs');
+      const buddyPairsSnapshot = await get(buddyPairsRef);
+      
+      if (!buddyPairsSnapshot.exists()) {
+        return;
+      }
+      
+      const allPairs = buddyPairsSnapshot.val();
+      
+      for (const [pairId, pairData] of Object.entries(allPairs)) {
+        if (pairData.users && Array.isArray(pairData.users)) {
+          // Check if both users in the pair still exist
+          let bothUsersExist = true;
+          for (const userId of pairData.users) {
+            const userRef = ref(db, `users/${userId}`);
+            const userSnapshot = await get(userRef);
+            if (!userSnapshot.exists()) {
+              bothUsersExist = false;
+              break;
+            }
+          }
+          
+          if (!bothUsersExist) {
+            await remove(ref(db, `buddyPairs/${pairId}`));
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error cleaning up orphaned buddy pairs:', error);
+    }
+  };
+
+
+
+
 
   // Reset buddy load attempt when user changes
   useEffect(() => {

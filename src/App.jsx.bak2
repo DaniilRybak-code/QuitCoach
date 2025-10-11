@@ -7850,6 +7850,461 @@ const App = () => {
     setBuddyLoading(false);
     setRealBuddy(null);
     return;
+      
+      if (!service) {
+        console.log('⚠️ FirestoreBuddyService not available, falling back to Realtime Database');
+        await loadRealBuddyRealtimeDB();
+        return;
+      }
+      
+      console.log('✅ Using Firestore for buddy loading');
+      console.log('🔄 Firestore: Loading real buddy data...');
+      
+      // Query Firestore buddyPairs to find if current user is in any pair
+      const { collection, query, where, getDocs } = await import('firebase/firestore');
+      
+      const buddyPairsRef = collection(firestore, 'buddyPairs');
+      const userPairsQuery = query(buddyPairsRef, where('user1Id', '==', user.uid));
+      const userPairsSnapshot = await getDocs(userPairsQuery);
+      
+      let buddyPair = null;
+      let buddyUserId = null;
+      
+      // Check if user is user1 in any pair
+      if (!userPairsSnapshot.empty) {
+        const pairDoc = userPairsSnapshot.docs[0];
+        buddyPair = { id: pairDoc.id, ...pairDoc.data() };
+        buddyUserId = buddyPair.user2Id;
+      } else {
+        // Check if user is user2 in any pair
+        const user2PairsQuery = query(buddyPairsRef, where('user2Id', '==', user.uid));
+        const user2PairsSnapshot = await getDocs(user2PairsQuery);
+        
+        if (!user2PairsSnapshot.empty) {
+          const pairDoc = user2PairsSnapshot.docs[0];
+          buddyPair = { id: pairDoc.id, ...pairDoc.data() };
+          buddyUserId = buddyPair.user1Id;
+        }
+      }
+      
+      if (buddyPair && buddyUserId) {
+        console.log('✅ Firestore: Found buddy pair:', buddyPair.id);
+        console.log('🔍 Buddy pair data:', {
+          user1Id: buddyPair.user1Id,
+          user2Id: buddyPair.user2Id,
+          user1Name: buddyPair.user1Name,
+          user2Name: buddyPair.user2Name,
+          currentUserId: user.uid,
+          buddyUserId
+        });
+        
+        // Create a placeholder buddy using the pair data (avoid permission errors)
+        // Try to get buddy name from various sources
+        let buddyName = 'Your Buddy';
+        
+        // First, try to get from buddy pair data
+        if (buddyPair.user1Id === user.uid) {
+          buddyName = buddyPair.user2Name || 'Your Buddy';
+        } else {
+          buddyName = buddyPair.user1Name || 'Your Buddy';
+        }
+        
+        // If still fallback, try to get from matching pool data
+        if (buddyName === 'Your Buddy') {
+          try {
+            const poolUsers = await service.getAllMatchingPoolUsers();
+            const buddyInPool = poolUsers.find(u => u.userId === buddyUserId);
+            if (buddyInPool && buddyInPool.heroName) {
+              buddyName = buddyInPool.heroName;
+              console.log('🔍 Found buddy name from matching pool:', buddyName);
+            }
+          } catch (poolError) {
+            console.log('⚠️ Could not get buddy name from matching pool:', poolError.message);
+          }
+        }
+        
+        // Final fallback: generate a name based on buddy user ID
+        if (buddyName === 'Your Buddy') {
+          const userNumber = buddyUserId.slice(-4); // Use last 4 chars of ID
+          buddyName = `Buddy ${userNumber}`;
+        }
+        
+        console.log('🔍 Selected buddy name:', buddyName);
+        
+        // If we got the name from matching pool, update the buddy pair for future use
+        if (buddyName !== 'Your Buddy' && buddyName.startsWith('Buddy ') === false) {
+          try {
+            console.log('🔄 Updating buddy pair with correct names...');
+            const { doc, updateDoc } = await import('firebase/firestore');
+            const pairRef = doc(firestore, 'buddyPairs', buddyPair.id);
+            
+            const updateData = {};
+            if (buddyPair.user1Id === user.uid) {
+              updateData.user1Name = user.heroName;
+              updateData.user2Name = buddyName;
+            } else {
+              updateData.user1Name = buddyName;
+              updateData.user2Name = user.heroName;
+            }
+            
+            await updateDoc(pairRef, updateData);
+            console.log('✅ Updated buddy pair with names:', updateData);
+          } catch (updateError) {
+            console.log('⚠️ Could not update buddy pair names:', updateError.message);
+          }
+        }
+        
+        // Try to get real buddy stats from Firebase
+        let buddyStats = {
+          streakDays: 0, // Will be calculated in real-time
+          addictionLevel: 50,
+          willpower: 50,
+          motivation: 50,
+          cravingResistance: 50,
+          triggerDefense: 30,
+          experiencePoints: 0
+        };
+        
+        try {
+          console.log('🔄 Attempting to get real buddy stats from Firebase...');
+          const { ref, get } = await import('firebase/database');
+          const buddyStatsRef = ref(db, `users/${buddyUserId}/stats`);
+          const buddyStatsSnapshot = await get(buddyStatsRef);
+          
+          if (buddyStatsSnapshot.exists()) {
+            const realBuddyStats = buddyStatsSnapshot.val();
+            buddyStats = {
+              ...buddyStats, // Keep defaults as fallback
+              ...realBuddyStats // Override with real stats
+            };
+            console.log('✅ Got real buddy stats from Firebase:', realBuddyStats);
+          } else {
+            console.log('⚠️ Buddy stats not found in Firebase, using defaults');
+          }
+        } catch (statsError) {
+          console.log('⚠️ Could not read buddy stats (permission), using defaults:', statsError.message);
+        }
+        
+        // Also try to get buddy's quit date and avatar for better display
+        let buddyQuitDate = null;
+        let buddyLastRelapseDate = null; // For relapse-aware streak calculation
+        let buddyProfileLastActivity = null; // Onboarding-time fallback when no relapse logged
+        let buddyAvatar = generateAvatar('buddy', 'adventurer'); // Default fallback
+        let buddyArchetype = 'DETERMINED'; // Default fallback
+        
+        try {
+          console.log('🔄 Loading Firebase imports for buddy profile...');
+          const { ref, get } = await import('firebase/database');
+          console.log('✅ Firebase imports loaded successfully');
+          console.log('🔍 Reading buddy profile fields from path:', `users/${buddyUserId}`);
+          
+          // Read specific fields that we have permission for (not the entire user object)
+          console.log('🔄 Firestore: Attempting to read buddy quit date from multiple locations...');
+          const [avatarSnapshot, avatarSeedSnapshot, archetypeSnapshot, heroNameSnapshot, quitDateSnapshot, profileQuitDateSnapshot, profileSnapshot] = await Promise.all([
+            get(ref(db, `users/${buddyUserId}/avatar`)),
+            get(ref(db, `users/${buddyUserId}/avatarSeed`)),
+            get(ref(db, `users/${buddyUserId}/archetype`)),
+            get(ref(db, `users/${buddyUserId}/heroName`)),
+            get(ref(db, `users/${buddyUserId}/quitDate`)),
+            get(ref(db, `users/${buddyUserId}/profile/quitDate`)),
+            get(ref(db, `users/${buddyUserId}/profile`))
+          ]);
+          
+          console.log('🔍 Firestore: Quit date snapshots - root exists:', quitDateSnapshot.exists(), 'profile exists:', profileQuitDateSnapshot.exists());
+          
+          if (avatarSnapshot.exists()) {
+            buddyAvatar = avatarSnapshot.val();
+            console.log('✅ Got buddy avatar from Firebase');
+          } else if (avatarSeedSnapshot.exists()) {
+            const avatarSeed = avatarSeedSnapshot.val();
+            const archetype = archetypeSnapshot.exists() ? archetypeSnapshot.val() : 'adventurer';
+            buddyAvatar = generateAvatar(avatarSeed, archetype);
+            console.log('✅ Generated buddy avatar from seed:', avatarSeed);
+          }
+          
+          if (archetypeSnapshot.exists()) {
+            buddyArchetype = archetypeSnapshot.val();
+            console.log('✅ Got buddy archetype:', buddyArchetype);
+          }
+          
+          if (heroNameSnapshot.exists()) {
+            const buddyHeroName = heroNameSnapshot.val();
+            console.log('✅ Got buddy hero name:', buddyHeroName);
+            // Update the buddy name to use the real hero name
+            buddyName = buddyHeroName;
+          }
+          
+          if (quitDateSnapshot.exists()) {
+            buddyQuitDate = quitDateSnapshot.val();
+            console.log('✅ Got buddy quit date from Firebase (root):', buddyQuitDate);
+          } else if (profileQuitDateSnapshot.exists()) {
+            buddyQuitDate = profileQuitDateSnapshot.val();
+            console.log('✅ Got buddy quit date from Firebase (profile):', buddyQuitDate);
+          } else {
+            console.log('⚠️ No buddy quit date found in Firebase (neither root nor profile)');
+            console.log('🔍 quitDateSnapshot exists:', quitDateSnapshot.exists());
+            console.log('🔍 profileQuitDateSnapshot exists:', profileQuitDateSnapshot.exists());
+            
+            // Check if profile exists and has any quit date information
+            if (profileSnapshot.exists()) {
+              const profileData = profileSnapshot.val();
+              console.log('🔍 Full profile data available:', profileData);
+              
+              // Look for quit date in profile data
+              if (profileData && profileData.quitDate) {
+                buddyQuitDate = profileData.quitDate;
+                console.log('✅ Found buddy quit date in profile data:', buddyQuitDate);
+              } else {
+                console.log('⚠️ Profile exists but has no quit date field');
+              }
+
+              // Capture lastActivity as a reliable onboarding timestamp fallback
+              if (profileData && profileData.lastActivity) {
+                buddyProfileLastActivity = profileData.lastActivity;
+                console.log('🔍 Captured buddy lastActivity for fallback:', buddyProfileLastActivity);
+              }
+            } else {
+              console.log('⚠️ No profile data available at all');
+            }
+            
+            // Extract relapse date from profile data for relapse-aware streak calculation
+            if (profileSnapshot.exists()) {
+              const profileData = profileSnapshot.val();
+              buddyLastRelapseDate = profileData.lastRelapseDate || profileData.relapseDate;
+              console.log('🔍 Found buddy relapse date:', buddyLastRelapseDate);
+            }
+            
+            if (!buddyQuitDate) {
+              console.log('⚠️ No quit date found, checking for createdAt timestamp...');
+              console.log('🔍 Buddy user ID:', buddyUserId);
+              
+              // Fallback to createdAt timestamp if no quit date is found
+              if (profileSnapshot.exists()) {
+                const profileData = profileSnapshot.val();
+                if (profileData.createdAt) {
+                  buddyQuitDate = profileData.createdAt;
+                  console.log('✅ Using buddy createdAt as quit date:', buddyQuitDate);
+                } else {
+                  console.log('⚠️ No createdAt timestamp found either - not assigning fallback quit date');
+                  buddyQuitDate = undefined;
+                }
+              } else {
+                console.log('⚠️ No profile data available - not assigning fallback quit date');
+                buddyQuitDate = undefined;
+              }
+              
+              // For centralized users (User 2 & User 3), don't use hardcoded quit dates
+              // Their streak is managed by CentralizedStatService
+              if (buddyUserId === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2') {
+                console.log('🔄 Arena: User 2 uses centralized stats - no hardcoded quit date needed');
+                // Don't set buddyQuitDate - let centralized stats handle it
+              } else if (buddyUserId === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1') {
+                console.log('🔄 Arena: User 3 uses centralized stats - no hardcoded quit date needed');
+                // Don't set buddyQuitDate - let centralized stats handle it
+              }
+            }
+          }
+        } catch (profileError) {
+          console.log('⚠️ Could not read buddy profile (permission):', profileError.message);
+          console.log('🔍 Full profile error details:', profileError);
+          console.log('🔍 Trying to access path:', `users/${buddyUserId}`);
+          console.log('🔍 Current user can read own profile, but not buddy profile');
+        }
+
+        // Use best-available fallback when no explicit quit date found
+        // Priority: explicit quitDate -> profile.lastActivity
+        // IMPORTANT: never seed with 'now' as it renders as 0 hours and pollutes UI
+        const finalBuddyQuitDate = buddyQuitDate || buddyProfileLastActivity || null;
+
+        // For centralized users, don't set quit date that could be used for calculations
+        let buddyQuitDateForObject = finalBuddyQuitDate;
+        if (buddyUserId === 'uGZGbLUytbfu8W3mQPW0YAvXTQn1' || buddyUserId === 'AmwwlNyHD5T3WthUbyR6bFL0QkF2') {
+          console.log(`🔄 Arena: Not setting quit date for centralized buddy ${buddyUserId} - using null to prevent calculations`);
+          buddyQuitDateForObject = null; // Prevent any calculations based on quit date
+        }
+
+        const transformedBuddy = {
+          heroName: buddyName,
+          uid: buddyUserId,
+          stats: buddyStats,
+          quitDate: buddyQuitDateForObject,
+          originalQuitDate: buddyQuitDateForObject, // Add for real-time listener compatibility
+          finalQuitDate: finalBuddyQuitDate, // Always include for UI fallbacks (read-only)
+          lastActivity: buddyProfileLastActivity || null,
+          lastRelapseDate: buddyLastRelapseDate, // Add relapse date for Arena calculations
+          achievements: [],
+          archetype: buddyArchetype,
+          avatar: buddyAvatar,
+          userId: buddyUserId,
+          isRealBuddy: true,
+          pairId: buddyPair.id,
+          // Include placeholder onboarding data for Special Features generation
+          triggers: [],
+          dailyPatterns: [],
+          copingStrategies: [],
+          // Include placeholder Special Features
+          specialFeatures: null
+        };
+        
+        console.log('🔍 Firestore: Final buddy object with quit date:', {
+          heroName: buddyName,
+          originalQuitDate: buddyQuitDate,
+          finalQuitDate: finalBuddyQuitDate,
+          lastRelapseDate: buddyLastRelapseDate,
+          hasOriginalQuitDate: !!buddyQuitDate,
+          usingDefaultQuitDate: !buddyQuitDate,
+          hasRelapseDate: !!buddyLastRelapseDate
+        });
+        
+        setRealBuddy(transformedBuddy);
+        console.log('✅ Firestore: Buddy data loaded successfully');
+        console.log('🔍 Firestore: Buddy Special Features data:', {
+          hasSpecialFeatures: !!transformedBuddy.specialFeatures,
+          hasTriggers: !!transformedBuddy.triggers?.length,
+          hasDailyPatterns: !!transformedBuddy.dailyPatterns?.length,
+          hasCopingStrategies: !!transformedBuddy.copingStrategies?.length,
+          uid: transformedBuddy.uid
+        });
+
+        // Prime buddy streak immediately to avoid race with centralized real-time 0-hour values
+        try {
+          // Do not use finalQuitDate if it's null or within the last 2 minutes (likely a seed),
+          // prefer lastRelapseDate, then lastActivity
+          let streakSource = transformedBuddy.lastRelapseDate || null;
+          if (!streakSource) {
+            const fq = transformedBuddy.finalQuitDate;
+            if (fq) {
+              const fqTime = new Date(fq).getTime();
+              const nowTime = Date.now();
+              const tooRecent = Math.abs(nowTime - fqTime) < 2 * 60 * 1000; // 2 minutes
+              if (!tooRecent) {
+                streakSource = fq;
+              }
+            }
+          }
+          if (!streakSource && transformedBuddy.lastActivity) {
+            streakSource = transformedBuddy.lastActivity;
+          }
+          if (streakSource) {
+            const streak = calculateStreak(new Date(streakSource));
+            const primedStreak = {
+              streakDays: streak.value,
+              streakUnit: streak.unit,
+              streakDisplayText: streak.displayText
+            };
+            if (typeof setBuddyStreakData === 'function') {
+              setBuddyStreakData(primedStreak);
+            }
+            if (typeof setRealTimeNemesisStats === 'function') {
+              setRealTimeNemesisStats(prev => ({
+                ...prev,
+                streakDays: primedStreak.streakDays,
+                streakUnit: primedStreak.streakUnit,
+                streakDisplayText: primedStreak.streakDisplayText
+              }));
+            }
+            console.log('🔄 Arena: Primed buddy streak from loaded data:', primedStreak.streakDisplayText);
+          }
+        } catch (primeErr) {
+          console.log('⚠️ Arena: Could not prime buddy streak:', primeErr?.message);
+        }
+        
+        // Read centralized stats for ALL buddies (universal system)
+        console.log(`🔄 Firestore: Reading centralized buddy stats for ${buddyUserId} (read-only)`);
+        try {
+          // Read buddy's stats and calculate streak locally (read-only approach)
+          try {
+            const { ref: statsRef, get } = await import('firebase/database');
+            const buddyStatsSnapshot = await get(statsRef(db, `users/${buddyUserId}/stats`));
+            
+            if (buddyStatsSnapshot.exists()) {
+              const buddyStats = buddyStatsSnapshot.val();
+              
+              // Calculate streak locally using buddy's relapse date
+              const now = new Date();
+              const lastRelapseDate = transformedBuddy.lastRelapseDate;
+              
+              if (lastRelapseDate) {
+                const relapseDate = new Date(lastRelapseDate);
+                const diffMs = now - relapseDate;
+                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                const diffDays = Math.floor(diffHours / 24);
+                
+                // Update streak in the stats object
+                let streakDisplayText;
+                let streakDays;
+                
+                if (diffHours < 24) {
+                  streakDisplayText = `${diffHours} hour${diffHours === 1 ? '' : 's'}`;
+                  streakDays = 0;
+                } else {
+                  streakDisplayText = `${diffDays} day${diffDays === 1 ? '' : 's'}`;
+                  streakDays = diffDays;
+                }
+                
+                console.log(`🔄 Firestore: Calculated buddy streak locally: ${streakDisplayText} (${diffHours} hours since relapse)`);
+                
+                // Store buddy streak data separately to prevent reset during tab switches
+                const streakData = {
+                  streakDays: streakDays,
+                  streakUnit: diffHours < 24 ? 'hours' : 'days',
+                  streakDisplayText: streakDisplayText
+                };
+                setBuddyStreakDataFn(streakData);
+                
+                // Update the stats with calculated streak
+                const updatedBuddyStats = {
+                  ...buddyStats,
+                  streakDays: streakDays,
+                  streakUnit: diffHours < 24 ? 'hours' : 'days',
+                  streakDisplayText: streakDisplayText
+                };
+                
+                console.log('🔄 Firestore: Using buddy stats with locally calculated streak:', updatedBuddyStats);
+                console.log('🔄 Firestore: Buddy streak fields:', {
+                  streakDays: updatedBuddyStats.streakDays,
+                  streakUnit: updatedBuddyStats.streakUnit,
+                  streakDisplayText: updatedBuddyStats.streakDisplayText
+                });
+                setRealTimeNemesisStatsFn(updatedBuddyStats);
+              } else {
+                console.log('🔄 Firestore: No relapse date found for buddy, using existing stats');
+                setRealTimeNemesisStatsFn(buddyStats);
+              }
+            } else {
+              console.log('⚠️ Firestore: No centralized stats found for buddy, using fallback calculation');
+              const calculatedStats = await calculateRealTimeStatsFn(transformedBuddy);
+              setRealTimeNemesisStatsFn(calculatedStats);
+            }
+          } catch (error) {
+            console.error('❌ Error reading buddy stats:', error);
+            // Fallback to calculated method
+            const calculatedStats = await calculateRealTimeStatsFn(transformedBuddy);
+            setRealTimeNemesisStatsFn(calculatedStats);
+          }
+        } catch (error) {
+          console.error('❌ Error reading centralized buddy stats:', error);
+          // Fallback to calculated method
+          const calculatedStats = await calculateRealTimeStatsFn(transformedBuddy);
+          setRealTimeNemesisStatsFn(calculatedStats);
+        }
+        
+        // Clean up matching pool (Firestore)
+        await removeUsersFromMatchingPool(user.uid, buddyUserId);
+        
+      } else {
+        console.log('ℹ️ Firestore: No buddy pair found for user');
+        setRealBuddy(null);
+      }
+      
+    } catch (error) {
+      console.error('❌ Firestore: Error loading buddy:', error);
+      // Fallback to Realtime Database
+      console.log('🔄 Falling back to Realtime Database buddy loading...');
+      await loadRealBuddyRealtimeDB();
+    } finally {
+      setBuddyLoading(false);
+    }
   };
   
   // Fallback Realtime Database buddy loading function
@@ -7949,10 +8404,92 @@ const App = () => {
 
   // Remove users from matching pool after successful buddy pairing
   const removeUsersFromMatchingPool = async (user1Id, user2Id) => {
-    // Buddy matching disabled - no longer removing from pool
-    console.log('ℹ️ removeUsersFromMatchingPool called but buddy matching is disabled');
-    return;
+    try {
+      // Use ref for immediate access, fallback to state
+      const service = firestoreBuddyServiceRef.current || firestoreBuddyService;
+      
+      if (service && realBuddy?.pairId) {
+        // Use Firestore for matching pool removal
+        console.log('🔄 Firestore: Removing users from matching pool');
+        
+        // Remove both users from Firestore matching pool
+        await service.removeFromMatchingPool(user1Id);
+        await service.removeFromMatchingPool(user2Id);
+        
+        // Update buddy pair in Firestore to mark users as removed from pool
+        const { doc, updateDoc } = await import('firebase/firestore');
+        const pairRef = doc(firestore, 'buddyPairs', realBuddy.pairId);
+        await updateDoc(pairRef, {
+          user1RemovedFromPool: true,
+          user2RemovedFromPool: true
+        });
+        
+        console.log('✅ Firestore: Users removed from matching pool and pair updated');
+      } else {
+        // Fallback to Realtime Database
+        console.log('🔄 Realtime Database: Removing users from matching pool');
+        
+        const { ref, remove, set } = await import('firebase/database');
+        
+        // Remove both users from matchingPool
+        await remove(ref(db, `matchingPool/${user1Id}`));
+        await remove(ref(db, `matchingPool/${user2Id}`));
+        
+        // Update buddy pair to mark users as removed from pool
+        if (realBuddy?.pairId) {
+          await set(ref(db, `buddyPairs/${realBuddy.pairId}/user1RemovedFromPool`), true);
+          await set(ref(db, `buddyPairs/${realBuddy.pairId}/user2RemovedFromPool`), true);
+        }
+        
+        console.log('✅ Realtime Database: Users removed from matching pool and pair updated');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error removing users from matching pool:', error);
+    }
   };
+
+  // Clean up orphaned buddy pairs that reference non-existent users
+  const cleanupOrphanedBuddyPairs = async () => {
+    try {
+      const { ref, get, remove } = await import('firebase/database');
+      
+      const buddyPairsRef = ref(db, 'buddyPairs');
+      const buddyPairsSnapshot = await get(buddyPairsRef);
+      
+      if (!buddyPairsSnapshot.exists()) {
+        return;
+      }
+      
+      const allPairs = buddyPairsSnapshot.val();
+      
+      for (const [pairId, pairData] of Object.entries(allPairs)) {
+        if (pairData.users && Array.isArray(pairData.users)) {
+          // Check if both users in the pair still exist
+          let bothUsersExist = true;
+          for (const userId of pairData.users) {
+            const userRef = ref(db, `users/${userId}`);
+            const userSnapshot = await get(userRef);
+            if (!userSnapshot.exists()) {
+              bothUsersExist = false;
+              break;
+            }
+          }
+          
+          if (!bothUsersExist) {
+            await remove(ref(db, `buddyPairs/${pairId}`));
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error cleaning up orphaned buddy pairs:', error);
+    }
+  };
+
+
+
+
 
   // Reset buddy load attempt when user changes
   useEffect(() => {
@@ -8492,6 +9029,9 @@ const App = () => {
               onResetApp={handleResetApp}
               onBackToLogin={handleBackToLogin}
               onResetForTesting={handleResetForTesting}
+              firestoreBuddyService={firestoreBuddyService}
+              firestoreBuddyServiceRef={firestoreBuddyServiceRef}
+              initializeFirestoreBuddyService={initializeFirestoreBuddyService}
               behavioralService={behavioralService}
               user={user}
               onShowAnalytics={() => setShowAnalytics(true)}
