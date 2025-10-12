@@ -336,37 +336,7 @@ const AuthScreen = ({ onAuthSuccess, isNewUser }) => {
           </p>
           
           {/* Debug Firestore Button */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mt-3">
-              <button
-                onClick={async () => {
-                  console.log('🧪 Testing Firestore service from AuthScreen...');
-                  try {
-                    const { firestore } = await import('../services/firebase');
-                    console.log('✅ Firestore imported:', !!firestore);
-                    console.log('✅ Firestore type:', typeof firestore);
-                    
-                    const FirestoreBuddyService = (await import('../services/firestoreBuddyService')).default;
-                    console.log('✅ FirestoreBuddyService imported:', !!FirestoreBuddyService);
-                    
-                    const service = new FirestoreBuddyService(firestore);
-                    console.log('✅ Service instance created:', !!service);
-                    
-                    const status = service.getServiceStatus();
-                    console.log('📊 Service status:', status);
-                    
-                    const connectivity = await service.testConnectivity();
-                    console.log('🔗 Connectivity test result:', connectivity);
-                  } catch (error) {
-                    console.error('❌ Error testing Firestore:', error);
-                  }
-                }}
-                className="w-full flex items-center justify-center px-3 py-3 border border-yellow-600 rounded-md text-yellow-300 bg-yellow-900/20 hover:bg-yellow-800/30 focus:outline-none focus:ring-2 focus:ring-yellow-500 text-sm min-h-[44px]"
-              >
-                🧪 Test Firestore Service
-              </button>
-            </div>
-          )}
+          {/* Development test button removed - buddy matching feature was removed */}
           
           {/* Error display with retry option */}
           {error && (
