@@ -7568,7 +7568,7 @@ const App = () => {
               const completed = !!userData.onboardingCompleted;
               setHasCompletedOnboarding(completed);
               console.log(`Onboarding status: ${completed ? 'completed' : 'not completed'}`);
-              setCurrentView(completed ? 'arena' : 'auth');
+              setCurrentView(completed ? 'arena' : 'onboarding');
               
               // Initialize StatManager for the authenticated user (with delay to ensure lastActivity is updated)
               try {
@@ -7808,7 +7808,7 @@ const App = () => {
           }
           
           setHasCompletedOnboarding(completed);
-          setCurrentView(completed ? 'arena' : 'auth');
+          setCurrentView(completed ? 'arena' : 'onboarding');
         } else {
           console.log('⚠️ Data loading failed, but proceeding with basic data');
           setUser(userData);
