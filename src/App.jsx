@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 // Initialize Firebase once app mounts; safe to tree-shake unused exports
-import { db, auth, firestore } from './services/firebase';
+import { db, auth, firestore } from './lib/firebase/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import StatManager from './services/statManager.js';
 import FirestoreBehavioralService from './services/firestoreBehavioralService.js';
@@ -25,6 +25,9 @@ import SessionStatusIndicator from './components/SessionStatusIndicator';
 import BreathingModal from './components/BreathingModal';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { Users, Zap, Trophy, Target, Heart, DollarSign, Calendar, Star, Shield, Sword, Home, User, Settings, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
+
+// Import refactored onboarding module
+import { OnboardingFlow } from './features/onboarding';
 
 // Avatar generation utility with fallback
 const generateAvatar = (seed, style = 'adventurer') => {
@@ -91,8 +94,8 @@ const calculateStreak = (startDate, endDate = new Date()) => {
   }
 };
 
-// Onboarding Flow Component
-const OnboardingFlow = ({ onComplete, authUser, pwaInstallAvailable, promptInstall }) => {
+// OLD Onboarding Flow Component (DEPRECATED - keeping for reference, using features/onboarding instead)
+const OnboardingFlowOld = ({ onComplete, authUser, pwaInstallAvailable, promptInstall }) => {
   const [step, setStep] = useState(1);
   const [userData, setUserData] = useState({
     heroName: '',
@@ -8401,7 +8404,8 @@ const App = () => {
   
           <OnboardingFlow 
             onComplete={handleOnboardingComplete} 
-            authUser={authUser} 
+            authUser={authUser}
+            db={db}
             pwaInstallAvailable={pwaInstallAvailable}
             promptInstall={promptInstall}
           />
