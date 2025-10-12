@@ -254,18 +254,16 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
             <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <Sparkles className="w-10 h-10 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-4">Welcome to QuitCard Arena</h1>
-            <p className="text-gray-300 mb-6">Your journey to freedom starts here. Let's create your hero identity.</p>
+            <h1 className="text-2xl font-bold text-white mb-2">Welcome to QuitCard Arena</h1>
+            <p className="text-gray-300 mb-2">You're about to start your freedom journey</p>
+            <p className="text-gray-300 mb-6 font-medium">What should we call you?</p>
             
             <div className="mb-6">
-              <label className="block text-left text-white text-sm font-medium mb-2">
-                What's your hero name?
-              </label>
               <input
                 type="text"
                 value={userData.heroName}
                 onChange={(e) => updateField('heroName', e.target.value)}
-                placeholder="e.g., FreedomSeeker, HealthGuardian"
+                placeholder="Your name or nickname"
                 autoComplete="name"
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
