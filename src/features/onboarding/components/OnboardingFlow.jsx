@@ -210,7 +210,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
     switch (step) {
       case 1: return userData.heroName.trim().length > 0;
       case 2: return userData.quittingTypes.length > 0;
-      case 3: return userData.quitDate !== '';
+      case 3: return userData.startDate !== '' && userData.quitDate !== '' && userData.weeklySpend > 0;
       case 4: return userData.archetype !== '';
       case 5: return userData.avatar !== null;
       case 6: return userData.triggers.length > 0;
@@ -315,29 +315,94 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 3: Quit Date */}
+        {/* Step 3: Usage History */}
         {step === 3 && (
           <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-3xl">📅</span>
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-4xl">📊</span>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-4">When Did You Start Your Quit Journey?</h1>
-            <p className="text-gray-300 mb-6">Select the date you began or plan to begin your freedom journey.</p>
+            <h1 className="text-2xl font-bold text-white mb-2">Your Usage History</h1>
+            <p className="text-gray-300 text-sm mb-6">
+              Let's understand your journey so we can show you what you've gained by quitting
+            </p>
             
-            <div className="mb-6">
-              <label className="block text-left text-white text-sm font-medium mb-2">
-                Quit Date
+            {/* Divider */}
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-500 to-transparent mb-6"></div>
+            
+            {/* Question 1: Start Date */}
+            <div className="mb-6 text-left">
+              <label className="flex items-center gap-2 text-white font-semibold mb-3">
+                <span className="text-lg">1️⃣</span>
+                <span>When did you START using nicotine regularly?</span>
               </label>
-              <input
-                type="date"
-                value={userData.quitDate}
-                max={new Date().toISOString().split('T')[0]}
-                onChange={(e) => updateField('quitDate', e.target.value)}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-              <p className="text-gray-400 text-xs mt-2 text-left">
-                💡 You can select today or a past date if you've already started
+              <div className="relative">
+                <input
+                  type="month"
+                  value={userData.startDate}
+                  max={new Date().toISOString().slice(0, 7)}
+                  onChange={(e) => updateField('startDate', e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-700/80 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="Select month and year"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-2xl pointer-events-none">📅</span>
+              </div>
+              <p className="text-gray-400 text-xs mt-2 flex items-center gap-1">
+                <span>💡</span>
+                <span>Approximate date is fine</span>
               </p>
+            </div>
+            
+            {/* Divider */}
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-500 to-transparent mb-6"></div>
+            
+            {/* Question 2: Quit Date */}
+            <div className="mb-6 text-left">
+              <label className="flex items-center gap-2 text-white font-semibold mb-3">
+                <span className="text-lg">2️⃣</span>
+                <span>When did you QUIT?</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={userData.quitDate}
+                  max={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => updateField('quitDate', e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-700/80 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-2xl pointer-events-none">📅</span>
+              </div>
+            </div>
+            
+            {/* Divider */}
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-500 to-transparent mb-6"></div>
+            
+            {/* Question 3: Weekly Spend */}
+            <div className="mb-6 text-left">
+              <label className="flex items-center gap-2 text-white font-semibold mb-3">
+                <span className="text-lg">3️⃣</span>
+                <span>How much did you spend on nicotine per WEEK?</span>
+                <span className="text-xl">💰</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 text-lg font-semibold">$</span>
+                <input
+                  type="number"
+                  value={userData.weeklySpend || ''}
+                  onChange={(e) => updateField('weeklySpend', parseFloat(e.target.value) || 0)}
+                  placeholder="50"
+                  min="0"
+                  step="5"
+                  className="w-full pl-8 pr-4 py-3 bg-slate-700/80 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                />
+              </div>
+              <div className="mt-3 p-3 bg-slate-700/40 rounded-lg">
+                <p className="text-gray-300 text-xs font-medium mb-2">Common ranges:</p>
+                <div className="space-y-1 text-xs text-gray-400">
+                  <p>• Light user: $20-40/week</p>
+                  <p>• Moderate: $40-70/week</p>
+                  <p>• Heavy: $70-150/week</p>
+                </div>
+              </div>
             </div>
           </div>
         )}

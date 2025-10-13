@@ -85,7 +85,9 @@ export const QUITTING_TYPES = [
 export interface OnboardingUserData {
   heroName: string;
   quittingTypes: string[]; // 'vaping', 'smoking', or both
-  quitDate: string;
+  startDate: string; // When they started using nicotine
+  quitDate: string; // When they quit
+  weeklySpend: number; // Weekly spend on nicotine
   archetype: string;
   avatar: string | null;
   avatarSeed: string;
@@ -101,7 +103,9 @@ export interface OnboardingUserData {
 export const INITIAL_ONBOARDING_DATA: OnboardingUserData = {
   heroName: '',
   quittingTypes: [],
+  startDate: '',
   quitDate: new Date().toISOString().split('T')[0],
+  weeklySpend: 0,
   archetype: '',
   avatar: null,
   avatarSeed: Math.random().toString(36).substring(7),
