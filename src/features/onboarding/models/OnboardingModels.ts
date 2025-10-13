@@ -58,7 +58,7 @@ export const VAPE_PODS_OPTIONS = [
   { value: 8, label: '8+ pods' }
 ];
 
-export const TOTAL_ONBOARDING_STEPS = 11;
+export const TOTAL_ONBOARDING_STEPS = 12;
 
 export const NICOTINE_STRENGTH_OPTIONS = [
   '3mg',
