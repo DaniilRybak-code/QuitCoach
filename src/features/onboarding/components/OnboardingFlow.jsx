@@ -10,6 +10,7 @@ import {
   VAPE_PODS_OPTIONS,
   NICOTINE_STRENGTH_OPTIONS,
   QUIT_ATTEMPTS_OPTIONS,
+  QUITTING_TYPES,
   INITIAL_ONBOARDING_DATA
 } from '../models/OnboardingModels';
 import { generateAvatar, generateFallbackAvatar } from '../services/AvatarService';
@@ -137,7 +138,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
   };
 
   const handleNext = async () => {
-    if (step < 11) {
+    if (step < 12) {
       if (authUser) {
         await saveOnboardingStep(db, authUser.uid, userData, step);
       }
@@ -160,7 +161,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
         };
         
         if (authUser) {
-          await saveOnboardingStep(db, authUser.uid, finalUserData, 11);
+          await saveOnboardingStep(db, authUser.uid, finalUserData, 12);
         }
         
         console.log('Final user data:', finalUserData);
@@ -187,7 +188,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
         
         if (authUser) {
           try {
-            await saveOnboardingStep(db, authUser.uid, finalUserData, 11);
+            await saveOnboardingStep(db, authUser.uid, finalUserData, 12);
           } catch (firebaseError) {
             console.error('Failed to save fallback data to Firebase:', firebaseError);
           }
@@ -208,16 +209,17 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
   const canProceed = () => {
     switch (step) {
       case 1: return userData.heroName.trim().length > 0;
-      case 2: return userData.quitDate !== '';
-      case 3: return userData.archetype !== '';
-      case 4: return userData.avatar !== null;
-      case 5: return userData.triggers.length > 0;
-      case 6: return userData.dailyPatterns.length > 0;
-      case 7: return userData.copingStrategies.length > 0;
-      case 8: return userData.vapePodsPerWeek > 0;
-      case 9: return userData.nicotineStrength !== '';
-      case 10: return userData.quitAttempts !== '';
-      case 11: return userData.confidence > 0;
+      case 2: return userData.quittingTypes.length > 0;
+      case 3: return userData.quitDate !== '';
+      case 4: return userData.archetype !== '';
+      case 5: return userData.avatar !== null;
+      case 6: return userData.triggers.length > 0;
+      case 7: return userData.dailyPatterns.length > 0;
+      case 8: return userData.copingStrategies.length > 0;
+      case 9: return userData.vapePodsPerWeek > 0;
+      case 10: return userData.nicotineStrength !== '';
+      case 11: return userData.quitAttempts !== '';
+      case 12: return userData.confidence > 0;
       default: return false;
     }
   };
@@ -271,14 +273,56 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 2: Quit Date */}
+        {/* Step 2: What Are You Quitting? */}
         {step === 2 && (
+          <div className="text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-3xl">❓</span>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-6">What are you quitting?</h1>
+            
+            <div className="space-y-3 mb-6">
+              {QUITTING_TYPES.map((type) => (
+                <button
+                  key={type.id}
+                  onClick={() => {
+                    const newTypes = userData.quittingTypes.includes(type.id)
+                      ? userData.quittingTypes.filter(t => t !== type.id)
+                      : [...userData.quittingTypes, type.id];
+                    updateField('quittingTypes', newTypes);
+                  }}
+                  className={`w-full p-6 rounded-lg border-2 transition-all duration-300 ${
+                    userData.quittingTypes.includes(type.id)
+                      ? 'border-blue-500 bg-blue-500/20'
+                      : 'border-slate-600 bg-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <span className="text-4xl">{type.emoji}</span>
+                      <span className="text-white font-semibold text-xl">{type.label}</span>
+                    </div>
+                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                      userData.quittingTypes.includes(type.id) ? 'bg-blue-500 border-blue-500' : 'border-gray-400'
+                    }`}>
+                      {userData.quittingTypes.includes(type.id) && <span className="text-white text-sm">✓</span>}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <p className="text-gray-400 text-sm">You can select one or both</p>
+          </div>
+        )}
+
+        {/* Step 3: Quit Date */}
+        {step === 3 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-3xl">📅</span>
             </div>
             <h1 className="text-2xl font-bold text-white mb-4">When Did You Start Your Quit Journey?</h1>
-            <p className="text-gray-300 mb-6">Select the date you began or plan to begin your vape-free life.</p>
+            <p className="text-gray-300 mb-6">Select the date you began or plan to begin your freedom journey.</p>
             
             <div className="mb-6">
               <label className="block text-left text-white text-sm font-medium mb-2">
@@ -298,8 +342,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 3: Archetype */}
-        {step === 3 && (
+        {/* Step 4: Archetype */}
+        {step === 4 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <Shield className="w-10 h-10 text-white" />
@@ -336,8 +380,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 4: Avatar Creation */}
-        {step === 4 && (
+        {/* Step 5: Avatar Creation */}
+        {step === 5 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <User className="w-10 h-10 text-white" />
@@ -423,8 +467,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 5: Trigger Identification */}
-        {step === 5 && (
+        {/* Step 6: Trigger Identification */}
+        {step === 6 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🎯</span>
@@ -462,8 +506,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 6: Daily Routine */}
-        {step === 6 && (
+        {/* Step 7: Daily Routine */}
+        {step === 7 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">📅</span>
@@ -501,8 +545,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 7: Coping Experience */}
-        {step === 7 && (
+        {/* Step 8: Coping Experience */}
+        {step === 8 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-teal-400 to-teal-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🛡️</span>
@@ -540,8 +584,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 8: Vape Usage */}
-        {step === 8 && (
+        {/* Step 9: Vape Usage */}
+        {step === 9 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🚬</span>
@@ -564,8 +608,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 9: Nicotine Strength */}
-        {step === 9 && (
+        {/* Step 10: Nicotine Strength */}
+        {step === 10 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">⚡</span>
@@ -588,8 +632,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 10: Previous Attempts */}
-        {step === 10 && (
+        {/* Step 11: Previous Attempts */}
+        {step === 11 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">📚</span>
@@ -612,8 +656,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 11: Confidence Level */}
-        {step === 11 && (
+        {/* Step 12: Confidence Level */}
+        {step === 12 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🎯</span>
@@ -666,7 +710,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           canProceed={canProceed()}
           onBack={handleBack}
           onNext={handleNext}
-          isLastStep={step === 11}
+          isLastStep={step === 12}
         />
       </div>
     </div>

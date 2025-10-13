@@ -58,7 +58,7 @@ export const VAPE_PODS_OPTIONS = [
   { value: 8, label: '8+ pods' }
 ];
 
-export const TOTAL_ONBOARDING_STEPS = 11;
+export const TOTAL_ONBOARDING_STEPS = 12;
 
 export const NICOTINE_STRENGTH_OPTIONS = [
   '3mg',
@@ -77,8 +77,14 @@ export const QUIT_ATTEMPTS_OPTIONS = [
   { value: '5', label: 'More than 5 times' }
 ];
 
+export const QUITTING_TYPES = [
+  { id: 'vaping', label: 'Vaping', emoji: '💨' },
+  { id: 'smoking', label: 'Smoking', emoji: '🚬' }
+];
+
 export interface OnboardingUserData {
   heroName: string;
+  quittingTypes: string[]; // 'vaping', 'smoking', or both
   quitDate: string;
   archetype: string;
   avatar: string | null;
@@ -94,6 +100,7 @@ export interface OnboardingUserData {
 
 export const INITIAL_ONBOARDING_DATA: OnboardingUserData = {
   heroName: '',
+  quittingTypes: [],
   quitDate: new Date().toISOString().split('T')[0],
   archetype: '',
   avatar: null,
