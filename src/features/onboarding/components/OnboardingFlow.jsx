@@ -312,7 +312,6 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
                 </button>
               ))}
             </div>
-            <p className="text-gray-400 text-sm">✨ You can select one or both</p>
           </div>
         )}
 
