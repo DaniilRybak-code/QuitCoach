@@ -342,14 +342,10 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
                   max={new Date().toISOString().slice(0, 7)}
                   onChange={(e) => updateField('startDate', e.target.value)}
                   className="w-full px-4 py-3 bg-slate-700/80 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="Select month and year"
+                  placeholder="Approximate date is fine"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-2xl pointer-events-none">📅</span>
               </div>
-              <p className="text-gray-400 text-xs mt-2 flex items-center gap-1">
-                <span>💡</span>
-                <span>Approximate date is fine</span>
-              </p>
             </div>
             
             {/* Divider */}
@@ -384,7 +380,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
                 <span className="text-xl">💰</span>
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 text-lg font-semibold">$</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 text-lg font-semibold">£</span>
                 <input
                   type="number"
                   value={userData.weeklySpend || ''}
@@ -398,9 +394,9 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
               <div className="mt-3 p-3 bg-slate-700/40 rounded-lg">
                 <p className="text-gray-300 text-xs font-medium mb-2">Common ranges:</p>
                 <div className="space-y-1 text-xs text-gray-400">
-                  <p>• Light user: $20-40/week</p>
-                  <p>• Moderate: $40-70/week</p>
-                  <p>• Heavy: $70-150/week</p>
+                  <p>• Light user: £20-40/week</p>
+                  <p>• Moderate: £40-70/week</p>
+                  <p>• Heavy: £70-150/week</p>
                 </div>
               </div>
             </div>
