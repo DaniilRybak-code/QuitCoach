@@ -276,12 +276,12 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
         {/* Step 2: What Are You Quitting? */}
         {step === 2 && (
           <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-3xl">❓</span>
+            <div className="w-20 h-20 bg-gradient-to-br from-red-400 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Sparkles className="w-10 h-10 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-white mb-6">What are you quitting?</h1>
             
-            <div className="space-y-3 mb-6">
+            <div className="space-y-4 mb-6">
               {QUITTING_TYPES.map((type) => (
                 <button
                   key={type.id}
@@ -291,27 +291,28 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
                       : [...userData.quittingTypes, type.id];
                     updateField('quittingTypes', newTypes);
                   }}
-                  className={`w-full p-6 rounded-lg border-2 transition-all duration-300 ${
+                  className={`w-full p-6 rounded-xl border-2 transition-all duration-300 transform hover:scale-[1.02] ${
                     userData.quittingTypes.includes(type.id)
-                      ? 'border-blue-500 bg-blue-500/20'
-                      : 'border-slate-600 bg-slate-700 hover:border-slate-500'
+                      ? 'border-blue-500 bg-gradient-to-r from-blue-500/20 to-blue-600/20 shadow-lg shadow-blue-500/20'
+                      : 'border-slate-600 bg-slate-700/50 hover:border-slate-500 hover:bg-slate-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <span className="text-4xl">{type.emoji}</span>
-                      <span className="text-white font-semibold text-xl">{type.label}</span>
-                    </div>
-                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
-                      userData.quittingTypes.includes(type.id) ? 'bg-blue-500 border-blue-500' : 'border-gray-400'
+                  <div className="flex items-center gap-4">
+                    <div className={`text-5xl transition-transform duration-300 ${
+                      userData.quittingTypes.includes(type.id) ? 'scale-110' : ''
                     }`}>
-                      {userData.quittingTypes.includes(type.id) && <span className="text-white text-sm">✓</span>}
+                      {type.emoji}
                     </div>
+                    <span className={`font-bold text-2xl transition-colors duration-300 ${
+                      userData.quittingTypes.includes(type.id) ? 'text-blue-300' : 'text-white'
+                    }`}>
+                      {type.label}
+                    </span>
                   </div>
                 </button>
               ))}
             </div>
-            <p className="text-gray-400 text-sm">You can select one or both</p>
+            <p className="text-gray-400 text-sm">✨ You can select one or both</p>
           </div>
         )}
 
