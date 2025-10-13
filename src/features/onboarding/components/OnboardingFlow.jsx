@@ -138,7 +138,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
   };
 
   const handleNext = async () => {
-    if (step < 12) {
+    if (step < 11) {
       if (authUser) {
         await saveOnboardingStep(db, authUser.uid, userData, step);
       }
@@ -161,7 +161,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
         };
         
         if (authUser) {
-          await saveOnboardingStep(db, authUser.uid, finalUserData, 12);
+          await saveOnboardingStep(db, authUser.uid, finalUserData, 11);
         }
         
         console.log('Final user data:', finalUserData);
@@ -188,7 +188,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
         
         if (authUser) {
           try {
-            await saveOnboardingStep(db, authUser.uid, finalUserData, 12);
+            await saveOnboardingStep(db, authUser.uid, finalUserData, 11);
           } catch (firebaseError) {
             console.error('Failed to save fallback data to Firebase:', firebaseError);
           }
@@ -211,15 +211,14 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
       case 1: return userData.heroName.trim().length > 0;
       case 2: return userData.quittingTypes.length > 0;
       case 3: return userData.startDate !== '' && userData.quitDate !== '' && userData.weeklySpend > 0;
-      case 4: return userData.archetype !== '';
-      case 5: return userData.avatar !== null;
-      case 6: return userData.triggers.length > 0;
-      case 7: return userData.dailyPatterns.length > 0;
-      case 8: return userData.copingStrategies.length > 0;
-      case 9: return userData.vapePodsPerWeek > 0;
-      case 10: return userData.nicotineStrength !== '';
-      case 11: return userData.quitAttempts !== '';
-      case 12: return userData.confidence > 0;
+      case 4: return userData.avatar !== null;
+      case 5: return userData.triggers.length > 0;
+      case 6: return userData.dailyPatterns.length > 0;
+      case 7: return userData.copingStrategies.length > 0;
+      case 8: return userData.vapePodsPerWeek > 0;
+      case 9: return userData.nicotineStrength !== '';
+      case 10: return userData.quitAttempts !== '';
+      case 11: return userData.confidence > 0;
       default: return false;
     }
   };
@@ -403,46 +402,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 4: Archetype */}
+        {/* Step 4: Avatar Creation */}
         {step === 4 && (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Shield className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-4">Choose Your Archetype</h1>
-            <p className="text-gray-300 mb-6">Select the warrior type that resonates with your journey.</p>
-            
-            <div className="space-y-3 mb-6">
-              {ARCHETYPE_OPTIONS.map((archetype) => {
-                const IconComponent = archetype.icon;
-                return (
-                  <button
-                    key={archetype.id}
-                    onClick={() => updateField('archetype', archetype.id)}
-                    className={`w-full p-4 rounded-lg border-2 transition-all duration-300 text-left ${
-                      userData.archetype === archetype.id
-                        ? 'border-blue-500 bg-blue-500/20'
-                        : 'border-slate-600 bg-slate-700 hover:border-slate-500'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 ${archetype.color} rounded-lg flex items-center justify-center`}>
-                        <IconComponent className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-white font-semibold">{archetype.name}</h3>
-                        <p className="text-gray-400 text-sm">{archetype.description}</p>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Step 5: Avatar Creation */}
-        {step === 5 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <User className="w-10 h-10 text-white" />
@@ -528,8 +489,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 6: Trigger Identification */}
-        {step === 6 && (
+        {/* Step 5: Trigger Identification */}
+        {step === 5 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🎯</span>
@@ -567,8 +528,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 7: Daily Routine */}
-        {step === 7 && (
+        {/* Step 6: Daily Routine */}
+        {step === 6 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">📅</span>
@@ -606,8 +567,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 8: Coping Experience */}
-        {step === 8 && (
+        {/* Step 7: Coping Experience */}
+        {step === 7 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-teal-400 to-teal-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🛡️</span>
@@ -645,8 +606,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 9: Vape Usage */}
-        {step === 9 && (
+        {/* Step 8: Vape Usage */}
+        {step === 8 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🚬</span>
@@ -669,8 +630,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 10: Nicotine Strength */}
-        {step === 10 && (
+        {/* Step 9: Nicotine Strength */}
+        {step === 9 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">⚡</span>
@@ -693,8 +654,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 11: Previous Attempts */}
-        {step === 11 && (
+        {/* Step 10: Previous Attempts */}
+        {step === 10 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">📚</span>
@@ -717,8 +678,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 12: Confidence Level */}
-        {step === 12 && (
+        {/* Step 11: Confidence Level */}
+        {step === 11 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🎯</span>
@@ -771,7 +732,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           canProceed={canProceed()}
           onBack={handleBack}
           onNext={handleNext}
-          isLastStep={step === 12}
+          isLastStep={step === 11}
         />
       </div>
     </div>
