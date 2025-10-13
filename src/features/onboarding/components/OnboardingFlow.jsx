@@ -58,21 +58,21 @@ const getHealthBullets = (yearsOfUse) => {
   } else if (yearsOfUse < 3) {
     return [
       "You've likely already lost up to 5% of your lung efficiency — similar to someone a decade older.",
-      "Skin aging accelerates, as nicotine restricts blood flow and reduces collagen production."
+      "Nicotine has started to impact your cardiovascular system, increasing blood pressure and heart rate."
     ];
   } else if (yearsOfUse < 5) {
     return [
-      "Long-term use at this stage may have increased your biological age by 2–4 years, according to medical research on telomere shortening.",
-      "Your body's ability to recover from exercise drops, with a notable decline in cardiovascular endurance."
+      "Your body's ability to recover from exercise drops, with a notable decline in cardiovascular endurance.",
+      "Blood vessel damage begins to impact circulation, potentially causing cold hands and feet."
     ];
   } else if (yearsOfUse < 8) {
     return [
       "Chronic lung inflammation becomes established, often leading to persistent shortness of breath or coughing.",
-      "Smoking or vaping for this long has been shown to double the rate of facial skin aging and deepen wrinkles."
+      "Your immune system weakens, making you more susceptible to infections and slower to heal."
     ];
   } else {
     return [
-      "The risk of developing COPD or chronic bronchitis skyrockets — lungs may function like those of someone 15 years older.",
+      "The risk of developing COPD or chronic bronchitis skyrockets — permanent lung damage becomes increasingly likely.",
       "Your arteries have likely stiffened, raising your heart attack and stroke risk by over 200% compared to non-users."
     ];
   }
