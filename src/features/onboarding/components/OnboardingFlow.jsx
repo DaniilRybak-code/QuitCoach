@@ -483,7 +483,13 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           const quitDate = new Date(userData.quitDate);
           const yearsOfUse = (quitDate - startDate) / (365 * 24 * 60 * 60 * 1000);
           const weeksOfUse = (quitDate - startDate) / (7 * 24 * 60 * 60 * 1000);
+          const daysOfUse = Math.round((quitDate - startDate) / (24 * 60 * 60 * 1000));
           const totalSpent = Math.round(userData.weeklySpend * weeksOfUse);
+          
+          // Average UK smoker uses nicotine for ~16-18 years before quitting or death
+          // Using 17 years (6,205 days) as average reference
+          const avgSmokerDays = 6205;
+          const percentOfAvgSmoker = Math.round((daysOfUse / avgSmokerDays) * 100);
           
           const healthBullets = getHealthBullets(yearsOfUse);
           const financialBullets = getFinancialBullets(totalSpent);
@@ -502,7 +508,14 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
               <div className="mb-6 text-left">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-2xl">🫁</span>
-                  <h3 className="text-white font-bold text-lg">Health Impact</h3>
+                  <h3 className="text-white font-bold text-lg">
+                    {daysOfUse.toLocaleString()} Days of Use
+                  </h3>
+                </div>
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                  <p className="text-gray-200 text-sm">
+                    That's <span className="text-white font-bold text-lg">{percentOfAvgSmoker}%</span> of the average UK smoker's lifetime usage
+                  </p>
                 </div>
                 <div className="space-y-3">
                   {healthBullets.map((bullet, index) => (
