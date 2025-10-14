@@ -313,14 +313,13 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
       case 2: return userData.quittingTypes.length > 0;
       case 3: return userData.startDate !== '' && userData.quitDate !== '' && userData.weeklySpend > 0;
       case 4: return true; // Impact reflection step - always can proceed
-      case 5: return userData.avatar !== null;
-      case 6: return userData.triggers.length > 0;
-      case 7: return userData.dailyPatterns.length > 0;
-      case 8: return userData.copingStrategies.length > 0;
-      case 9: return userData.vapePodsPerWeek > 0;
-      case 10: return userData.nicotineStrength !== '';
-      case 11: return userData.quitAttempts !== '';
-      case 12: return userData.confidence > 0;
+      case 5: return userData.triggers.length > 0;
+      case 6: return userData.dailyPatterns.length > 0;
+      case 7: return userData.copingStrategies.length > 0;
+      case 8: return userData.vapePodsPerWeek > 0;
+      case 9: return userData.nicotineStrength !== '';
+      case 10: return userData.quitAttempts !== '';
+      case 11: return userData.confidence > 0;
       default: return false;
     }
   };
@@ -601,95 +600,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           );
         })()}
 
-        {/* Step 5: Avatar Creation */}
+        {/* Step 5: Trigger Identification */}
         {step === 5 && (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <User className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-4">Create Your Avatar</h1>
-            <p className="text-gray-300 mb-6">Choose your battle card identity in the arena.</p>
-            
-            <div className="mb-6">
-              <div className="w-32 h-32 mx-auto mb-4 rounded-full overflow-hidden border-4 border-slate-600 bg-slate-700">
-                {userData.avatar ? (
-                  <img 
-                    src={userData.avatar} 
-                    alt="Avatar" 
-                    className="w-full h-full object-cover"
-                    onError={() => {
-                      setUserData(prev => ({
-                        ...prev,
-                        avatar: generateFallbackAvatar(prev.avatarSeed)
-                      }));
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <RefreshCw className="w-8 h-8 text-gray-400 animate-spin" />
-                  </div>
-                )}
-              </div>
-              
-              <div className="space-y-3">
-                <div className="mb-4">
-                  <label className="block text-white text-sm font-medium mb-2">
-                    Upload Your Photo
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoCapture}
-                    className="hidden"
-                    id="photo-upload"
-                  />
-                  <label
-                    htmlFor="photo-upload"
-                    className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2 justify-center cursor-pointer"
-                  >
-                    📷 Upload Photo
-                  </label>
-                </div>
-                
-                {photoPreview && (
-                  <button
-                    onClick={processPhotoToAnime}
-                    disabled={isProcessingPhoto}
-                    className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white rounded-lg transition-colors flex items-center gap-2 justify-center"
-                  >
-                    {isProcessingPhoto ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        Converting to Anime...
-                      </>
-                    ) : '✨ Convert to Anime'}
-                  </button>
-                )}
-                
-                <div className="text-gray-400 text-sm">- OR -</div>
-                
-                <button
-                  onClick={generateNewAvatar}
-                  disabled={isGeneratingAvatar}
-                  className="w-full px-6 py-3 bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 text-white rounded-lg transition-colors flex items-center gap-2 justify-center"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Generate Random Avatar
-                </button>
-                
-                <button
-                  onClick={() => updateField('avatar', generateFallbackAvatar(userData.avatarSeed))}
-                  className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                  Use Fallback Avatar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 6: Trigger Identification */}
-        {step === 6 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🎯</span>
@@ -727,8 +639,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 7: Daily Routine */}
-        {step === 7 && (
+        {/* Step 6: Daily Routine */}
+        {step === 6 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">📅</span>
@@ -766,8 +678,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 8: Coping Experience */}
-        {step === 8 && (
+        {/* Step 7: Coping Experience */}
+        {step === 7 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-teal-400 to-teal-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🛡️</span>
@@ -805,8 +717,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 9: Vape Usage */}
-        {step === 9 && (
+        {/* Step 8: Vape Usage */}
+        {step === 8 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🚬</span>
@@ -829,8 +741,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 10: Nicotine Strength */}
-        {step === 10 && (
+        {/* Step 9: Nicotine Strength */}
+        {step === 9 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">⚡</span>
@@ -853,8 +765,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 11: Previous Attempts */}
-        {step === 11 && (
+        {/* Step 10: Previous Attempts */}
+        {step === 10 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">📚</span>
@@ -877,8 +789,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 12: Confidence Level */}
-        {step === 12 && (
+        {/* Step 11: Confidence Level */}
+        {step === 11 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🎯</span>
@@ -931,7 +843,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           canProceed={canProceed()}
           onBack={handleBack}
           onNext={handleNext}
-          isLastStep={step === 12}
+          isLastStep={step === 11}
         />
       </div>
     </div>
