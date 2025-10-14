@@ -5,7 +5,7 @@ interface OnboardingProgressBarProps {
   totalSteps?: number;
 }
 
-export function OnboardingProgressBar({ currentStep, totalSteps = 12 }: OnboardingProgressBarProps) {
+export function OnboardingProgressBar({ currentStep, totalSteps = 11 }: OnboardingProgressBarProps) {
   return (
     <div className="flex justify-between items-center mb-8 overflow-x-auto">
       {Array.from({ length: totalSteps }, (_, i) => i + 1).map((stepNumber) => (

@@ -480,16 +480,25 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
                 <span className="text-xl">💰</span>
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 text-lg font-semibold">£</span>
-                <input
-                  type="number"
-                  value={userData.weeklySpend || ''}
-                  onChange={(e) => updateField('weeklySpend', parseFloat(e.target.value) || 0)}
-                  placeholder="50"
-                  min="0"
-                  step="5"
-                  className="w-full pl-8 pr-4 py-3 bg-slate-700/80 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 text-lg font-semibold z-10">£</span>
+                <select
+                  value={userData.weeklySpend || 0}
+                  onChange={(e) => updateField('weeklySpend', parseInt(e.target.value))}
+                  className="w-full pl-8 pr-10 py-3 bg-slate-700/80 border border-slate-600 rounded-lg text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+                  style={{ 
+                    backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")",
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "right 0.5rem center",
+                    backgroundSize: "1.5em 1.5em"
+                  }}
+                >
+                  <option value="0">Select amount</option>
+                  {Array.from({ length: 51 }, (_, i) => i * 10).map((amount) => (
+                    <option key={amount} value={amount}>
+                      {amount}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="mt-3 p-3 bg-slate-700/40 rounded-lg">
                 <p className="text-gray-300 text-xs font-medium mb-2">Common ranges:</p>

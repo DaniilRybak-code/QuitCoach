@@ -1,0 +1,36 @@
+{
+  "name": "quitcard-arena",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A vaping cessation app with trading card mechanics",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "firebase": "^12.1.0",
+    "lucide-react": "^0.263.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@vitejs/plugin-react": "^4.0.3",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
+    "autoprefixer": "^10.4.14",
+    "jsdom": "^26.1.0",
+    "postcss": "^8.4.27",
+    "sharp": "^0.34.4",
+    "tailwindcss": "^3.3.3",
+    "vite": "^4.4.5",
+    "vitest": "^3.2.4"
+  }
+}

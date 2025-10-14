@@ -1,0 +1,2017 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Custom range slider styles - Legacy support */
+
+/* Dynamic slider thumb colors - Higher specificity */
+.slider.slider-thumb-green::-webkit-slider-thumb {
+  background: #4ade80 !important;
+  background-color: #4ade80 !important;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.5) !important;
+  border: 2px solid #fff !important;
+}
+
+.slider.slider-thumb-green::-moz-range-thumb {
+  background: #4ade80 !important;
+  background-color: #4ade80 !important;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.5) !important;
+  border: 2px solid #fff !important;
+}
+
+.slider.slider-thumb-orange::-webkit-slider-thumb {
+  background: #f97316 !important;
+  background-color: #f97316 !important;
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.5) !important;
+  border: 2px solid #fff !important;
+}
+
+.slider.slider-thumb-orange::-moz-range-thumb {
+  background: #f97316 !important;
+  background-color: #f97316 !important;
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.5) !important;
+  border: 2px solid #fff !important;
+}
+
+.slider.slider-thumb-red::-webkit-slider-thumb {
+  background: #ef4444 !important;
+  background-color: #ef4444 !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5) !important;
+  border: 2px solid #fff !important;
+}
+
+.slider.slider-thumb-red::-moz-range-thumb {
+  background: #ef4444 !important;
+  background-color: #ef4444 !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5) !important;
+  border: 2px solid #fff !important;
+}
+
+/* Hover effects for color-specific thumbs */
+.slider.slider-thumb-green::-webkit-slider-thumb:hover {
+  background: #22c55e !important;
+  background-color: #22c55e !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 0 15px rgba(74, 222, 128, 0.7) !important;
+}
+
+.slider.slider-thumb-green::-moz-range-thumb:hover {
+  background: #22c55e !important;
+  background-color: #22c55e !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 0 15px rgba(74, 222, 128, 0.7) !important;
+}
+
+.slider.slider-thumb-orange::-webkit-slider-thumb:hover {
+  background: #ea580c !important;
+  background-color: #ea580c !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 0 15px rgba(249, 115, 22, 0.7) !important;
+}
+
+.slider.slider-thumb-orange::-moz-range-thumb:hover {
+  background: #ea580c !important;
+  background-color: #ea580c !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 0 15px rgba(249, 115, 22, 0.7) !important;
+}
+
+.slider.slider-thumb-red::-webkit-slider-thumb:hover {
+  background: #dc2626 !important;
+  background-color: #dc2626 !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.7) !important;
+}
+
+.slider.slider-thumb-red::-moz-range-thumb:hover {
+  background: #dc2626 !important;
+  background-color: #dc2626 !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.7) !important;
+}
+
+/* Base slider track styling */
+.slider {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  height: 8px !important;
+  border-radius: 4px !important;
+  background: #475569 !important;
+  background-color: #475569 !important;
+  outline: none !important;
+  transition: background 0.1s ease !important;
+}
+
+/* Slider track styling */
+.slider::-webkit-slider-track {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  height: 8px !important;
+  border-radius: 4px !important;
+  background: #475569 !important;
+  background-color: #475569 !important;
+}
+
+.slider::-moz-range-track {
+  height: 8px !important;
+  border-radius: 4px !important;
+  background: #475569 !important;
+  background-color: #475569 !important;
+  border: none !important;
+}
+
+/* Slider thumb styling */
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  height: 24px !important;
+  width: 24px !important;
+  border-radius: 50% !important;
+  background: #f97316 !important;
+  background-color: #f97316 !important;
+  cursor: pointer !important;
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.5) !important;
+  transition: all 0.2s ease !important;
+  border: 2px solid #fff !important;
+}
+
+.slider::-moz-range-thumb {
+  height: 24px !important;
+  width: 24px !important;
+  border-radius: 50% !important;
+  background: #f97316 !important;
+  background-color: #f97316 !important;
+  border: 2px solid #fff !important;
+  cursor: pointer !important;
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.5) !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Hover effects */
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1) !important;
+  box-shadow: 0 0 15px rgba(249, 115, 22, 0.7) !important;
+  background: #ea580c !important;
+  background-color: #ea580c !important;
+}
+
+.slider::-moz-range-thumb:hover {
+  transform: scale(1.1) !important;
+  box-shadow: 0 0 15px rgba(249, 115, 22, 0.7) !important;
+  background: #ea580c !important;
+  background-color: #ea580c !important;
+}
+
+/* Focus states */
+.slider:focus {
+  outline: none;
+}
+
+.slider:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.8);
+  transform: scale(1.1);
+}
+
+.slider:focus::-moz-range-thumb {
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.8);
+  transform: scale(1.1);
+}
+
+/* Active states */
+.slider:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 0 25px rgba(249, 115, 22, 0.9);
+}
+
+.slider:active::-moz-range-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 0 25px rgba(249, 115, 22, 0.9);
+}
+
+/* Disabled states */
+.slider:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.slider:disabled::-webkit-slider-thumb {
+  cursor: not-allowed;
+}
+
+.slider:disabled::-moz-range-thumb {
+  cursor: not-allowed;
+}
+
+/* Craving strength visual feedback */
+.craving-low {
+  text-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+}
+
+.craving-medium {
+  text-shadow: 0 0 20px rgba(249, 115, 22, 0.3);
+}
+
+.craving-high {
+  text-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Water pouring animations */
+@keyframes waterPour {
+  0% {
+    transform: translateY(-10px) scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: translateY(-5px) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.8;
+  }
+}
+
+@keyframes waterFill {
+  0% {
+    height: 0%;
+  }
+  100% {
+    height: 100%;
+  }
+}
+
+@keyframes waterRipple {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+}
+
+.water-pour {
+  animation: waterPour 1s ease-out;
+}
+
+.water-fill {
+  animation: waterFill 1s ease-out;
+}
+
+.water-ripple {
+  animation: waterRipple 2s ease-in-out infinite;
+}
+
+.slider::-webkit-slider-track {
+  background: transparent;
+}
+
+.slider::-moz-range-track {
+  background: transparent;
+}
+
+/* Custom water animation keyframes */
+@keyframes waterWave {
+  0%, 100% {
+    transform: translateX(-100%) skewX(-15deg);
+  }
+  50% {
+    transform: translateX(100%) skewX(-15deg);
+  }
+}
+
+@keyframes waterRipple {
+  0% {
+    transform: scale(0.8) rotate(0deg);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(0.8) rotate(360deg);
+    opacity: 0.8;
+  }
+}
+
+@keyframes sparkleFloat {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-20px) rotate(180deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-40px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Water wave animation classes */
+.water-wave {
+  animation: waterWave 3s ease-in-out infinite;
+}
+
+.water-ripple {
+  animation: waterRipple 2s ease-in-out infinite;
+}
+
+.sparkle-float {
+  animation: sparkleFloat 1s ease-out forwards;
+}
+
+/* Glass fill animation */
+.glass-fill {
+  animation: glassFill 1.5s ease-out forwards;
+}
+
+@keyframes glassFill {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+
+
+
+
+/* Rotated glass animations */
+.glass-rotated {
+  transform: rotate(180deg);
+}
+
+.glass-rotated:hover {
+  transform: rotate(180deg) scale(1.05);
+}
+
+/* Water fill animation for smooth transitions */
+.water-fill-animation {
+  animation: waterFill 700ms ease-out forwards;
+}
+
+@keyframes waterFill {
+  0% {
+    opacity: 0;
+    clip-path: polygon(15% 100%, 85% 100%, 100% 100%, 0% 100%);
+  }
+  100% {
+    opacity: 0.8;
+    clip-path: polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%);
+  }
+}
+
+/* Glass glow effect */
+.glass-glow {
+  animation: glassGlow 2s ease-in-out infinite;
+}
+
+@keyframes glassGlow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+  }
+}
+
+/* Water wave overlay animation */
+.water-wave-overlay {
+  animation: waterWaveOverlay 3s ease-in-out infinite;
+}
+
+@keyframes waterWaveOverlay {
+  0%, 100% {
+    transform: translateX(0px);
+  }
+  50% {
+    transform: translateX(2px);
+  }
+}
+
+/* Hydration Module - New Design */
+
+.hydration-module {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 32px 24px;
+  width: 100%;
+  max-width: 400px;
+  color: white;
+}
+
+.module-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.module-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.water-icon {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #4FC3F7, #29B6F6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.subtitle {
+  font-size: 16px;
+  opacity: 0.8;
+  font-weight: 400;
+}
+
+.progress-container {
+  margin-bottom: 32px;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.progress-text {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.progress-fraction {
+  font-size: 32px;
+  font-weight: 800;
+  color: #4FC3F7;
+}
+
+.glasses-visual {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.glass {
+  aspect-ratio: 1;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.glass:hover {
+  transform: scale(1.05);
+  border-color: #4FC3F7;
+}
+
+.glass.filled {
+  background: linear-gradient(to top, #4FC3F7 0%, #29B6F6 100%);
+  border-color: #4FC3F7;
+  animation: fillAnimation 0.5s ease;
+}
+
+.glass.filled::after {
+  content: '💧';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 20px;
+}
+
+@keyframes fillAnimation {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4FC3F7, #29B6F6);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.progress-percentage {
+  text-align: center;
+  font-size: 14px;
+  opacity: 0.8;
+  font-weight: 500;
+}
+
+.streak-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.streak-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 20px 16px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.3s ease;
+}
+
+.streak-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.streak-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.streak-label {
+  font-size: 14px;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+
+.streak-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #4FC3F7;
+}
+
+.bonus-indicator {
+  background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.log-button {
+  width: 100%;
+  background: linear-gradient(135deg, #4FC3F7, #29B6F6);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  padding: 18px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.log-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(79, 195, 247, 0.3);
+}
+
+.log-button:active {
+  transform: translateY(0);
+}
+
+.log-button:disabled {
+  background: rgba(255, 255, 255, 0.2);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.completion-message {
+  text-align: center;
+  background: linear-gradient(135deg, #4CAF50, #45A049);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  animation: celebrate 0.6s ease;
+}
+
+@keyframes celebrate {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.done-button {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.done-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 480px) {
+  .hydration-module {
+    padding: 24px 20px;
+  }
+  
+  .module-title {
+    font-size: 22px;
+  }
+  
+  .progress-fraction {
+    font-size: 28px;
+  }
+}
+
+
+
+
+
+/* iOS Modal Compatibility and Safe Area Support */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --ios-viewport-height: 100vh;
+  --ios-viewport-height-fixed: 100dvh;
+}
+
+/* iOS Safari viewport height fix */
+@supports (-webkit-touch-callout: none) {
+  :root {
+    --ios-viewport-height: 100dvh;
+  }
+}
+
+/* Modal backdrop with iOS support */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  /* iOS safe area support */
+  padding-top: var(--safe-area-inset-top);
+  padding-bottom: var(--safe-area-inset-bottom);
+  padding-left: var(--safe-area-inset-left);
+  padding-right: var(--safe-area-inset-right);
+  /* Prevent iOS Safari viewport issues */
+  height: var(--ios-viewport-height);
+  min-height: var(--ios-viewport-height);
+  /* Prevent scroll on iOS */
+  overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Modal container with iOS support */
+.modal-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  /* iOS safe area support */
+  padding-top: max(1rem, var(--safe-area-inset-top));
+  padding-bottom: max(1rem, var(--safe-area-inset-bottom));
+  padding-left: max(1rem, var(--safe-area-inset-left));
+  padding-right: max(1rem, var(--safe-area-inset-right));
+  /* Prevent iOS Safari viewport issues */
+  min-height: var(--ios-viewport-height);
+  box-sizing: border-box;
+}
+
+/* Modal content with iOS support and responsive design */
+.modal-content {
+  position: relative;
+  width: 100%;
+  max-width: 28rem; /* 448px */
+  max-height: calc(var(--ios-viewport-height) - 2rem);
+  background: #1e293b;
+  border-radius: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid #334155;
+  overflow: hidden;
+  /* iOS Safari fixes */
+  -webkit-overflow-scrolling: touch;
+  transform: translateZ(0);
+  will-change: transform;
+  /* Prevent iOS Safari zoom on focus */
+  font-size: 16px;
+  /* Touch-friendly responsive design */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  /* Smooth transitions for responsive changes */
+  transition: all 0.3s ease;
+}
+
+/* Responsive modal scaling for different screen sizes */
+@media (max-width: 480px) {
+  .modal-content {
+    max-width: calc(100vw - 2rem);
+    margin: 1rem;
+    border-radius: 1rem;
+    max-height: calc(100vh - 2rem);
+  }
+  
+  .modal-container {
+    padding: 0.5rem;
+    align-items: flex-end; /* Slide up from bottom on small screens */
+  }
+}
+
+@media (max-width: 375px) {
+  .modal-content {
+    max-width: calc(100vw - 1rem);
+    margin: 0.5rem;
+    border-radius: 0.75rem;
+    max-height: calc(100vh - 1rem);
+  }
+  
+  .modal-container {
+    padding: 0.25rem;
+  }
+}
+
+@media (max-width: 320px) {
+  .modal-content {
+    max-width: calc(100vw - 0.5rem);
+    margin: 0.25rem;
+    border-radius: 0.5rem;
+    max-height: calc(100vh - 0.5rem);
+  }
+  
+  .modal-container {
+    padding: 0.125rem;
+  }
+}
+
+/* Orientation-specific modal adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+  .modal-content {
+    max-height: calc(100vh - 1rem);
+    border-radius: 0.75rem;
+  }
+  
+  .modal-container {
+    padding: 0.5rem;
+    align-items: center;
+  }
+  
+  .modal-scrollable {
+    max-height: calc(100vh - 4rem);
+  }
+}
+
+/* Touch device optimizations */
+@media (pointer: coarse) {
+  .modal-content {
+    /* Larger touch targets and spacing */
+    padding: 1.5rem;
+  }
+  
+  .modal-container {
+    padding: 1rem;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .modal-content {
+    /* Crisp borders and shadows on retina displays */
+    border-width: 0.5px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Modal content scrollable area */
+.modal-scrollable {
+  max-height: calc(var(--ios-viewport-height) - 8rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* iOS Safari scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: #64748b transparent;
+  /* Touch-friendly scrolling */
+  touch-action: pan-y;
+}
+
+/* Swipe-to-dismiss functionality */
+.modal-swipe-dismiss {
+  position: relative;
+  overflow: hidden;
+}
+
+.modal-swipe-dismiss::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #64748b, #94a3b8, #64748b);
+  border-radius: 2px;
+  margin: 8px auto;
+  width: 40px;
+  z-index: 10;
+}
+
+/* Swipe indicator for dismissible modals */
+.modal-swipe-indicator {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 4px;
+  background: #64748b;
+  border-radius: 2px;
+  z-index: 10;
+}
+
+/* Swipe gesture feedback */
+.modal-swipe-feedback {
+  transition: transform 0.2s ease;
+}
+
+.modal-swipe-feedback.swiping {
+  transition: none;
+}
+
+.modal-swipe-feedback.swipe-up {
+  transform: translateY(-20px);
+  opacity: 0.8;
+}
+
+.modal-swipe-feedback.swipe-down {
+  transform: translateY(20px);
+  opacity: 0.8;
+}
+
+/* Touch-friendly modal buttons */
+.modal-button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.modal-button:active {
+  transform: scale(0.98);
+}
+
+.modal-button-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.modal-button-primary:hover {
+  background: #2563eb;
+}
+
+.modal-button-secondary {
+  background: #64748b;
+  color: white;
+}
+
+.modal-button-secondary:hover {
+  background: #475569;
+}
+
+/* Modal close button enhancements */
+.modal-close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.3);
+  border: none;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 20;
+}
+
+.modal-close-button:hover {
+  background: rgba(0, 0, 0, 0.5);
+  transform: scale(1.1);
+}
+
+.modal-close-button:active {
+  transform: scale(0.95);
+}
+
+/* Responsive button spacing */
+@media (max-width: 480px) {
+  .modal-button {
+    padding: 14px 18px;
+    font-size: 16px;
+  }
+  
+  .modal-close-button {
+    top: 8px;
+    right: 8px;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 375px) {
+  .modal-button {
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+  
+  .modal-close-button {
+    top: 6px;
+    right: 6px;
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+}
+
+/* Accessibility improvements for modals */
+.modal-content {
+  /* Ensure proper focus management */
+  outline: none;
+}
+
+.modal-content:focus-within {
+  /* Visual feedback for keyboard navigation */
+  box-shadow: 0 25px 50px -12px rgba(59, 130, 246, 0.3);
+}
+
+/* Screen reader support */
+.modal-content[role="dialog"] {
+  /* Ensure proper ARIA labeling */
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .modal-content {
+    border: 2px solid #ffffff;
+    background: #000000;
+    color: #ffffff;
+  }
+  
+  .modal-close-button {
+    background: #ffffff;
+    color: #000000;
+    border: 2px solid #000000;
+  }
+  
+  .modal-button-primary {
+    background: #ffffff;
+    color: #000000;
+    border: 2px solid #000000;
+  }
+  
+  .modal-button-secondary {
+    background: #000000;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .modal-content,
+  .modal-button,
+  .modal-close-button,
+  .modal-swipe-feedback {
+    transition: none;
+    animation: none;
+  }
+  
+  .modal-swipe-feedback.swipe-up,
+  .modal-swipe-feedback.swipe-down {
+    transform: none;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .modal-content {
+    background: #0f172a;
+    border-color: #1e293b;
+    color: #f1f5f9;
+  }
+  
+  .modal-close-button {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f1f5f9;
+  }
+  
+  .modal-close-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* Mobile typography improvements */
+@media (max-width: 768px) {
+  .modal-content h1,
+  .modal-content h2,
+  .modal-content h3 {
+    font-size: clamp(1.25rem, 4vw, 1.5rem);
+    line-height: 1.3;
+    margin-bottom: 1rem;
+  }
+  
+  .modal-content p {
+    font-size: clamp(0.875rem, 3vw, 1rem);
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+  }
+  
+  .modal-content .text-sm {
+    font-size: clamp(0.75rem, 2.5vw, 0.875rem);
+  }
+  
+  .modal-content .text-xs {
+    font-size: clamp(0.625rem, 2vw, 0.75rem);
+  }
+}
+
+/* Form elements in modals - mobile optimized */
+.modal-content input,
+.modal-content select,
+.modal-content textarea {
+  font-size: 16px; /* Prevent zoom on iOS */
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #475569;
+  background: #1e293b;
+  color: #f1f5f9;
+  min-height: 44px;
+  width: 100%;
+  box-sizing: border-box;
+  touch-action: manipulation;
+}
+
+.modal-content input:focus,
+.modal-content select:focus,
+.modal-content textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Modal form spacing */
+.modal-content .form-group {
+  margin-bottom: 1.5rem;
+}
+
+.modal-content .form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  font-size: 14px;
+}
+
+/* Modal grid layouts - responsive */
+.modal-content .modal-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 480px) {
+  .modal-content .modal-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 479px) {
+  .modal-content .modal-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
+/* Modal action buttons layout */
+.modal-content .modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .modal-content .modal-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .modal-content .modal-actions .modal-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Modal loading states */
+.modal-content .modal-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: #94a3b8;
+}
+
+.modal-content .modal-loading::after {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border: 2px solid #475569;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: modal-spin 1s linear infinite;
+  margin-left: 0.5rem;
+}
+
+@keyframes modal-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Modal error states */
+.modal-content .modal-error {
+  background: #dc2626;
+  color: white;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 14px;
+}
+
+.modal-content .modal-success {
+  background: #059669;
+  color: white;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 14px;
+}
+
+.modal-scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-scrollable::-webkit-scrollbar-thumb {
+  background: #64748b;
+  border-radius: 3px;
+}
+
+.modal-scrollable::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* iOS-specific modal animations */
+@supports (-webkit-touch-callout: none) {
+  .modal-content {
+    animation: modalSlideIn 0.3s ease-out;
+  }
+  
+  @keyframes modalSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+}
+
+/* Prevent iOS Safari address bar issues */
+@supports (-webkit-touch-callout: none) {
+  /* Fix iOS Safari viewport height issues */
+  :root {
+    --ios-vh: 100vh;
+    --ios-vh-fill: -webkit-fill-available;
+  }
+  
+  /* Modal backdrop iOS Safari fixes */
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--ios-vh);
+    height: var(--ios-vh-fill);
+    min-height: var(--ios-vh);
+    min-height: var(--ios-vh-fill);
+    /* Prevent iOS Safari bounce scrolling */
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    /* Hardware acceleration */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    will-change: transform;
+  }
+  
+  /* Modal container iOS Safari fixes */
+  .modal-container {
+    height: var(--ios-vh);
+    height: var(--ios-vh-fill);
+    min-height: var(--ios-vh);
+    min-height: var(--ios-vh-fill);
+    /* Prevent iOS Safari bounce scrolling */
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    /* Hardware acceleration */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    will-change: transform;
+  }
+  
+  /* Modal content iOS Safari fixes */
+  .modal-content {
+    /* Prevent iOS Safari zoom on focus */
+    -webkit-text-size-adjust: 100%;
+    /* Hardware acceleration */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    /* Smooth scrolling */
+    -webkit-overflow-scrolling: touch;
+    /* Prevent iOS Safari bounce */
+    overscroll-behavior: contain;
+  }
+  
+  /* iOS Safari scrollable content fixes */
+  .modal-scrollable {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    /* Prevent iOS Safari zoom */
+    -webkit-text-size-adjust: 100%;
+  }
+  
+  /* Fix iOS Safari input zoom */
+  input, select, textarea, button {
+    -webkit-appearance: none;
+    -webkit-text-size-adjust: 100%;
+    font-size: 16px !important;
+    /* Prevent iOS Safari zoom on focus */
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  
+  /* iOS Safari button fixes */
+  button {
+    -webkit-border-radius: 0;
+    border-radius: 0;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  /* Fix iOS Safari touch events */
+  * {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+  
+  /* Allow text selection in inputs */
+  input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  
+  /* Fix iOS Safari backdrop filter */
+  .modal-backdrop {
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  
+  /* Fix iOS Safari position sticky */
+  .modal-close-button {
+    position: -webkit-sticky;
+    position: sticky;
+  }
+}
+
+/* iOS Safari specific fixes */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  .modal-backdrop {
+    /* Prevent iOS Safari zoom */
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  .modal-content {
+    /* Prevent iOS Safari zoom on input focus */
+    font-size: 16px;
+    /* Fix iOS Safari rendering issues */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+}
+
+/* Body scroll lock for modals */
+.modal-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+/* iOS Safari body scroll lock */
+@supports (-webkit-touch-callout: none) {
+  .modal-open {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: none;
+  }
+}
+
+/* Prevent iOS Safari address bar issues with modals */
+@supports (-webkit-touch-callout: none) {
+  .modal-backdrop {
+    /* Force full height on iOS Safari */
+    height: 100vh !important;
+    min-height: 100vh !important;
+    /* Prevent bounce scrolling */
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .modal-container {
+    height: 100vh !important;
+    min-height: 100vh !important;
+    /* Center modal properly on iOS */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Prevent iOS Safari zoom */
+    -webkit-text-size-adjust: 100%;
+  }
+  
+  .modal-content {
+    /* Ensure modal content respects viewport */
+    max-height: calc(100vh - 4rem);
+    /* Fix iOS Safari input zoom */
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Duration picker scrollbar hiding */
+.duration-picker::-webkit-scrollbar {
+  display: none;
+}
+
+.duration-picker {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Enhanced Touch Interactions and Visual Feedback */
+/* Base touch interaction styles */
+.touch-interactive {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform, box-shadow, background-color;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Button press feedback */
+.touch-interactive:active {
+  transform: scale(0.95) translateZ(0);
+  -webkit-transform: scale(0.95) translateZ(0);
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced button states */
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 active:bg-blue-800;
+  @apply text-white font-semibold rounded-lg;
+  @apply transition-all duration-200 ease-out;
+  @apply transform hover:scale-105 active:scale-95;
+  @apply shadow-lg hover:shadow-xl;
+  @apply touch-interactive;
+}
+
+.btn-primary:active {
+  @apply shadow-md;
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.btn-secondary {
+  @apply bg-slate-600 hover:bg-slate-700 active:bg-slate-800;
+  @apply text-white font-semibold rounded-lg;
+  @apply transition-all duration-200 ease-out;
+  @apply transform hover:scale-105 active:scale-95;
+  @apply shadow-lg hover:shadow-xl;
+  @apply touch-interactive;
+}
+
+.btn-success {
+  @apply bg-green-600 hover:bg-green-700 active:bg-green-800;
+  @apply text-white font-semibold rounded-lg;
+  @apply transition-all duration-200 ease-out;
+  @apply transform hover:scale-105 active:scale-95;
+  @apply shadow-lg hover:shadow-xl;
+  @apply touch-interactive;
+}
+
+.btn-danger {
+  @apply bg-red-600 hover:bg-red-700 active:bg-red-800;
+  @apply text-white font-semibold rounded-lg;
+  @apply transition-all duration-200 ease-out;
+  @apply transform hover:scale-105 active:scale-95;
+  @apply shadow-lg hover:shadow-xl;
+  @apply touch-interactive;
+}
+
+/* Card touch interactions */
+.touch-card {
+  @apply transition-all duration-300 ease-out;
+  @apply transform hover:scale-105 active:scale-95;
+  @apply shadow-lg hover:shadow-2xl;
+  @apply touch-interactive;
+  @apply cursor-pointer;
+}
+
+.touch-card:active {
+  @apply shadow-lg;
+  transform: scale(0.98) translateZ(0);
+  -webkit-transform: scale(0.98) translateZ(0);
+}
+
+/* Info button enhanced interactions */
+.info-button {
+  @apply transition-all duration-200 ease-out;
+  @apply transform hover:scale-110 active:scale-90;
+  @apply shadow-sm hover:shadow-md;
+  @apply touch-interactive;
+}
+
+.info-button:active {
+  @apply shadow-sm;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
+}
+
+/* Tab navigation enhanced */
+.tab-interactive {
+  @apply transition-all duration-200 ease-out;
+  @apply transform active:scale-95;
+  @apply touch-interactive;
+}
+
+.tab-interactive:active {
+  @apply bg-slate-700;
+}
+
+/* Modal close button enhanced */
+.modal-close-enhanced {
+  @apply transition-all duration-200 ease-out;
+  @apply transform hover:scale-110 active:scale-90;
+  @apply touch-interactive;
+}
+
+.modal-close-enhanced:active {
+  @apply bg-slate-600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Stat bar interactions */
+.stat-bar-interactive {
+  @apply transition-all duration-300 ease-out;
+  @apply touch-interactive;
+}
+
+/* Breathing exercise button */
+.breathing-button {
+  @apply transition-all duration-300 ease-out;
+  @apply transform hover:scale-105 active:scale-95;
+  @apply shadow-xl hover:shadow-2xl;
+  @apply touch-interactive;
+}
+
+.breathing-button:active {
+  @apply shadow-lg;
+  box-shadow: 0 8px 16px rgba(59, 130, 246, 0.4);
+}
+
+/* iOS Safari-specific fixes and enhancements */
+@supports (-webkit-touch-callout: none) {
+  /* Custom tap highlights for better visual feedback */
+  .touch-interactive {
+    -webkit-tap-highlight-color: rgba(59, 130, 246, 0.1);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  .touch-interactive:active {
+    -webkit-tap-highlight-color: rgba(59, 130, 246, 0.2);
+  }
+  
+  /* Prevent iOS Safari zoom on input focus */
+  input, select, textarea {
+    -webkit-text-size-adjust: 100%;
+    font-size: 16px !important;
+  }
+  
+  /* Fix iOS Safari button styling */
+  button {
+    -webkit-appearance: none;
+    -webkit-border-radius: 0;
+    border-radius: 0;
+  }
+  
+  /* iOS Safari modal fixes */
+  .modal-backdrop {
+    -webkit-overflow-scrolling: touch;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+  
+  .modal-content {
+    -webkit-overflow-scrolling: touch;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+  
+  /* Fix iOS Safari viewport height issues */
+  .modal-backdrop {
+    height: 100vh;
+    height: -webkit-fill-available;
+  }
+  
+  .modal-container {
+    height: 100vh;
+    height: -webkit-fill-available;
+  }
+}
+
+/* Ripple effect for buttons */
+.ripple-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-effect::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.ripple-effect:active::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* Pulse animation for important buttons */
+.pulse-on-touch {
+  animation: pulse-touch 0.6s ease-out;
+}
+
+@keyframes pulse-touch {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Loading button state */
+.btn-loading {
+  @apply relative;
+  @apply cursor-not-allowed;
+  @apply opacity-75;
+}
+
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* iOS Safari touch event enhancements */
+@supports (-webkit-touch-callout: none) {
+  /* Improve touch responsiveness */
+  .touch-interactive,
+  .btn-primary,
+  .btn-secondary,
+  .btn-success,
+  .btn-danger,
+  .info-button,
+  .tab-interactive,
+  .modal-close-enhanced,
+  .breathing-button,
+  .touch-card {
+    /* Enable hardware acceleration for smooth animations */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    will-change: transform, box-shadow, background-color;
+    
+    /* Optimize touch events */
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    
+    /* Prevent iOS Safari zoom on double-tap */
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Special handling for input elements */
+  input, textarea, select {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-tap-highlight-color: rgba(59, 130, 246, 0.1);
+  }
+  
+  /* Fix iOS Safari scroll bounce */
+  body, html {
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Modal scroll container fixes */
+  .modal-scrollable,
+  .modal-content {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Fix iOS Safari button appearance */
+  button {
+    -webkit-appearance: none;
+    -webkit-border-radius: 0;
+    border-radius: 0;
+    -webkit-box-shadow: none;
+    box-shadow: none;
+  }
+  
+  /* Fix iOS Safari input appearance */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  textarea,
+  select {
+    -webkit-appearance: none;
+    -webkit-border-radius: 0;
+    border-radius: 0;
+  }
+  
+  /* Fix iOS Safari range slider */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Fix iOS Safari checkbox and radio */
+  input[type="checkbox"],
+  input[type="radio"] {
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Duration Slider Custom Styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-track {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: none;
+}
+
+input[type="range"]::-moz-range-track {
+  background: transparent;
+  border: none;
+}
+
+input[type="range"]::-moz-range-thumb {
+  background: transparent;
+  border: none;
+}
+
+input[type="range"]::-ms-track {
+  background: transparent;
+  border: none;
+}
+
+input[type="range"]::-ms-thumb {
+  background: transparent;
+  border: none;
+}
+
+/* Mobile Layout Fixes - Ensure responsive classes work */
+@media (max-width: 1023px) {
+  .battle-cards-container {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+  
+  .battle-card {
+    width: 18rem !important; /* 288px */
+    max-width: 18rem !important;
+  }
+  
+  .vs-section {
+    flex-direction: row !important;
+    gap: 1rem !important;
+  }
+  
+  .vs-icon {
+    width: 4rem !important;
+    height: 4rem !important;
+  }
+  
+  .vs-text {
+    font-size: 1.125rem !important; /* text-lg */
+  }
+}
+
+@media (min-width: 1024px) {
+  .battle-cards-container {
+    flex-direction: row !important;
+    gap: 3rem !important;
+  }
+  
+  .battle-card {
+    width: 20rem !important; /* 320px */
+    max-width: 20rem !important;
+  }
+  
+  .vs-section {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+  
+  .vs-icon {
+    width: 6rem !important;
+    height: 6rem !important;
+  }
+  
+  .vs-text {
+    font-size: 1.5rem !important; /* text-2xl */
+  }
+}
+
+/* Force responsive behavior */
+.battle-cards-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  margin-bottom: 2rem !important;
+}
+
+.battle-card {
+  flex-shrink: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 1rem !important;
+}
+
+.vs-section {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+/* Critical mobile layout enforcement */
+@media (max-width: 1023px) {
+  .battle-cards-container {
+    flex-direction: column !important;
+    gap: 1rem !important;
+    align-items: center !important;
+  }
+  
+  .battle-card {
+    width: 18rem !important;
+    max-width: 18rem !important;
+    margin: 0 auto !important;
+  }
+  
+  .vs-section {
+    flex-direction: row !important;
+    gap: 1rem !important;
+    margin: 1rem 0 !important;
+  }
+  
+  /* Prevent horizontal overflow */
+  body {
+    overflow-x: hidden !important;
+  }
+  
+  #root {
+    overflow-x: hidden !important;
+  }
+}
+
+/* Desktop layout enforcement */
+@media (min-width: 1024px) {
+  .battle-cards-container {
+    flex-direction: row !important;
+    gap: 3rem !important;
+  }
+  
+  .battle-card {
+    width: 20rem !important;
+    max-width: 20rem !important;
+  }
+  
+  .vs-section {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+}
+
+
