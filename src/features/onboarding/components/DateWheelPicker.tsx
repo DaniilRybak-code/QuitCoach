@@ -30,17 +30,21 @@ function WheelPicker({ items, selectedIndex, onChange, itemHeight = 40 }: WheelP
   }, [selectedIndex, itemHeight]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
     setIsDragging(true);
     setStartY(e.touches[0].clientY);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
     setIsDragging(true);
     setStartY(e.clientY);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return;
+    e.preventDefault();
+    e.stopPropagation();
     const currentY = e.touches[0].clientY;
     const diff = currentY - startY;
     setCurrentTranslate(-selectedIndex * itemHeight + diff);
@@ -102,6 +106,7 @@ function WheelPicker({ items, selectedIndex, onChange, itemHeight = 40 }: WheelP
         style={{
           paddingTop: `${80}px`,
           paddingBottom: `${80}px`,
+          touchAction: 'none',
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -240,15 +245,24 @@ export function DateWheelPickerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ touchAction: 'none' }}
+      onTouchMove={(e) => e.preventDefault()}
+    >
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
+        onTouchMove={(e) => e.preventDefault()}
       />
       
       {/* Modal */}
-      <div className="relative bg-slate-800 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg mx-auto shadow-2xl animate-slide-up">
+      <div 
+        className="relative bg-slate-800 rounded-3xl w-full sm:max-w-lg mx-auto shadow-2xl animate-fade-scale max-h-[90vh] flex flex-col"
+        style={{ touchAction: 'none' }}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
           <h3 className="text-xl font-bold text-white">{title}</h3>
@@ -261,8 +275,8 @@ export function DateWheelPickerModal({
         </div>
 
         {/* Wheel Pickers */}
-        <div className="p-6">
-          <div className={`grid ${monthYearOnly ? 'grid-cols-2' : 'grid-cols-3'} gap-4`}>
+        <div className="p-6 overflow-hidden" style={{ touchAction: 'none' }}>
+          <div className={`grid ${monthYearOnly ? 'grid-cols-2' : 'grid-cols-3'} gap-4`} style={{ touchAction: 'none' }}>
             <div>
               <div className="text-xs font-medium text-gray-400 text-center mb-2">
                 Month
@@ -316,18 +330,18 @@ export function DateWheelPickerModal({
       </div>
 
       <style>{`
-        @keyframes slide-up {
+        @keyframes fade-scale {
           from {
-            transform: translateY(100%);
+            transform: scale(0.95);
             opacity: 0;
           }
           to {
-            transform: translateY(0);
+            transform: scale(1);
             opacity: 1;
           }
         }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
+        .animate-fade-scale {
+          animation: fade-scale 0.2s ease-out;
         }
       `}</style>
     </div>
