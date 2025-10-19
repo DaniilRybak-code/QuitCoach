@@ -86,7 +86,7 @@ function WheelPicker({ items, selectedIndex, onChange, itemHeight = 40 }: WheelP
   };
 
   return (
-    <div className="relative h-[180px] sm:h-[200px] overflow-hidden">
+    <div className="relative h-[160px] sm:h-[180px] overflow-hidden">
       {/* Selection indicator */}
       <div
         className="absolute left-0 right-0 top-1/2 -translate-y-1/2 pointer-events-none z-10"
@@ -96,16 +96,16 @@ function WheelPicker({ items, selectedIndex, onChange, itemHeight = 40 }: WheelP
       </div>
 
       {/* Gradient overlays */}
-      <div className="absolute inset-x-0 top-0 h-16 sm:h-20 bg-gradient-to-b from-slate-800 to-transparent pointer-events-none z-20"></div>
-      <div className="absolute inset-x-0 bottom-0 h-16 sm:h-20 bg-gradient-to-t from-slate-800 to-transparent pointer-events-none z-20"></div>
+      <div className="absolute inset-x-0 top-0 h-12 sm:h-16 bg-gradient-to-b from-slate-800 to-transparent pointer-events-none z-20"></div>
+      <div className="absolute inset-x-0 bottom-0 h-12 sm:h-16 bg-gradient-to-t from-slate-800 to-transparent pointer-events-none z-20"></div>
 
       {/* Scrollable items */}
       <div
         ref={containerRef}
         className="absolute inset-0 flex flex-col items-center cursor-grab active:cursor-grabbing select-none"
         style={{
-          paddingTop: `${80}px`,
-          paddingBottom: `${80}px`,
+          paddingTop: `${60}px`,
+          paddingBottom: `${60}px`,
           touchAction: 'none',
         }}
         onTouchStart={handleTouchStart}
@@ -199,12 +199,13 @@ export function DateWheelPickerModal({
   const currentYear = tempDate.getFullYear();
   const currentDay = tempDate.getDate();
 
-  // Generate years
+  // Generate years - ensure we go back to at least 2010
+  const minYear = Math.min(minDate.getFullYear(), 2010);
   const years = Array.from(
-    { length: maxDate.getFullYear() - minDate.getFullYear() + 1 },
+    { length: maxDate.getFullYear() - minYear + 1 },
     (_, i) => ({
-      value: minDate.getFullYear() + i,
-      label: String(minDate.getFullYear() + i),
+      value: minYear + i,
+      label: String(minYear + i),
     })
   );
 
@@ -246,11 +247,13 @@ export function DateWheelPickerModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-8"
       style={{ 
         touchAction: 'none',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        paddingTop: '10vh',
+        paddingBottom: '10vh'
       }}
       onTouchMove={(e) => e.preventDefault()}
     >
@@ -266,8 +269,9 @@ export function DateWheelPickerModal({
         className="relative bg-slate-800 rounded-3xl w-full sm:max-w-lg shadow-2xl animate-fade-scale flex flex-col"
         style={{ 
           touchAction: 'none',
-          maxHeight: '85vh',
-          margin: 'auto'
+          maxHeight: '80vh',
+          margin: 'auto',
+          minHeight: 'auto'
         }}
         onTouchMove={(e) => e.stopPropagation()}
       >
