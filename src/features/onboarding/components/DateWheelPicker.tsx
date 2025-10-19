@@ -86,7 +86,7 @@ function WheelPicker({ items, selectedIndex, onChange, itemHeight = 40 }: WheelP
   };
 
   return (
-    <div className="relative h-[200px] overflow-hidden">
+    <div className="relative h-[180px] sm:h-[200px] overflow-hidden">
       {/* Selection indicator */}
       <div
         className="absolute left-0 right-0 top-1/2 -translate-y-1/2 pointer-events-none z-10"
@@ -96,8 +96,8 @@ function WheelPicker({ items, selectedIndex, onChange, itemHeight = 40 }: WheelP
       </div>
 
       {/* Gradient overlays */}
-      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-800 to-transparent pointer-events-none z-20"></div>
-      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-800 to-transparent pointer-events-none z-20"></div>
+      <div className="absolute inset-x-0 top-0 h-16 sm:h-20 bg-gradient-to-b from-slate-800 to-transparent pointer-events-none z-20"></div>
+      <div className="absolute inset-x-0 bottom-0 h-16 sm:h-20 bg-gradient-to-t from-slate-800 to-transparent pointer-events-none z-20"></div>
 
       {/* Scrollable items */}
       <div
@@ -246,8 +246,12 @@ export function DateWheelPickerModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ touchAction: 'none' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8"
+      style={{ 
+        touchAction: 'none',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}
       onTouchMove={(e) => e.preventDefault()}
     >
       {/* Backdrop */}
@@ -259,13 +263,17 @@ export function DateWheelPickerModal({
       
       {/* Modal */}
       <div 
-        className="relative bg-slate-800 rounded-3xl w-full sm:max-w-lg mx-auto shadow-2xl animate-fade-scale max-h-[90vh] flex flex-col"
-        style={{ touchAction: 'none' }}
+        className="relative bg-slate-800 rounded-3xl w-full sm:max-w-lg shadow-2xl animate-fade-scale flex flex-col"
+        style={{ 
+          touchAction: 'none',
+          maxHeight: '85vh',
+          margin: 'auto'
+        }}
         onTouchMove={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <h3 className="text-xl font-bold text-white">{title}</h3>
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-700">
+          <h3 className="text-lg sm:text-xl font-bold text-white">{title}</h3>
           <button
             onClick={onClose}
             className="p-2 hover:bg-slate-700 rounded-full transition-colors"
@@ -275,7 +283,7 @@ export function DateWheelPickerModal({
         </div>
 
         {/* Wheel Pickers */}
-        <div className="p-6 overflow-hidden" style={{ touchAction: 'none' }}>
+        <div className="p-4 sm:p-6 overflow-hidden flex-1" style={{ touchAction: 'none' }}>
           <div className={`grid ${monthYearOnly ? 'grid-cols-2' : 'grid-cols-3'} gap-4`} style={{ touchAction: 'none' }}>
             <div>
               <div className="text-xs font-medium text-gray-400 text-center mb-2">
@@ -313,16 +321,16 @@ export function DateWheelPickerModal({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 p-6 pt-0">
+        <div className="flex gap-3 p-4 sm:p-6 pt-0">
           <button
             onClick={onClose}
-            className="flex-1 px-6 py-3 border-2 border-slate-600 text-gray-300 rounded-xl font-medium hover:bg-slate-700 active:scale-95 transition-all"
+            className="flex-1 px-4 sm:px-6 py-3 border-2 border-slate-600 text-gray-300 rounded-xl font-medium hover:bg-slate-700 active:scale-95 transition-all"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
-            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-medium hover:from-blue-600 hover:to-purple-600 active:scale-95 transition-all shadow-lg"
+            className="flex-1 px-4 sm:px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-medium hover:from-blue-600 hover:to-purple-600 active:scale-95 transition-all shadow-lg"
           >
             Confirm
           </button>
