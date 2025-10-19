@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Sparkles, Shield, Users, Heart, DollarSign, User, RefreshCw, ArrowRight 
 } from 'lucide-react';
@@ -18,6 +18,7 @@ import { calculateInitialStats, getConfidenceColor } from '../services/StatsCalc
 import { saveOnboardingStep } from '../services/OnboardingFirebaseService';
 import { OnboardingProgressBar } from './OnboardingProgressBar';
 import { OnboardingNavigation } from './OnboardingNavigation';
+import { DateWheelPicker } from './DateWheelPicker';
 
 /**
  * Calculate biological aging impact based on usage duration and intensity
@@ -118,6 +119,89 @@ const getFinancialBullets = (totalSpent) => {
       "You've literally smoked the value of a Tesla Model 3 or five years of rent outside London."
     ];
   }
+};
+
+/**
+ * Wheel Picker Component for Weekly Spend
+ */
+const WheelPicker = ({ value, onChange }) => {
+  const scrollRef = useRef(null);
+  const amounts = Array.from({ length: 51 }, (_, i) => i * 10);
+  const itemHeight = 48; // Height of each item in pixels
+  
+  useEffect(() => {
+    // Scroll to selected value on mount or value change
+    if (scrollRef.current && value !== undefined) {
+      const index = amounts.indexOf(value);
+      if (index !== -1) {
+        scrollRef.current.scrollTop = index * itemHeight;
+      }
+    }
+  }, [value]);
+  
+  const handleScroll = (e) => {
+    const scrollTop = e.target.scrollTop;
+    const index = Math.round(scrollTop / itemHeight);
+    const selectedValue = amounts[index] || 0;
+    if (selectedValue !== value) {
+      onChange(selectedValue);
+    }
+  };
+  
+  return (
+    <div className="relative">
+      {/* Selection highlight band */}
+      <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-12 bg-blue-500/20 border-y-2 border-blue-500 pointer-events-none z-10"></div>
+      
+      {/* Gradient overlays */}
+      <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-slate-800 to-transparent pointer-events-none z-10"></div>
+      <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-slate-800 to-transparent pointer-events-none z-10"></div>
+      
+      {/* Scrollable picker */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="h-60 overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
+        style={{
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
+        {/* Padding top */}
+        <div style={{ height: `${itemHeight * 2}px` }}></div>
+        
+        {/* Options */}
+        {amounts.map((amount) => {
+          const isSelected = amount === value;
+          return (
+            <div
+              key={amount}
+              className={`flex items-center justify-center snap-center transition-all duration-200 ${
+                isSelected 
+                  ? 'text-white font-bold text-2xl scale-110' 
+                  : 'text-gray-400 text-lg'
+              }`}
+              style={{ height: `${itemHeight}px` }}
+              onClick={() => {
+                onChange(amount);
+                const index = amounts.indexOf(amount);
+                scrollRef.current.scrollTo({
+                  top: index * itemHeight,
+                  behavior: 'smooth'
+                });
+              }}
+            >
+              <span className="cursor-pointer">£{amount}</span>
+            </div>
+          );
+        })}
+        
+        {/* Padding bottom */}
+        <div style={{ height: `${itemHeight * 2}px` }}></div>
+      </div>
+    </div>
+  );
 };
 
 /**
@@ -435,17 +519,13 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
                 <span className="text-lg">1️⃣</span>
                 <span>When did you START using nicotine regularly?</span>
               </label>
-              <div className="relative">
-                <input
-                  type="month"
-                  value={userData.startDate}
-                  max={new Date().toISOString().slice(0, 7)}
-                  onChange={(e) => updateField('startDate', e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-700/80 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="Approximate date is fine"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-2xl pointer-events-none">📅</span>
-              </div>
+              <DateWheelPicker
+                value={userData.startDate ? new Date(userData.startDate) : new Date(2020, 0, 1)}
+                onChange={(date) => updateField('startDate', date.toISOString().split('T')[0])}
+                minDate={new Date(new Date().getFullYear() - 70, 0, 1)}
+                maxDate={new Date()}
+              />
+              <p className="text-xs text-gray-400 mt-2 text-center">Approximate date is fine</p>
             </div>
             
             {/* Divider */}
@@ -457,16 +537,13 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
                 <span className="text-lg">2️⃣</span>
                 <span>When did you QUIT?</span>
               </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={userData.quitDate}
-                  max={new Date().toISOString().split('T')[0]}
-                  onChange={(e) => updateField('quitDate', e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-700/80 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-2xl pointer-events-none">📅</span>
-              </div>
+              <DateWheelPicker
+                value={userData.quitDate ? new Date(userData.quitDate) : new Date()}
+                onChange={(date) => updateField('quitDate', date.toISOString().split('T')[0])}
+                minDate={userData.startDate ? new Date(userData.startDate) : new Date(2020, 0, 1)}
+                maxDate={new Date()}
+              />
+              <p className="text-xs text-gray-400 mt-2 text-center">If you haven't quit yet, select today's date</p>
             </div>
             
             {/* Divider */}
@@ -479,27 +556,15 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
                 <span>How much did you spend on nicotine per WEEK?</span>
                 <span className="text-xl">💰</span>
               </label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 text-lg font-semibold z-10">£</span>
-                <select
+              
+              {/* Wheel Picker */}
+              <div className="bg-slate-800/80 border border-slate-600 rounded-lg p-4">
+                <WheelPicker 
                   value={userData.weeklySpend || 0}
-                  onChange={(e) => updateField('weeklySpend', parseInt(e.target.value))}
-                  className="w-full pl-8 pr-10 py-3 bg-slate-700/80 border border-slate-600 rounded-lg text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
-                  style={{ 
-                    backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")",
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 0.5rem center",
-                    backgroundSize: "1.5em 1.5em"
-                  }}
-                >
-                  <option value="0">Select amount</option>
-                  {Array.from({ length: 51 }, (_, i) => i * 10).map((amount) => (
-                    <option key={amount} value={amount}>
-                      {amount}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => updateField('weeklySpend', val)}
+                />
               </div>
+              
               <div className="mt-3 p-3 bg-slate-700/40 rounded-lg">
                 <p className="text-gray-300 text-xs font-medium mb-2">Common ranges:</p>
                 <div className="space-y-1 text-xs text-gray-400">
