@@ -18,7 +18,7 @@ import { calculateInitialStats, getConfidenceColor } from '../services/StatsCalc
 import { saveOnboardingStep } from '../services/OnboardingFirebaseService';
 import { OnboardingProgressBar } from './OnboardingProgressBar';
 import { OnboardingNavigation } from './OnboardingNavigation';
-import { DateWheelPicker } from './DateWheelPicker';
+import { DateWheelPickerModal } from './DateWheelPicker';
 
 /**
  * Calculate biological aging impact based on usage duration and intensity
@@ -215,6 +215,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showQuitDatePicker, setShowQuitDatePicker] = useState(false);
 
   // Generate initial avatar on mount
   useEffect(() => {
@@ -519,12 +521,26 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
                 <span className="text-lg">1️⃣</span>
                 <span>When did you START using nicotine regularly?</span>
               </label>
-              <DateWheelPicker
-                value={userData.startDate ? new Date(userData.startDate) : new Date(2020, 0, 1)}
-                onChange={(date) => updateField('startDate', date.toISOString().split('T')[0])}
-                minDate={new Date(new Date().getFullYear() - 70, 0, 1)}
-                maxDate={new Date()}
-              />
+              <button
+                onClick={() => setShowStartDatePicker(true)}
+                className="w-full px-4 py-4 bg-slate-700/80 border-2 border-slate-600 hover:border-blue-500 rounded-xl text-white text-left transition-all hover:bg-slate-700 active:scale-98 group"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Start Date</p>
+                    <p className="text-lg font-medium">
+                      {userData.startDate 
+                        ? new Date(userData.startDate).toLocaleDateString('en-US', { 
+                            month: 'long', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })
+                        : 'Select Date'}
+                    </p>
+                  </div>
+                  <span className="text-2xl group-hover:scale-110 transition-transform">📅</span>
+                </div>
+              </button>
               <p className="text-xs text-gray-400 mt-2 text-center">Approximate date is fine</p>
             </div>
             
@@ -537,12 +553,26 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
                 <span className="text-lg">2️⃣</span>
                 <span>When did you QUIT?</span>
               </label>
-              <DateWheelPicker
-                value={userData.quitDate ? new Date(userData.quitDate) : new Date()}
-                onChange={(date) => updateField('quitDate', date.toISOString().split('T')[0])}
-                minDate={userData.startDate ? new Date(userData.startDate) : new Date(2020, 0, 1)}
-                maxDate={new Date()}
-              />
+              <button
+                onClick={() => setShowQuitDatePicker(true)}
+                className="w-full px-4 py-4 bg-slate-700/80 border-2 border-slate-600 hover:border-blue-500 rounded-xl text-white text-left transition-all hover:bg-slate-700 active:scale-98 group"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Quit Date</p>
+                    <p className="text-lg font-medium">
+                      {userData.quitDate 
+                        ? new Date(userData.quitDate).toLocaleDateString('en-US', { 
+                            month: 'long', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })
+                        : 'Select Date'}
+                    </p>
+                  </div>
+                  <span className="text-2xl group-hover:scale-110 transition-transform">📅</span>
+                </div>
+              </button>
               <p className="text-xs text-gray-400 mt-2 text-center">If you haven't quit yet, select today's date</p>
             </div>
             
@@ -574,6 +604,26 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
                 </div>
               </div>
             </div>
+
+            {/* Date Picker Modals */}
+            <DateWheelPickerModal
+              isOpen={showStartDatePicker}
+              value={userData.startDate ? new Date(userData.startDate) : new Date(2020, 0, 1)}
+              onChange={(date) => updateField('startDate', date.toISOString().split('T')[0])}
+              onClose={() => setShowStartDatePicker(false)}
+              minDate={new Date(new Date().getFullYear() - 70, 0, 1)}
+              maxDate={new Date()}
+              title="When did you start?"
+            />
+            <DateWheelPickerModal
+              isOpen={showQuitDatePicker}
+              value={userData.quitDate ? new Date(userData.quitDate) : new Date()}
+              onChange={(date) => updateField('quitDate', date.toISOString().split('T')[0])}
+              onClose={() => setShowQuitDatePicker(false)}
+              minDate={userData.startDate ? new Date(userData.startDate) : new Date(2020, 0, 1)}
+              maxDate={new Date()}
+              title="When did you quit?"
+            />
           </div>
         )}
 

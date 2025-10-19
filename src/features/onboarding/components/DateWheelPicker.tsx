@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
+import { X } from 'lucide-react';
 
-interface DateWheelPickerProps {
+interface DateWheelPickerModalProps {
+  isOpen: boolean;
   value: Date;
   onChange: (date: Date) => void;
+  onClose: () => void;
   minDate?: Date;
   maxDate?: Date;
-  label?: string;
+  title?: string;
 }
 
 interface WheelPickerProps {
@@ -30,6 +33,11 @@ function WheelPicker({ items, selectedIndex, onChange, itemHeight = 40 }: WheelP
     setStartY(e.touches[0].clientY);
   };
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setStartY(e.clientY);
+  };
+
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return;
     const currentY = e.touches[0].clientY;
@@ -37,7 +45,14 @@ function WheelPicker({ items, selectedIndex, onChange, itemHeight = 40 }: WheelP
     setCurrentTranslate(-selectedIndex * itemHeight + diff);
   };
 
-  const handleTouchEnd = () => {
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    const currentY = e.clientY;
+    const diff = currentY - startY;
+    setCurrentTranslate(-selectedIndex * itemHeight + diff);
+  };
+
+  const handleEnd = () => {
     if (!isDragging) return;
     setIsDragging(false);
 
@@ -46,6 +61,17 @@ function WheelPicker({ items, selectedIndex, onChange, itemHeight = 40 }: WheelP
     const clampedIndex = Math.max(0, Math.min(items.length - 1, index));
     onChange(clampedIndex);
   };
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleEnd);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleEnd);
+      };
+    }
+  }, [isDragging, currentTranslate, items.length]);
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -65,20 +91,21 @@ function WheelPicker({ items, selectedIndex, onChange, itemHeight = 40 }: WheelP
       </div>
 
       {/* Gradient overlays */}
-      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white to-transparent pointer-events-none z-20"></div>
-      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none z-20"></div>
+      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-800 to-transparent pointer-events-none z-20"></div>
+      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-800 to-transparent pointer-events-none z-20"></div>
 
       {/* Scrollable items */}
       <div
         ref={containerRef}
-        className="absolute inset-0 flex flex-col items-center cursor-grab active:cursor-grabbing"
+        className="absolute inset-0 flex flex-col items-center cursor-grab active:cursor-grabbing select-none"
         style={{
           paddingTop: `${80}px`,
           paddingBottom: `${80}px`,
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onTouchEnd={handleEnd}
+        onMouseDown={handleMouseDown}
         onWheel={handleWheel}
       >
         <div
@@ -96,16 +123,17 @@ function WheelPicker({ items, selectedIndex, onChange, itemHeight = 40 }: WheelP
             return (
               <div
                 key={item.value}
-                className="flex items-center justify-center font-medium select-none"
+                className="flex items-center justify-center font-medium"
                 style={{
                   height: `${itemHeight}px`,
                   opacity,
                   transform: `scale(${scale})`,
                   transition: isDragging ? 'none' : 'all 0.2s ease-out',
+                  color: index === selectedIndex ? '#ffffff' : '#9ca3af',
                 }}
                 onClick={() => onChange(index)}
               >
-                {item.label}
+                <span className="cursor-pointer">{item.label}</span>
               </div>
             );
           })}
@@ -115,21 +143,33 @@ function WheelPicker({ items, selectedIndex, onChange, itemHeight = 40 }: WheelP
   );
 }
 
-export function DateWheelPicker({
+export function DateWheelPickerModal({
+  isOpen,
   value,
   onChange,
+  onClose,
   minDate = new Date(new Date().getFullYear() - 50, 0, 1),
   maxDate = new Date(),
-  label,
-}: DateWheelPickerProps) {
+  title = 'Select Date',
+}: DateWheelPickerModalProps) {
+  const [tempDate, setTempDate] = useState(value);
+
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  const currentMonth = value.getMonth();
-  const currentYear = value.getFullYear();
-  const currentDay = value.getDate();
+  useEffect(() => {
+    if (isOpen) {
+      setTempDate(value);
+    }
+  }, [isOpen, value]);
+
+  if (!isOpen) return null;
+
+  const currentMonth = tempDate.getMonth();
+  const currentYear = tempDate.getFullYear();
+  const currentDay = tempDate.getDate();
 
   // Generate years
   const years = Array.from(
@@ -155,62 +195,128 @@ export function DateWheelPicker({
 
   const handleMonthChange = (index: number) => {
     const newDate = new Date(currentYear, index, Math.min(currentDay, new Date(currentYear, index + 1, 0).getDate()));
-    onChange(newDate);
+    setTempDate(newDate);
   };
 
   const handleDayChange = (index: number) => {
     const newDate = new Date(currentYear, currentMonth, index + 1);
-    onChange(newDate);
+    setTempDate(newDate);
   };
 
   const handleYearChange = (index: number) => {
     const newYear = years[index].value;
     const newDate = new Date(newYear, currentMonth, Math.min(currentDay, new Date(newYear, currentMonth + 1, 0).getDate()));
-    onChange(newDate);
+    setTempDate(newDate);
+  };
+
+  const handleConfirm = () => {
+    onChange(tempDate);
+    onClose();
   };
 
   return (
-    <div className="w-full">
-      {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-3">
-          {label}
-        </label>
-      )}
-      <div className="bg-white rounded-2xl shadow-lg p-4">
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <div className="text-xs font-medium text-gray-500 text-center mb-2">
-              Month
-            </div>
-            <WheelPicker
-              items={monthItems}
-              selectedIndex={currentMonth}
-              onChange={handleMonthChange}
-            />
-          </div>
-          <div>
-            <div className="text-xs font-medium text-gray-500 text-center mb-2">
-              Day
-            </div>
-            <WheelPicker
-              items={days}
-              selectedIndex={currentDay - 1}
-              onChange={handleDayChange}
-            />
-          </div>
-          <div>
-            <div className="text-xs font-medium text-gray-500 text-center mb-2">
-              Year
-            </div>
-            <WheelPicker
-              items={years}
-              selectedIndex={years.findIndex(y => y.value === currentYear)}
-              onChange={handleYearChange}
-            />
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="relative bg-slate-800 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg mx-auto shadow-2xl animate-slide-up">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-700">
+          <h3 className="text-xl font-bold text-white">{title}</h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-slate-700 rounded-full transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-400" />
+          </button>
+        </div>
+
+        {/* Date Display */}
+        <div className="px-6 pt-4">
+          <div className="text-center p-4 bg-slate-700/50 rounded-xl">
+            <p className="text-sm text-gray-400 mb-1">Selected Date</p>
+            <p className="text-2xl font-bold text-white">
+              {tempDate.toLocaleDateString('en-US', { 
+                month: 'long', 
+                day: 'numeric', 
+                year: 'numeric' 
+              })}
+            </p>
           </div>
         </div>
+
+        {/* Wheel Pickers */}
+        <div className="p-6">
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <div className="text-xs font-medium text-gray-400 text-center mb-2">
+                Month
+              </div>
+              <WheelPicker
+                items={monthItems}
+                selectedIndex={currentMonth}
+                onChange={handleMonthChange}
+              />
+            </div>
+            <div>
+              <div className="text-xs font-medium text-gray-400 text-center mb-2">
+                Day
+              </div>
+              <WheelPicker
+                items={days}
+                selectedIndex={currentDay - 1}
+                onChange={handleDayChange}
+              />
+            </div>
+            <div>
+              <div className="text-xs font-medium text-gray-400 text-center mb-2">
+                Year
+              </div>
+              <WheelPicker
+                items={years}
+                selectedIndex={years.findIndex(y => y.value === currentYear)}
+                onChange={handleYearChange}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 p-6 pt-0">
+          <button
+            onClick={onClose}
+            className="flex-1 px-6 py-3 border-2 border-slate-600 text-gray-300 rounded-xl font-medium hover:bg-slate-700 active:scale-95 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-medium hover:from-blue-600 hover:to-purple-600 active:scale-95 transition-all shadow-lg"
+          >
+            Confirm
+          </button>
+        </div>
       </div>
+
+      <style>{`
+        @keyframes slide-up {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
-
