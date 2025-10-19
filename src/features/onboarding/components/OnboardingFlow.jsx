@@ -532,7 +532,6 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
                       {userData.startDate 
                         ? new Date(userData.startDate).toLocaleDateString('en-US', { 
                             month: 'long', 
-                            day: 'numeric', 
                             year: 'numeric' 
                           })
                         : 'Select Date'}
@@ -614,6 +613,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
               minDate={new Date(new Date().getFullYear() - 70, 0, 1)}
               maxDate={new Date()}
               title="When did you start?"
+              monthYearOnly={true}
             />
             <DateWheelPickerModal
               isOpen={showQuitDatePicker}
@@ -623,6 +623,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
               minDate={userData.startDate ? new Date(userData.startDate) : new Date(2020, 0, 1)}
               maxDate={new Date()}
               title="When did you quit?"
+              monthYearOnly={false}
             />
           </div>
         )}

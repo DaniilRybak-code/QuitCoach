@@ -9,6 +9,7 @@ interface DateWheelPickerModalProps {
   minDate?: Date;
   maxDate?: Date;
   title?: string;
+  monthYearOnly?: boolean; // If true, only show month and year pickers
 }
 
 interface WheelPickerProps {
@@ -151,6 +152,7 @@ export function DateWheelPickerModal({
   minDate = new Date(new Date().getFullYear() - 50, 0, 1),
   maxDate = new Date(),
   title = 'Select Date',
+  monthYearOnly = false,
 }: DateWheelPickerModalProps) {
   const [tempDate, setTempDate] = useState(value);
 
@@ -162,7 +164,28 @@ export function DateWheelPickerModal({
   useEffect(() => {
     if (isOpen) {
       setTempDate(value);
+      // Lock body scroll on mobile
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.top = `-${window.scrollY}px`;
+    } else {
+      // Restore body scroll
+      const scrollY = document.body.style.top;
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+      window.scrollTo(0, parseInt(scrollY || '0') * -1);
     }
+
+    return () => {
+      // Cleanup on unmount
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    };
   }, [isOpen, value]);
 
   if (!isOpen) return null;
@@ -194,7 +217,8 @@ export function DateWheelPickerModal({
   }));
 
   const handleMonthChange = (index: number) => {
-    const newDate = new Date(currentYear, index, Math.min(currentDay, new Date(currentYear, index + 1, 0).getDate()));
+    const day = monthYearOnly ? 1 : Math.min(currentDay, new Date(currentYear, index + 1, 0).getDate());
+    const newDate = new Date(currentYear, index, day);
     setTempDate(newDate);
   };
 
@@ -205,7 +229,8 @@ export function DateWheelPickerModal({
 
   const handleYearChange = (index: number) => {
     const newYear = years[index].value;
-    const newDate = new Date(newYear, currentMonth, Math.min(currentDay, new Date(newYear, currentMonth + 1, 0).getDate()));
+    const day = monthYearOnly ? 1 : Math.min(currentDay, new Date(newYear, currentMonth + 1, 0).getDate());
+    const newDate = new Date(newYear, currentMonth, day);
     setTempDate(newDate);
   };
 
@@ -235,23 +260,9 @@ export function DateWheelPickerModal({
           </button>
         </div>
 
-        {/* Date Display */}
-        <div className="px-6 pt-4">
-          <div className="text-center p-4 bg-slate-700/50 rounded-xl">
-            <p className="text-sm text-gray-400 mb-1">Selected Date</p>
-            <p className="text-2xl font-bold text-white">
-              {tempDate.toLocaleDateString('en-US', { 
-                month: 'long', 
-                day: 'numeric', 
-                year: 'numeric' 
-              })}
-            </p>
-          </div>
-        </div>
-
         {/* Wheel Pickers */}
         <div className="p-6">
-          <div className="grid grid-cols-3 gap-2">
+          <div className={`grid ${monthYearOnly ? 'grid-cols-2' : 'grid-cols-3'} gap-4`}>
             <div>
               <div className="text-xs font-medium text-gray-400 text-center mb-2">
                 Month
@@ -262,16 +273,18 @@ export function DateWheelPickerModal({
                 onChange={handleMonthChange}
               />
             </div>
-            <div>
-              <div className="text-xs font-medium text-gray-400 text-center mb-2">
-                Day
+            {!monthYearOnly && (
+              <div>
+                <div className="text-xs font-medium text-gray-400 text-center mb-2">
+                  Day
+                </div>
+                <WheelPicker
+                  items={days}
+                  selectedIndex={currentDay - 1}
+                  onChange={handleDayChange}
+                />
               </div>
-              <WheelPicker
-                items={days}
-                selectedIndex={currentDay - 1}
-                onChange={handleDayChange}
-              />
-            </div>
+            )}
             <div>
               <div className="text-xs font-medium text-gray-400 text-center mb-2">
                 Year
