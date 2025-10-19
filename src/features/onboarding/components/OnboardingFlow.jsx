@@ -19,6 +19,7 @@ import { saveOnboardingStep } from '../services/OnboardingFirebaseService';
 import { OnboardingProgressBar } from './OnboardingProgressBar';
 import { OnboardingNavigation } from './OnboardingNavigation';
 import { DateWheelPickerModal } from './DateWheelPicker';
+import { AmountWheelPickerModal } from './AmountWheelPicker';
 
 /**
  * Calculate biological aging impact based on usage duration and intensity
@@ -121,88 +122,6 @@ const getFinancialBullets = (totalSpent) => {
   }
 };
 
-/**
- * Wheel Picker Component for Weekly Spend
- */
-const WheelPicker = ({ value, onChange }) => {
-  const scrollRef = useRef(null);
-  const amounts = Array.from({ length: 51 }, (_, i) => i * 10);
-  const itemHeight = 48; // Height of each item in pixels
-  
-  useEffect(() => {
-    // Scroll to selected value on mount or value change
-    if (scrollRef.current && value !== undefined) {
-      const index = amounts.indexOf(value);
-      if (index !== -1) {
-        scrollRef.current.scrollTop = index * itemHeight;
-      }
-    }
-  }, [value]);
-  
-  const handleScroll = (e) => {
-    const scrollTop = e.target.scrollTop;
-    const index = Math.round(scrollTop / itemHeight);
-    const selectedValue = amounts[index] || 0;
-    if (selectedValue !== value) {
-      onChange(selectedValue);
-    }
-  };
-  
-  return (
-    <div className="relative">
-      {/* Selection highlight band */}
-      <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-12 bg-blue-500/20 border-y-2 border-blue-500 pointer-events-none z-10"></div>
-      
-      {/* Gradient overlays */}
-      <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-slate-800 to-transparent pointer-events-none z-10"></div>
-      <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-slate-800 to-transparent pointer-events-none z-10"></div>
-      
-      {/* Scrollable picker */}
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="h-60 overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
-        style={{
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          WebkitOverflowScrolling: 'touch'
-        }}
-      >
-        {/* Padding top */}
-        <div style={{ height: `${itemHeight * 2}px` }}></div>
-        
-        {/* Options */}
-        {amounts.map((amount) => {
-          const isSelected = amount === value;
-          return (
-            <div
-              key={amount}
-              className={`flex items-center justify-center snap-center transition-all duration-200 ${
-                isSelected 
-                  ? 'text-white font-bold text-2xl scale-110' 
-                  : 'text-gray-400 text-lg'
-              }`}
-              style={{ height: `${itemHeight}px` }}
-              onClick={() => {
-                onChange(amount);
-                const index = amounts.indexOf(amount);
-                scrollRef.current.scrollTo({
-                  top: index * itemHeight,
-                  behavior: 'smooth'
-                });
-              }}
-            >
-              <span className="cursor-pointer">£{amount}</span>
-            </div>
-          );
-        })}
-        
-        {/* Padding bottom */}
-        <div style={{ height: `${itemHeight * 2}px` }}></div>
-      </div>
-    </div>
-  );
-};
 
 /**
  * Main Onboarding Flow Component
@@ -217,6 +136,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
   const [photoPreview, setPhotoPreview] = useState(null);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showQuitDatePicker, setShowQuitDatePicker] = useState(false);
+  const [showAmountPicker, setShowAmountPicker] = useState(false);
 
   // Generate initial avatar on mount
   useEffect(() => {
@@ -586,13 +506,20 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
                 <span className="text-xl">💰</span>
               </label>
               
-              {/* Wheel Picker */}
-              <div className="bg-slate-800/80 border border-slate-600 rounded-lg p-4">
-                <WheelPicker 
-                  value={userData.weeklySpend || 0}
-                  onChange={(val) => updateField('weeklySpend', val)}
-                />
-              </div>
+              <button
+                onClick={() => setShowAmountPicker(true)}
+                className="w-full px-4 py-4 bg-slate-700/80 border-2 border-slate-600 hover:border-blue-500 rounded-xl text-white text-left transition-all hover:bg-slate-700 active:scale-98 group"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Weekly Spend</p>
+                    <p className="text-lg font-medium">
+                      {userData.weeklySpend > 0 ? `£${userData.weeklySpend}` : 'Select Amount'}
+                    </p>
+                  </div>
+                  <span className="text-2xl group-hover:scale-110 transition-transform">💰</span>
+                </div>
+              </button>
               
               <div className="mt-3 p-3 bg-slate-700/40 rounded-lg">
                 <p className="text-gray-300 text-xs font-medium mb-2">Common ranges:</p>
@@ -624,6 +551,13 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
               maxDate={new Date()}
               title="When did you quit?"
               monthYearOnly={false}
+            />
+            <AmountWheelPickerModal
+              isOpen={showAmountPicker}
+              value={userData.weeklySpend || 0}
+              onChange={(amount) => updateField('weeklySpend', amount)}
+              onClose={() => setShowAmountPicker(false)}
+              title="How much per week?"
             />
           </div>
         )}
