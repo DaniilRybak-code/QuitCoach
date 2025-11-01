@@ -67,29 +67,27 @@ Contains TypeScript interfaces and constants used throughout the onboarding flow
 - `DAILY_PATTERN_OPTIONS`: When users typically vape
 - `COPING_STRATEGY_OPTIONS`: Strategies users have tried
 - `VAPE_PODS_OPTIONS`: Pod consumption options
-- `NICOTINE_STRENGTH_OPTIONS`: Available nicotine strengths
 - `QUIT_ATTEMPTS_OPTIONS`: Previous quit attempt counts
 - `INITIAL_ONBOARDING_DATA`: Default starting data
 
 ## Onboarding Steps
 
 1. **Hero Name**: User enters their preferred username
-2. **Quit Date**: Select when they started/will start their quit journey
-3. **Archetype**: Choose character type (Determined, Social Fighter, Health Warrior, Money Saver)
-4. **Avatar Creation**: Upload photo or generate random avatar
+2. **Quitting Focus**: Select what nicotine sources they are quitting (vaping, smoking, or both)
+3. **Usage History**: Capture start date, quit date, and weekly spend
+4. **Impact Reflection**: Visualize health and financial impacts of usage
 5. **Trigger Identification**: Select common vaping triggers
 6. **Daily Routine**: Identify when they vape most
 7. **Coping Experience**: Select strategies they've tried
 8. **Vape Usage**: Number of pods per week
-9. **Nicotine Strength**: Current nicotine level
-10. **Previous Attempts**: How many times they've tried to quit
-11. **Confidence Level**: Rate confidence 1-10
+9. **Previous Attempts**: How many times they've tried to quit
+10. **Confidence Level**: Rate confidence 1-10
 
 ## Stats Calculation Algorithm
 
 The initial stats are calculated based on user responses:
 
-- **Addiction Level** (30-100): Based on pods/week, nicotine strength, and daily patterns
+- **Addiction Level** (30-100): Based on pods/week, spending intensity, and usage duration
   - Displayed as "Addiction Freedom" (100 - addictionLevel) to users
 - **Mental Strength** (10-80): Based on confidence, previous attempts, and coping strategies
 - **Motivation** (20-90): Based on archetype, confidence, and quit history

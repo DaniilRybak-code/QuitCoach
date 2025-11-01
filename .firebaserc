@@ -1,7 +1,5 @@
 {
   "projects": {
-    "prod": "quitarena-a97de"
-  },
-  "targets": {},
-  "etags": {}
+    "default": "quitarena-a97de"
+  }
 }

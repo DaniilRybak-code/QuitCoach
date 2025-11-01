@@ -8,7 +8,6 @@ import {
   DAILY_PATTERN_OPTIONS, 
   COPING_STRATEGY_OPTIONS,
   VAPE_PODS_OPTIONS,
-  NICOTINE_STRENGTH_OPTIONS,
   QUIT_ATTEMPTS_OPTIONS,
   QUITTING_TYPES,
   INITIAL_ONBOARDING_DATA
@@ -125,7 +124,7 @@ const getFinancialBullets = (totalSpent) => {
 
 /**
  * Main Onboarding Flow Component
- * Handles the 12-step onboarding process for new users
+ * Handles the 10-step onboarding process for new users
  */
 export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, promptInstall }) {
   const [step, setStep] = useState(1);
@@ -245,7 +244,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
   };
 
   const handleNext = async () => {
-    if (step < 12) {
+    if (step < 10) {
       if (authUser) {
         await saveOnboardingStep(db, authUser.uid, userData, step);
       }
@@ -268,7 +267,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
         };
         
         if (authUser) {
-          await saveOnboardingStep(db, authUser.uid, finalUserData, 12);
+          await saveOnboardingStep(db, authUser.uid, finalUserData, 10);
         }
         
         console.log('Final user data:', finalUserData);
@@ -295,7 +294,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
         
         if (authUser) {
           try {
-            await saveOnboardingStep(db, authUser.uid, finalUserData, 12);
+            await saveOnboardingStep(db, authUser.uid, finalUserData, 10);
           } catch (firebaseError) {
             console.error('Failed to save fallback data to Firebase:', firebaseError);
           }
@@ -323,9 +322,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
       case 6: return userData.dailyPatterns.length > 0;
       case 7: return userData.copingStrategies.length > 0;
       case 8: return userData.vapePodsPerWeek > 0;
-      case 9: return userData.nicotineStrength !== '';
-      case 10: return userData.quitAttempts !== '';
-      case 11: return userData.confidence > 0;
+      case 9: return userData.quitAttempts !== '';
+      case 10: return userData.confidence > 0;
       default: return false;
     }
   };
@@ -800,32 +798,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 9: Nicotine Strength */}
+        {/* Step 9: Previous Attempts */}
         {step === 9 && (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-2xl">⚡</span>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-4">Nicotine Strength</h1>
-            <p className="text-gray-300 mb-6">What nicotine strength do you typically use?</p>
-            
-            <div className="mb-6">
-              <select
-                value={userData.nicotineStrength}
-                onChange={(e) => updateField('nicotineStrength', e.target.value)}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              >
-                <option value="">Select nicotine strength</option>
-                {NICOTINE_STRENGTH_OPTIONS.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Step 10: Previous Attempts */}
-        {step === 10 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">📚</span>
@@ -848,8 +822,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 11: Confidence Level */}
-        {step === 11 && (
+        {/* Step 10: Confidence Level */}
+        {step === 10 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🎯</span>
@@ -902,7 +876,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           canProceed={canProceed()}
           onBack={handleBack}
           onNext={handleNext}
-          isLastStep={step === 11}
+          isLastStep={step === 10}
         />
       </div>
     </div>
