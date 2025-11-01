@@ -1,11 +1,12 @@
 import React from 'react';
+import { TOTAL_ONBOARDING_STEPS } from '../models/OnboardingModels';
 
 interface OnboardingProgressBarProps {
   currentStep: number;
   totalSteps?: number;
 }
 
-export function OnboardingProgressBar({ currentStep, totalSteps = 10 }: OnboardingProgressBarProps) {
+export function OnboardingProgressBar({ currentStep, totalSteps = TOTAL_ONBOARDING_STEPS }: OnboardingProgressBarProps) {
   return (
     <div className="flex justify-between items-center mb-8 overflow-x-auto">
       {Array.from({ length: totalSteps }, (_, i) => i + 1).map((stepNumber) => (

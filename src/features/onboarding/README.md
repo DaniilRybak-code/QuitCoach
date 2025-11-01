@@ -4,7 +4,7 @@ This module handles the complete user onboarding flow for QuitCoach, collecting 
 
 ## Overview
 
-The onboarding feature guides new users through an 11-step process to:
+The onboarding feature guides new users through a 9-step process to:
 - Create their hero identity
 - Set their quit date
 - Choose an archetype that reflects their motivation
@@ -16,7 +16,7 @@ The onboarding feature guides new users through an 11-step process to:
 ## Components
 
 ### OnboardingFlow (`components/OnboardingFlow.jsx`)
-Main component that orchestrates the entire onboarding process. Displays different UI for each of the 11 steps and collects user input.
+Main component that orchestrates the entire onboarding process. Displays different UI for each of the 9 steps and collects user input.
 
 **Props:**
 - `onComplete`: Callback function called when onboarding is complete
@@ -26,7 +26,7 @@ Main component that orchestrates the entire onboarding process. Displays differe
 - `promptInstall`: Function to trigger PWA install prompt
 
 ### OnboardingProgressBar (`components/OnboardingProgressBar.tsx`)
-Visual progress indicator showing the current step out of 11 total steps.
+Visual progress indicator showing the current step out of 9 total steps.
 
 ### OnboardingNavigation (`components/OnboardingNavigation.tsx`)
 Navigation buttons (Back/Next) with conditional styling based on step completion.
@@ -66,9 +66,9 @@ Contains TypeScript interfaces and constants used throughout the onboarding flow
 - `TRIGGER_OPTIONS`: Common vaping triggers
 - `DAILY_PATTERN_OPTIONS`: When users typically vape
 - `COPING_STRATEGY_OPTIONS`: Strategies users have tried
-- `VAPE_PODS_OPTIONS`: Pod consumption options
 - `QUIT_ATTEMPTS_OPTIONS`: Previous quit attempt counts
 - `INITIAL_ONBOARDING_DATA`: Default starting data
+- `TOTAL_ONBOARDING_STEPS`: Total number of onboarding screens (9)
 
 ## Onboarding Steps
 
@@ -79,15 +79,14 @@ Contains TypeScript interfaces and constants used throughout the onboarding flow
 5. **Trigger Identification**: Select common vaping triggers
 6. **Daily Routine**: Identify when they vape most
 7. **Coping Experience**: Select strategies they've tried
-8. **Vape Usage**: Number of pods per week
-9. **Previous Attempts**: How many times they've tried to quit
-10. **Confidence Level**: Rate confidence 1-10
+8. **Previous Attempts**: How many times they've tried to quit
+9. **Confidence Level**: Rate confidence 1-10
 
 ## Stats Calculation Algorithm
 
 The initial stats are calculated based on user responses:
 
-- **Addiction Level** (30-100): Based on pods/week, spending intensity, and usage duration
+- **Addiction Level** (30-100): Based on usage duration and weekly spending intensity
   - Displayed as "Addiction Freedom" (100 - addictionLevel) to users
 - **Mental Strength** (10-80): Based on confidence, previous attempts, and coping strategies
 - **Motivation** (20-90): Based on archetype, confidence, and quit history

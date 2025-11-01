@@ -1,16 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles } from 'lucide-react';
 import { 
-  Sparkles, Shield, Users, Heart, DollarSign, User, RefreshCw, ArrowRight 
-} from 'lucide-react';
-import { 
-  ARCHETYPE_OPTIONS, 
   TRIGGER_OPTIONS, 
   DAILY_PATTERN_OPTIONS, 
   COPING_STRATEGY_OPTIONS,
-  VAPE_PODS_OPTIONS,
   QUIT_ATTEMPTS_OPTIONS,
   QUITTING_TYPES,
-  INITIAL_ONBOARDING_DATA
+  INITIAL_ONBOARDING_DATA,
+  TOTAL_ONBOARDING_STEPS
 } from '../models/OnboardingModels';
 import { generateAvatar, generateFallbackAvatar } from '../services/AvatarService';
 import { calculateInitialStats, getConfidenceColor } from '../services/StatsCalculationService';
@@ -244,7 +241,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
   };
 
   const handleNext = async () => {
-    if (step < 10) {
+    if (step < TOTAL_ONBOARDING_STEPS) {
       if (authUser) {
         await saveOnboardingStep(db, authUser.uid, userData, step);
       }
@@ -267,7 +264,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
         };
         
         if (authUser) {
-          await saveOnboardingStep(db, authUser.uid, finalUserData, 10);
+          await saveOnboardingStep(db, authUser.uid, finalUserData, TOTAL_ONBOARDING_STEPS);
         }
         
         console.log('Final user data:', finalUserData);
@@ -294,7 +291,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
         
         if (authUser) {
           try {
-            await saveOnboardingStep(db, authUser.uid, finalUserData, 10);
+            await saveOnboardingStep(db, authUser.uid, finalUserData, TOTAL_ONBOARDING_STEPS);
           } catch (firebaseError) {
             console.error('Failed to save fallback data to Firebase:', firebaseError);
           }
@@ -321,9 +318,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
       case 5: return userData.triggers.length > 0;
       case 6: return userData.dailyPatterns.length > 0;
       case 7: return userData.copingStrategies.length > 0;
-      case 8: return userData.vapePodsPerWeek > 0;
-      case 9: return userData.quitAttempts !== '';
-      case 10: return userData.confidence > 0;
+      case 8: return userData.quitAttempts !== '';
+      case 9: return userData.confidence > 0;
       default: return false;
     }
   };
@@ -352,7 +348,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        <OnboardingProgressBar currentStep={step} />
+        <OnboardingProgressBar currentStep={step} totalSteps={TOTAL_ONBOARDING_STEPS} />
 
         {/* Step 1: Hero Name */}
         {step === 1 && (
@@ -774,32 +770,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 8: Vape Usage */}
+        {/* Step 8: Previous Attempts */}
         {step === 8 && (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-2xl">🚬</span>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-4">Vape Usage</h1>
-            <p className="text-gray-300 mb-6">How many vape pods do you typically use per week?</p>
-            
-            <div className="mb-6">
-              <select
-                value={userData.vapePodsPerWeek}
-                onChange={(e) => updateField('vapePodsPerWeek', parseFloat(e.target.value) || 0)}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-              >
-                <option value="">Select pods per week</option>
-                {VAPE_PODS_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Step 9: Previous Attempts */}
-        {step === 9 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">📚</span>
@@ -822,8 +794,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 10: Confidence Level */}
-        {step === 10 && (
+        {/* Step 9: Confidence Level */}
+        {step === 9 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🎯</span>
@@ -876,7 +848,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           canProceed={canProceed()}
           onBack={handleBack}
           onNext={handleNext}
-          isLastStep={step === 10}
+          isLastStep={step === TOTAL_ONBOARDING_STEPS}
         />
       </div>
     </div>

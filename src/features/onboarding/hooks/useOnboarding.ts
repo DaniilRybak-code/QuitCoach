@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { Database } from 'firebase/database';
-import { OnboardingUserData, INITIAL_ONBOARDING_DATA } from '../models/OnboardingModels';
+import { OnboardingUserData, INITIAL_ONBOARDING_DATA, TOTAL_ONBOARDING_STEPS } from '../models/OnboardingModels';
 import { saveOnboardingStep } from '../services/OnboardingFirebaseService';
 import { calculateInitialStats } from '../services/StatsCalculationService';
 import { generateAvatar, generateFallbackAvatar, processPhotoToAnime, readFileAsDataURL } from '../services/AvatarService';
@@ -105,7 +105,7 @@ export function useOnboarding({ db, userId, onComplete }: UseOnboardingProps) {
   };
 
   const handleNext = async () => {
-    if (step < 10) {
+    if (step < TOTAL_ONBOARDING_STEPS) {
       // Save current step data to Firebase before moving to next step
       if (userId) {
         await saveOnboardingStep(db, userId, userData, step);
@@ -131,7 +131,7 @@ export function useOnboarding({ db, userId, onComplete }: UseOnboardingProps) {
         
         // Save final step data to Firebase
         if (userId) {
-          await saveOnboardingStep(db, userId, finalUserData, 10);
+          await saveOnboardingStep(db, userId, finalUserData, TOTAL_ONBOARDING_STEPS);
         }
         
         console.log('Final user data:', finalUserData);
@@ -160,7 +160,7 @@ export function useOnboarding({ db, userId, onComplete }: UseOnboardingProps) {
         // Try to save fallback data to Firebase
         if (userId) {
           try {
-            await saveOnboardingStep(db, userId, finalUserData, 10);
+            await saveOnboardingStep(db, userId, finalUserData, TOTAL_ONBOARDING_STEPS);
           } catch (firebaseError) {
             console.error('Failed to save fallback data to Firebase:', firebaseError);
           }
@@ -187,9 +187,8 @@ export function useOnboarding({ db, userId, onComplete }: UseOnboardingProps) {
       case 5: return userData.triggers.length > 0;
       case 6: return userData.dailyPatterns.length > 0;
       case 7: return userData.copingStrategies.length > 0;
-      case 8: return userData.vapePodsPerWeek > 0;
-      case 9: return userData.quitAttempts !== '';
-      case 10: return userData.confidence > 0;
+      case 8: return userData.quitAttempts !== '';
+      case 9: return userData.confidence > 0;
       default: return false;
     }
   };

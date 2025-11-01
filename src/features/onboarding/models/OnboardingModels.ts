@@ -46,19 +46,7 @@ export const COPING_STRATEGY_OPTIONS = [
   'Nothing - this is new to me'
 ];
 
-export const VAPE_PODS_OPTIONS = [
-  { value: 0.5, label: '0.5 pods' },
-  { value: 1, label: '1 pod' },
-  { value: 2, label: '2 pods' },
-  { value: 3, label: '3 pods' },
-  { value: 4, label: '4 pods' },
-  { value: 5, label: '5 pods' },
-  { value: 6, label: '6 pods' },
-  { value: 7, label: '7 pods' },
-  { value: 8, label: '8+ pods' }
-];
-
-export const TOTAL_ONBOARDING_STEPS = 10;
+export const TOTAL_ONBOARDING_STEPS = 9;
 
 export const QUIT_ATTEMPTS_OPTIONS = [
   { value: 'first', label: 'This is my first attempt' },
@@ -85,7 +73,6 @@ export interface OnboardingUserData {
   triggers: string[];
   dailyPatterns: string[];
   copingStrategies: string[];
-  vapePodsPerWeek: number;
   quitAttempts: string;
   confidence: number;
 }
@@ -102,7 +89,6 @@ export const INITIAL_ONBOARDING_DATA: OnboardingUserData = {
   triggers: [],
   dailyPatterns: [],
   copingStrategies: [],
-  vapePodsPerWeek: 0,
   quitAttempts: '',
   confidence: 5
 };
