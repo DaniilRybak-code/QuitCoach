@@ -50,20 +50,15 @@ constructor(db, userUID) {
 
 ## 🚨 **Potential Concerns (Resolved)**
 
-### ⚠️ **Buddy Matching Service Global Collections**
+### ⚠️ **Legacy Buddy Matching Collections (Deprecated)**
 
-**Issue Identified:**
+The historic buddy matching implementation referenced shared collections:
 ```javascript
-// These are global collections
 this.matchingPoolRef = ref(db, 'matchingPool');
 this.buddyPairsRef = ref(db, 'buddyPairs');
 ```
 
-**Resolution: ✅ INTENTIONAL DESIGN**
-- **Purpose**: These collections are **not** user behavior data
-- **Function**: Manage buddy matching system across users
-- **Isolation**: User behavior data is still completely isolated
-- **Security**: Only user IDs and public matching preferences stored
+These collections have been retired alongside the peer-to-peer matching concept. The current architecture uses an AI nemesis, so no new code should recreate or depend on `matchingPool` or `buddyPairs`.
 
 **User Behavior Data Remains Isolated:**
 - All craving data: `users/{userId}/cravings`

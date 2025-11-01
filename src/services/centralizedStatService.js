@@ -3,8 +3,8 @@ import AuthGuard from './authGuard.js';
 
 /**
  * Centralized Stat Service - Single source of truth for all user stats
- * This service ensures that stats are calculated once, stored in Firebase, 
- * and automatically synced in real-time to all views (user and buddy)
+ * This service ensures that stats are calculated once, stored in Firebase,
+ * and automatically synced in real-time to all views across the app
  */
 class CentralizedStatService {
   constructor(db, userId, authGuard = null) {
@@ -534,7 +534,7 @@ class CentralizedStatService {
       const SPECIAL_FEATURES = {
         triggers: [
           'Stress Vaper', 'Social Smoker', 'Coffee Companion', 'Work Breaker',
-          'Gaming Buddy', 'Party Animal', 'Peer Pressure', 'Celebration Trigger',
+          'Gaming Strategist', 'Party Animal', 'Peer Pressure', 'Celebration Trigger',
           'Anxiety Soother', 'Focus Enhancer', 'Boredom Fighter', 'Emotional Support'
         ],
         dailyPatterns: [

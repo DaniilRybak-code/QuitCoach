@@ -50,14 +50,6 @@
         }
       }
     },
-    "matchingPool": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "buddyPairs": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
     "healthchecks": {
       ".read": false,
       ".write": false

@@ -154,56 +154,6 @@ class FirestoreOptimizationService {
     }
   }
 
-  // ===== BUDDY MATCHING OPTIMIZATION =====
-  
-  /**
-   * Get available users for matching with optimization
-   */
-  async getAvailableUsersForMatching(userId, options = {}) {
-    const queryId = this.performanceMonitor.startQuery(
-      'available_users',
-      'getAvailableUsersForMatching',
-      'matchingPool',
-      userId
-    );
-
-    try {
-      const result = await this.optimizedService.getAvailableUsersForMatching(
-        userId,
-        options.pageSize || this.config.defaultPageSize,
-        options.startAfterDoc
-      );
-
-      this.performanceMonitor.completeQuery(queryId, result.users.length);
-      return result;
-    } catch (error) {
-      this.performanceMonitor.completeQuery(queryId, 0, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get user's buddy pair with optimization
-   */
-  async getUserBuddyPair(userId) {
-    const queryId = this.performanceMonitor.startQuery(
-      'buddy_pair',
-      'getUserBuddyPair',
-      'buddyPairs',
-      userId
-    );
-
-    try {
-      const result = await this.optimizedService.getUserBuddyPair(userId);
-
-      this.performanceMonitor.completeQuery(queryId, result ? 1 : 0);
-      return result;
-    } catch (error) {
-      this.performanceMonitor.completeQuery(queryId, 0, error);
-      throw error;
-    }
-  }
-
   // ===== CACHE MANAGEMENT =====
   
   /**
@@ -211,8 +161,6 @@ class FirestoreOptimizationService {
    */
   clearUserCache(userId) {
     this.behavioralService.clearUserCache(userId);
-    this.optimizedService.clearCacheForCollection('matchingPool');
-    this.optimizedService.clearCacheForCollection('buddyPairs');
     console.log(`🗑️ Cleared all cache for user ${userId}`);
   }
 

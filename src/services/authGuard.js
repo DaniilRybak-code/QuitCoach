@@ -255,24 +255,6 @@ class AuthGuard {
     return await this.databaseGet(`users/${userId}/behavioral_logs/${logType}`, options);
   }
 
-  // ===== BUDDY OPERATIONS =====
-
-  async getBuddyData(userId, options = {}) {
-    if (!userId) {
-      throw new Error('User ID is required');
-    }
-    
-    return await this.databaseGet(`users/${userId}/buddy`, options);
-  }
-
-  async setBuddyData(userId, buddyData, options = {}) {
-    if (!userId) {
-      throw new Error('User ID is required');
-    }
-    
-    return await this.databaseSet(`users/${userId}/buddy`, buddyData, options);
-  }
-
   // ===== CORE AUTHENTICATION WRAPPER =====
 
   async executeWithAuth(operation, operationFunction) {

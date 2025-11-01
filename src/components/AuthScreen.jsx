@@ -336,7 +336,7 @@ const AuthScreen = ({ onAuthSuccess, isNewUser }) => {
           </p>
           
           {/* Debug Firestore Button */}
-          {/* Development test button removed - buddy matching feature was removed */}
+          {/* Development test button removed - matchmaking superseded by AI nemesis */}
           
           {/* Error display with retry option */}
           {error && (

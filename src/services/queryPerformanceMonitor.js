@@ -315,14 +315,6 @@ class QueryPerformanceMonitor {
         });
         break;
 
-      case 'getBuddyPairs':
-        suggestions.push({
-          type: 'composite_index',
-          message: 'Ensure composite indexes exist for user queries',
-          implementation: 'Create index on (user1Id, status) and (user2Id, status)'
-        });
-        break;
-
       default:
         suggestions.push({
           type: 'general',

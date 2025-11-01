@@ -1,7 +1,7 @@
 {
   "name": "QuitArena",
   "short_name": "QuitArena",
-  "description": "Your personal arena for quitting vaping and building a healthier life. Track progress, get buddy support, and beat addiction together.",
+  "description": "Your personal arena for quitting vaping and building a healthier life. Track progress, battle an adaptive nemesis, and beat addiction together.",
   "start_url": "/?source=pwa",
   "display": "standalone",
   "background_color": "#0f172a",
@@ -85,7 +85,7 @@
       "sizes": "1024x768",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "QuitCoach Arena desktop view with user and buddy comparison"
+      "label": "QuitCoach Arena desktop view with user and AI rival comparison"
     }
   ],
   "shortcuts": [
