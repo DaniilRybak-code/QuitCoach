@@ -1,6 +1,6 @@
 {
   "name": "quitcard-arena",
-  "version": "1.0.0",
+  "version": "0.2.0.11",
   "type": "module",
   "description": "A vaping cessation app with trading card mechanics",
   "main": "index.js",
