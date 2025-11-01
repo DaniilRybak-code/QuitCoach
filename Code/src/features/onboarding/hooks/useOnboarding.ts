@@ -105,7 +105,7 @@ export function useOnboarding({ db, userId, onComplete }: UseOnboardingProps) {
   };
 
   const handleNext = async () => {
-    if (step < 11) {
+    if (step < 10) {
       // Save current step data to Firebase before moving to next step
       if (userId) {
         await saveOnboardingStep(db, userId, userData, step);
@@ -188,9 +188,8 @@ export function useOnboarding({ db, userId, onComplete }: UseOnboardingProps) {
       case 6: return userData.dailyPatterns.length > 0;
       case 7: return userData.copingStrategies.length > 0;
       case 8: return userData.vapePodsPerWeek > 0;
-      case 9: return userData.nicotineStrength !== '';
-      case 10: return userData.quitAttempts !== '';
-      case 11: return userData.confidence > 0;
+    case 9: return userData.quitAttempts !== '';
+    case 10: return userData.confidence > 0;
       default: return false;
     }
   };

@@ -8,6 +8,7 @@
   },
   "hosting": {
     "site": "quitarena-a97de",
+    "site": "quitarena-a97de",
     "public": "dist",
     "ignore": [
       "firebase.json",

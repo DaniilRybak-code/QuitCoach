@@ -8,7 +8,6 @@ import {
   DAILY_PATTERN_OPTIONS, 
   COPING_STRATEGY_OPTIONS,
   VAPE_PODS_OPTIONS,
-  NICOTINE_STRENGTH_OPTIONS,
   QUIT_ATTEMPTS_OPTIONS,
   QUITTING_TYPES,
   INITIAL_ONBOARDING_DATA
@@ -239,7 +238,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
   };
 
   const handleNext = async () => {
-    if (step < 12) {
+    if (step < 11) {
       if (authUser) {
         await saveOnboardingStep(db, authUser.uid, userData, step);
       }
@@ -318,9 +317,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
       case 7: return userData.dailyPatterns.length > 0;
       case 8: return userData.copingStrategies.length > 0;
       case 9: return userData.vapePodsPerWeek > 0;
-      case 10: return userData.nicotineStrength !== '';
-      case 11: return userData.quitAttempts !== '';
-      case 12: return userData.confidence > 0;
+      case 10: return userData.quitAttempts !== '';
+      case 11: return userData.confidence > 0;
       default: return false;
     }
   };
@@ -829,32 +827,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 10: Nicotine Strength */}
+        {/* Step 10: Previous Attempts */}
         {step === 10 && (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-2xl">⚡</span>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-4">Nicotine Strength</h1>
-            <p className="text-gray-300 mb-6">What nicotine strength do you typically use?</p>
-            
-            <div className="mb-6">
-              <select
-                value={userData.nicotineStrength}
-                onChange={(e) => updateField('nicotineStrength', e.target.value)}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              >
-                <option value="">Select nicotine strength</option>
-                {NICOTINE_STRENGTH_OPTIONS.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Step 11: Previous Attempts */}
-        {step === 11 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">📚</span>
@@ -877,8 +851,8 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           </div>
         )}
 
-        {/* Step 12: Confidence Level */}
-        {step === 12 && (
+        {/* Step 11: Confidence Level */}
+        {step === 11 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🎯</span>
@@ -931,7 +905,7 @@ export function OnboardingFlow({ onComplete, authUser, db, pwaInstallAvailable, 
           canProceed={canProceed()}
           onBack={handleBack}
           onNext={handleNext}
-          isLastStep={step === 12}
+          isLastStep={step === 11}
         />
       </div>
     </div>

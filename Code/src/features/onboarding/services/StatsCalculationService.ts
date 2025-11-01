@@ -15,7 +15,6 @@ export interface OnboardingData {
   dailyPatterns: string[];
   copingStrategies: string[];
   vapePodsPerWeek: number;
-  nicotineStrength: string;
   quitAttempts: string;
   confidence: number;
 }

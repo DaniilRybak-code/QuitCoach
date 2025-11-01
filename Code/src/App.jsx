@@ -108,7 +108,6 @@ const OnboardingFlowOld = ({ onComplete, authUser, pwaInstallAvailable, promptIn
     dailyPatterns: [],
     copingStrategies: [],
     vapePodsPerWeek: 0,
-    nicotineStrength: '',
     quitAttempts: '',
     confidence: 5
   });
@@ -166,14 +165,6 @@ const OnboardingFlowOld = ({ onComplete, authUser, pwaInstallAvailable, promptIn
     else if (userData.vapePodsPerWeek <= 5) addictionScore += 25;
     else if (userData.vapePodsPerWeek <= 7) addictionScore += 35;
     else addictionScore += 40;
-
-    // Nicotine strength - extract number from "3mg" format
-    const nicotineStr = userData.nicotineStrength || '';
-    const nicotine = parseInt(nicotineStr.replace('mg', '')) || 0;
-    if (nicotine <= 5) addictionScore += 0;
-    else if (nicotine <= 11) addictionScore += 10;
-    else if (nicotine <= 20) addictionScore += 20;
-    else addictionScore += 25;
 
     // Daily pattern
     if (userData.dailyPatterns.includes("Throughout the day")) addictionScore += 20;
@@ -354,7 +345,7 @@ const OnboardingFlowOld = ({ onComplete, authUser, pwaInstallAvailable, promptIn
 
 
   const handleNext = async () => {
-    if (step < 11) { // Updated to 11 steps
+    if (step < 10) {
       // Save current step data to Firebase before moving to next step
       await saveOnboardingStep(userData, step);
       setStep(step + 1);
@@ -431,9 +422,8 @@ const OnboardingFlowOld = ({ onComplete, authUser, pwaInstallAvailable, promptIn
       case 6: return userData.dailyPatterns.length > 0;
       case 7: return userData.copingStrategies.length > 0;
       case 8: return userData.vapePodsPerWeek > 0;
-      case 9: return userData.nicotineStrength !== '';
-      case 10: return userData.quitAttempts !== '';
-      case 11: return userData.confidence > 0;
+    case 9: return userData.quitAttempts !== '';
+    case 10: return userData.confidence > 0;
       default: return false;
     }
   };
@@ -896,42 +886,8 @@ const OnboardingFlowOld = ({ onComplete, authUser, pwaInstallAvailable, promptIn
           </div>
         )}
 
-        {/* Step 9: Nicotine Strength */}
+        {/* Step 9: Previous Attempts */}
         {step === 9 && (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-2xl">⚡</span>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-4">Nicotine Strength</h1>
-            <p className="text-gray-300 mb-6">What nicotine strength do you typically use?</p>
-            
-            <div className="mb-6">
-              <select
-                value={userData.nicotineStrength}
-                onChange={(e) => {
-                  const newData = { ...userData, nicotineStrength: e.target.value };
-                  setUserData(newData);
-                  // Save to Firebase when nicotine strength is selected
-                  if (newData.nicotineStrength) {
-                    saveOnboardingStep(newData, 11);
-                  }
-                }}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              >
-                <option value="">Select nicotine strength</option>
-                <option value="3mg">3mg</option>
-                <option value="6mg">6mg</option>
-                <option value="12mg">12mg</option>
-                <option value="18mg">18mg</option>
-                <option value="20mg">20mg</option>
-                <option value="50mg">50mg</option>
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Step 10: Previous Attempts */}
-        {step === 10 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">📚</span>
@@ -964,7 +920,7 @@ const OnboardingFlowOld = ({ onComplete, authUser, pwaInstallAvailable, promptIn
         )}
 
         {/* Step 10: Confidence Level */}
-        {step === 11 && (
+        {step === 10 && (
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-2xl">🎯</span>

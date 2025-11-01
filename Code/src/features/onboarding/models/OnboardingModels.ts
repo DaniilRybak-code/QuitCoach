@@ -58,16 +58,7 @@ export const VAPE_PODS_OPTIONS = [
   { value: 8, label: '8+ pods' }
 ];
 
-export const TOTAL_ONBOARDING_STEPS = 12;
-
-export const NICOTINE_STRENGTH_OPTIONS = [
-  '3mg',
-  '6mg',
-  '12mg',
-  '18mg',
-  '20mg',
-  '50mg'
-];
+export const TOTAL_ONBOARDING_STEPS = 10;
 
 export const QUIT_ATTEMPTS_OPTIONS = [
   { value: 'first', label: 'This is my first attempt' },
@@ -95,7 +86,6 @@ export interface OnboardingUserData {
   dailyPatterns: string[];
   copingStrategies: string[];
   vapePodsPerWeek: number;
-  nicotineStrength: string;
   quitAttempts: string;
   confidence: number;
 }
@@ -113,7 +103,6 @@ export const INITIAL_ONBOARDING_DATA: OnboardingUserData = {
   dailyPatterns: [],
   copingStrategies: [],
   vapePodsPerWeek: 0,
-  nicotineStrength: '',
   quitAttempts: '',
   confidence: 5
 };
